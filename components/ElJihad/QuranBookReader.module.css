@@ -1,0 +1,701 @@
+.readerWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ===== TOP CONTROL PANEL (MODE, JUZ, SURAT & MUROTTAL) ===== */
+.controlCard {
+  background: #ffffff;
+  border-radius: var(--radius-xl);
+  padding: 24px 28px;
+  border: 1px solid rgba(27, 107, 69, 0.16);
+  box-shadow: 0 12px 34px rgba(15, 42, 27, 0.07);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.modeTabs {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.modeBtnGroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.modeBtn {
+  padding: 9px 18px;
+  border-radius: var(--radius-full);
+  border: 1px solid rgba(27, 107, 69, 0.2);
+  background: var(--primary-50);
+  color: var(--primary-dark);
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.modeBtnActive {
+  background: linear-gradient(135deg, #1b6b45, #0f3d26);
+  color: #ffe066;
+  border-color: #1b6b45;
+  box-shadow: 0 6px 16px rgba(27, 107, 69, 0.22);
+}
+
+.viewToggles {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toggleChip {
+  padding: 7px 14px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-light);
+  background: #ffffff;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.toggleChipActive {
+  background: rgba(201, 162, 39, 0.16);
+  border-color: rgba(201, 162, 39, 0.5);
+  color: #7c5e08;
+}
+
+/* Filter Bar */
+.filterGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  align-items: end;
+}
+
+.fieldBox {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fieldBox label {
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--primary);
+}
+
+.fieldBox select,
+.fieldBox input {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(27, 107, 69, 0.22);
+  background: #f9fcfa;
+  color: var(--text-primary);
+  font-size: 0.88rem;
+  font-weight: 600;
+  outline: none;
+}
+
+.fieldBox select:focus,
+.fieldBox input:focus {
+  border-color: var(--primary);
+  background: #ffffff;
+}
+
+/* Klasifikasi Surat per Juz Pills */
+.juzClassBox {
+  background: linear-gradient(135deg, #f3faf6 0%, #eaf6ef 100%);
+  border: 1px solid rgba(27, 107, 69, 0.18);
+  border-radius: var(--radius-lg);
+  padding: 16px 18px;
+}
+
+.juzClassHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.juzClassTitle {
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: var(--primary-dark);
+}
+
+.juzClassRange {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--accent-dark);
+  background: rgba(201, 162, 39, 0.16);
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+}
+
+.juzSurahList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.juzSurahPill {
+  padding: 7px 14px;
+  border-radius: var(--radius-full);
+  border: 1px solid rgba(27, 107, 69, 0.24);
+  background: #ffffff;
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.juzSurahPill:hover {
+  border-color: var(--primary);
+  background: var(--primary-50);
+}
+
+.juzSurahPillActive {
+  background: var(--primary);
+  color: #ffffff;
+  border-color: var(--primary);
+}
+
+/* ===== MUROTTAL AUDIO PLAYER BAR ===== */
+.murottalBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  background: linear-gradient(135deg, #0d2b1b 0%, #175234 100%);
+  border-radius: var(--radius-lg);
+  padding: 14px 20px;
+  color: #ffffff;
+  border: 1px solid rgba(240, 192, 64, 0.38);
+}
+
+.murottalLeft {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.playSuratBtn {
+  padding: 9px 18px;
+  border-radius: var(--radius-full);
+  border: none;
+  background: linear-gradient(135deg, #f0c040, #d4a017);
+  color: #0e2417;
+  font-size: 0.84rem;
+  font-weight: 800;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.playSuratBtn:hover {
+  transform: scale(1.03);
+  box-shadow: 0 6px 18px rgba(240, 192, 64, 0.35);
+}
+
+.murottalMeta {
+  display: flex;
+  flex-direction: column;
+}
+
+.murottalLabel {
+  font-size: 0.72rem;
+  color: #ffe066;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.murottalSurah {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.qariSelectWrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.qariSelectWrap label {
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.82);
+  font-weight: 600;
+}
+
+.qariSelect {
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(240, 192, 64, 0.4);
+  background: rgba(8, 24, 15, 0.85);
+  color: #ffe066;
+  font-size: 0.82rem;
+  font-weight: 700;
+  outline: none;
+}
+
+/* ===== 3D OPEN MUSHAF BOOK CONTAINER ===== */
+.mushafStage {
+  perspective: 2200px;
+  padding: 12px 0;
+}
+
+.mushafCover {
+  position: relative;
+  background: linear-gradient(145deg, #092114 0%, #134229 50%, #092114 100%);
+  border-radius: 22px;
+  padding: 20px 26px;
+  border: 3px solid #c9a227;
+  box-shadow:
+    0 28px 65px rgba(7, 25, 16, 0.32),
+    inset 0 0 0 2px rgba(255, 224, 102, 0.25);
+}
+
+/* Efek Tumpukan Kertas di Pinggir Kanan & Kiri Buku */
+.mushafBookSpread {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 28px 1fr;
+  background: #fdf9ee;
+  border-radius: 14px;
+  min-height: 640px;
+  box-shadow:
+    -8px 0 0 #efe6ce,
+    -13px 0 0 #e2d6b5,
+    8px 0 0 #efe6ce,
+    13px 0 0 #e2d6b5,
+    0 14px 36px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+  transform-style: preserve-3d;
+}
+
+/* Animasi 3D Saat Membuka Lembaran Halaman Berikutnya / Sebelumnya */
+.flipNextAnim {
+  animation: bookTurnNext 0.72s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.flipPrevAnim {
+  animation: bookTurnPrev 0.72s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes bookTurnNext {
+  0% {
+    transform: rotateY(0deg);
+  }
+  38% {
+    transform: rotateY(14deg) scale(0.985);
+    box-shadow: -28px 14px 42px rgba(0, 0, 0, 0.35);
+  }
+  100% {
+    transform: rotateY(0deg) scale(1);
+  }
+}
+
+@keyframes bookTurnPrev {
+  0% {
+    transform: rotateY(0deg);
+  }
+  38% {
+    transform: rotateY(-14deg) scale(0.985);
+    box-shadow: 28px 14px 42px rgba(0, 0, 0, 0.35);
+  }
+  100% {
+    transform: rotateY(0deg) scale(1);
+  }
+}
+
+/* Lembaran Halaman Kanan & Kiri */
+.mushafPage {
+  position: relative;
+  padding: 24px 26px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background:
+    radial-gradient(circle at center, #fffdf7 0%, #fbf4e1 100%);
+}
+
+.mushafPageRight {
+  background: linear-gradient(90deg, #f3ead2 0%, #fdf9ee 10%, #fffdf7 100%);
+}
+
+.mushafPageLeft {
+  background: linear-gradient(270deg, #f3ead2 0%, #fdf9ee 10%, #fffdf7 100%);
+}
+
+/* Bingkai Ornamen Dalam Halaman Mushaf */
+.pageInnerFrame {
+  border: 2px double rgba(180, 140, 36, 0.55);
+  border-radius: 10px;
+  padding: 18px 20px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  position: relative;
+  background: rgba(255, 253, 246, 0.7);
+}
+
+/* Lipatan Tengah Buku (Book Spine) */
+.bookSpine {
+  background: linear-gradient(
+    90deg,
+    #dfd2b0 0%,
+    #b8a477 35%,
+    #8f7b4e 50%,
+    #b8a477 65%,
+    #dfd2b0 100%
+  );
+  box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.35);
+  position: relative;
+  z-index: 4;
+}
+
+/* Header Atas Tiap Halaman Mushaf */
+.pageHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 10px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid rgba(180, 140, 36, 0.35);
+  font-size: 0.76rem;
+  font-weight: 800;
+  color: #6b5314;
+}
+
+/* Banner Kepala Surat */
+.surahOrnamentBanner {
+  background: linear-gradient(135deg, #123e27 0%, #1b6b45 50%, #123e27 100%);
+  border: 2px solid #d4af37;
+  border-radius: 10px;
+  padding: 12px 16px;
+  text-align: center;
+  color: #ffffff;
+  margin-bottom: 14px;
+  box-shadow: 0 4px 14px rgba(18, 62, 39, 0.18);
+}
+
+.bannerArabicName {
+  font-family: var(--font-arabic);
+  font-size: 1.5rem;
+  color: #ffe066;
+  display: block;
+}
+
+.bannerLatinMeta {
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 600;
+}
+
+.bismillahHeader {
+  text-align: center;
+  font-family: var(--font-arabic);
+  font-size: 1.45rem;
+  color: #13442a;
+  padding: 8px 0 14px;
+  border-bottom: 1px dashed rgba(180, 140, 36, 0.35);
+  margin-bottom: 12px;
+}
+
+/* Daftar Ayat di Dalam Halaman */
+.ayatListContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex: 1;
+}
+
+.ayatBlock {
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.65);
+  border: 1px solid rgba(180, 140, 36, 0.22);
+  transition: background 0.25s ease, border-color 0.25s ease;
+}
+
+.ayatBlockPlaying {
+  background: rgba(46, 204, 113, 0.12);
+  border-color: #1b6b45;
+  box-shadow: 0 4px 14px rgba(27, 107, 69, 0.12);
+}
+
+.ayatTopRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.ayatNumberBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  background: rgba(27, 107, 69, 0.12);
+  border: 1px solid rgba(27, 107, 69, 0.28);
+  color: #13442a;
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+.playAyatMiniBtn {
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  border: 1px solid rgba(180, 140, 36, 0.45);
+  background: #fff9e6;
+  color: #6b5314;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.playAyatMiniBtn:hover {
+  background: #f0c040;
+  color: #102418;
+}
+
+.ayatArabicText {
+  font-family: var(--font-arabic);
+  font-size: 1.62rem;
+  line-height: 2.15;
+  text-align: right;
+  direction: rtl;
+  color: #14261c;
+  margin: 0 0 8px;
+}
+
+.ayatLatinText {
+  font-size: 0.8rem;
+  font-style: italic;
+  color: #1b6b45;
+  line-height: 1.55;
+  margin: 0 0 5px;
+}
+
+.ayatIndoText {
+  font-size: 0.84rem;
+  color: #374151;
+  line-height: 1.62;
+  margin: 0;
+}
+
+.emptyPageNotice {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: #8a733e;
+  font-size: 0.88rem;
+  font-style: italic;
+  padding: 40px 20px;
+}
+
+/* Nomor Halaman di Kaki Mushaf */
+.pageFooter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-top: 12px;
+  margin-top: 14px;
+  border-top: 1px solid rgba(180, 140, 36, 0.35);
+}
+
+.pageNumberCircle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: var(--radius-full);
+  background: rgba(180, 140, 36, 0.16);
+  border: 1px solid rgba(180, 140, 36, 0.45);
+  color: #5c450e;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+/* Navigasi Buka Lembaran Buku (Bawah Mushaf) */
+.bookBottomNav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 18px;
+  padding: 0 6px;
+}
+
+.flipPageBtn {
+  padding: 11px 22px;
+  border-radius: var(--radius-full);
+  border: 1px solid rgba(240, 192, 64, 0.55);
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffe066;
+  font-size: 0.86rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.flipPageBtn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #f0c040, #d4a017);
+  color: #0e2417;
+  transform: translateY(-2px);
+}
+
+.flipPageBtn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.spreadIndicator {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.loadingBox {
+  min-height: 420px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: #5c450e;
+  font-weight: 700;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 992px) {
+  .filterGrid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .mushafBookSpread {
+    grid-template-columns: 1fr;
+    min-height: auto;
+  }
+
+  /* Di HP (1 kolom), pastikan Halaman Kanan (Awal bacaan) tampil di atas Halaman Kiri */
+  .mushafPageRight {
+    order: 1;
+  }
+
+  .bookSpine {
+    order: 2;
+    height: 10px;
+    width: 100%;
+    background: linear-gradient(180deg, #dfd2b0, #8f7b4e, #dfd2b0);
+  }
+
+  .mushafPageLeft {
+    order: 3;
+  }
+}
+
+@media (max-width: 640px) {
+  .controlCard {
+    padding: 16px 14px;
+    border-radius: 18px;
+  }
+
+  .modeBtnGroup {
+    width: 100%;
+  }
+
+  .modeBtn {
+    flex: 1 1 calc(50% - 6px);
+    text-align: center;
+    padding: 8px 10px;
+    font-size: 0.76rem;
+  }
+
+  .murottalBar {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 14px;
+    gap: 12px;
+  }
+
+  .murottalLeft {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .playSuratBtn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .qariSelectWrap {
+    width: 100%;
+  }
+
+  .qariSelect {
+    flex: 1;
+    width: 100%;
+  }
+
+  .mushafCover {
+    padding: 10px;
+    border-radius: 16px;
+  }
+
+  .mushafPage {
+    padding: 12px 10px;
+  }
+
+  .pageInnerFrame {
+    padding: 14px 12px;
+  }
+
+  .ayatArabicText {
+    font-size: 1.38rem;
+  }
+
+  .bookBottomNav {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .flipPageBtn {
+    width: 100%;
+    text-align: center;
+  }
+}

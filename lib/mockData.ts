@@ -1,0 +1,157 @@
+// Mock data untuk development (sebelum Supabase dikonfigurasi)
+
+export const mockBerita = [
+  {
+    id: '1',
+    judul: 'Peringatan Maulid Nabi Muhammad SAW 1446 H di Masjid Al-Jihad',
+    slug: 'maulid-nabi-1446h',
+    ringkasan: 'Masjid Al-Jihad Karawang mengadakan peringatan Maulid Nabi Muhammad SAW dengan menghadirkan penceramah dari Pesantren Al-Ittihad.',
+    thumbnail_url: 'https://images.unsplash.com/photo-1584551246679-0daf3d275d0f?w=600',
+    kategori: 'Kegiatan',
+    created_at: '2024-11-10T10:00:00Z',
+    published: true,
+    konten: null,
+  },
+  {
+    id: '2',
+    judul: 'Program Tahfiz Quran untuk Anak-Anak Dimulai Januari 2025',
+    slug: 'program-tahfiz-2025',
+    ringkasan: 'Masjid Al-Jihad membuka program Tahfiz Quran untuk anak-anak usia 6-15 tahun. Pendaftaran dibuka mulai 1 Desember 2024.',
+    thumbnail_url: 'https://images.unsplash.com/photo-1529070538774-1843cb3265df?w=600',
+    kategori: 'Program',
+    created_at: '2024-11-08T10:00:00Z',
+    published: true,
+    konten: null,
+  },
+  {
+    id: '3',
+    judul: 'Pembangunan Lantai 2 Masjid Al-Jihad Memasuki Tahap Finishing',
+    slug: 'pembangunan-lantai-2',
+    ringkasan: 'Alhamdulillah, pembangunan lantai 2 Masjid Al-Jihad Karawang telah memasuki tahap finishing. Direncanakan selesai akhir tahun 2024.',
+    thumbnail_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600',
+    kategori: 'Pembangunan',
+    created_at: '2024-11-05T10:00:00Z',
+    published: true,
+    konten: null,
+  },
+]
+
+export const mockProgram = [
+  {
+    id: '1',
+    nama: 'Tahfiz Al-Quran',
+    deskripsi: 'Program menghafal Al-Quran untuk anak-anak dan remaja dengan bimbingan hafiz berpengalaman',
+    kategori: 'Pendidikan',
+    ikon: '📖',
+    tanggal_mulai: '2025-01-01',
+    tanggal_selesai: null,
+    aktif: true,
+  },
+  {
+    id: '2',
+    nama: 'Kajian Rutin Ahad',
+    deskripsi: 'Kajian Islam setiap hari Ahad pagi bersama Ustaz terpilih membahas fiqh sehari-hari',
+    kategori: 'Ibadah',
+    ikon: '🕌',
+    tanggal_mulai: null,
+    tanggal_selesai: null,
+    aktif: true,
+  },
+  {
+    id: '3',
+    nama: 'Santunan Anak Yatim',
+    deskripsi: 'Program santunan rutin untuk anak yatim dan dhuafa di wilayah Karawang setiap bulan',
+    kategori: 'Sosial',
+    ikon: '🤝',
+    tanggal_mulai: null,
+    tanggal_selesai: null,
+    aktif: true,
+  },
+  {
+    id: '4',
+    nama: 'TPA / Madrasah Diniyah',
+    deskripsi: 'Taman Pendidikan Al-Quran untuk anak-anak usia SD setiap hari Senin-Jumat sore',
+    kategori: 'Pendidikan',
+    ikon: '✏️',
+    tanggal_mulai: null,
+    tanggal_selesai: null,
+    aktif: true,
+  },
+  {
+    id: '5',
+    nama: 'Koperasi Masjid',
+    deskripsi: 'Koperasi simpan pinjam syariah untuk jamaah dan warga sekitar masjid',
+    kategori: 'Ekonomi',
+    ikon: '💰',
+    tanggal_mulai: null,
+    tanggal_selesai: null,
+    aktif: true,
+  },
+  {
+    id: '6',
+    nama: 'Remaja Masjid (RISMA)',
+    deskripsi: 'Organisasi remaja Islam Masjid Al-Jihad untuk pembinaan generasi muda berakhlak mulia',
+    kategori: 'Sosial',
+    ikon: '👥',
+    tanggal_mulai: null,
+    tanggal_selesai: null,
+    aktif: true,
+  },
+]
+
+export const mockDonasi = [
+  {
+    id: '1',
+    nama_rekening: 'Masjid Al-Jihad Karawang',
+    bank: 'Bank Syariah Indonesia (BSI)',
+    no_rekening: '7890 1234 56',
+    keterangan: 'Rekening Utama / Pembangunan',
+    aktif: true,
+  },
+  {
+    id: '2',
+    nama_rekening: 'DKM Al-Jihad Karawang',
+    bank: 'Bank BRI',
+    no_rekening: '0123 4567 8901 234',
+    keterangan: 'Rekening Operasional',
+    aktif: true,
+  },
+]
+
+export const mockGaleri = [
+  { id: '1', judul: 'Interior Masjid', url_gambar: 'https://images.unsplash.com/photo-1564769625905-50e93615e769?w=600', kategori: 'Interior', created_at: '' },
+  { id: '2', judul: 'Halaman Masjid', url_gambar: 'https://images.unsplash.com/photo-1584551246679-0daf3d275d0f?w=600', kategori: 'Eksterior', created_at: '' },
+  { id: '3', judul: 'Kubah Masjid', url_gambar: 'https://images.unsplash.com/photo-1519817914152-22d216bb9170?w=600', kategori: 'Eksterior', created_at: '' },
+  { id: '4', judul: 'Ruang Sholat', url_gambar: 'https://images.unsplash.com/photo-1573047441756-5a1cbb89be8d?w=600', kategori: 'Interior', created_at: '' },
+  { id: '5', judul: 'Kajian Rutin', url_gambar: 'https://images.unsplash.com/photo-1529070538774-1843cb3265df?w=600', kategori: 'Kegiatan', created_at: '' },
+  { id: '6', judul: 'Perpustakaan Masjid', url_gambar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600', kategori: 'Fasilitas', created_at: '' },
+  { id: '7', judul: 'Area Wudhu', url_gambar: 'https://images.unsplash.com/photo-1612906735700-78e8339b98a4?w=600', kategori: 'Fasilitas', created_at: '' },
+  { id: '8', judul: 'Malam Lailatul Qadr', url_gambar: 'https://images.unsplash.com/photo-1612906735700-78e8339b98a4?w=600', kategori: 'Kegiatan', created_at: '' },
+]
+
+export const mockReels = [
+  {
+    id: '1',
+    judul: 'Kajian Subuh bersama Ustaz Ahmad',
+    url_video: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+    thumbnail_url: 'https://images.unsplash.com/photo-1529070538774-1843cb3265df?w=400',
+    urutan: 1,
+    aktif: true,
+  },
+  {
+    id: '2',
+    judul: 'Suasana Sholat Jumat Masjid Al-Jihad',
+    url_video: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
+    thumbnail_url: 'https://images.unsplash.com/photo-1584551246679-0daf3d275d0f?w=400',
+    urutan: 2,
+    aktif: true,
+  },
+  {
+    id: '3',
+    judul: 'Santri Tahfiz Quran Al-Jihad',
+    url_video: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
+    thumbnail_url: 'https://images.unsplash.com/photo-1519817914152-22d216bb9170?w=400',
+    urutan: 3,
+    aktif: true,
+  },
+]

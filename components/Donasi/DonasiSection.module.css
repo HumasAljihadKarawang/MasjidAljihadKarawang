@@ -1,0 +1,307 @@
+.section {
+  padding: var(--section-padding);
+  background: var(--bg-primary);
+  position: relative;
+}
+
+.topWave {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--gradient-gold);
+}
+
+.ayat {
+  margin-top: 20px;
+  padding: 20px 24px;
+  background: rgba(201, 162, 39, 0.06);
+  border: 1px solid var(--border-gold);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.ayat > span:first-child {
+  font-size: 1.3rem;
+  color: var(--accent);
+  text-align: right;
+  direction: rtl;
+  line-height: 2;
+}
+
+.ayatTrans {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-style: italic;
+  line-height: 1.6;
+  text-align: center;
+}
+
+/* DONASI GRID */
+.donasiGrid {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 32px;
+  align-items: start;
+  margin-bottom: 48px;
+}
+
+/* QRIS CARD */
+.qrisCard {
+  background: white;
+  border-radius: var(--radius-xl);
+  padding: 28px;
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--border-gold);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  text-align: center;
+}
+
+.qrisHeader {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  text-align: left;
+}
+
+.qrisIcon {
+  font-size: 2.5rem;
+}
+
+.qrisTitle {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.qrisSub {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.qrisCode {
+  display: flex;
+  justify-content: center;
+}
+
+.qrisPlaceholder {
+  width: 200px;
+  height: 200px;
+  border: 3px solid var(--accent);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  background: var(--bg-secondary);
+  flex-direction: column;
+}
+
+.qrisPattern {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.qrisCorner {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-color: var(--accent-dark);
+  border-style: solid;
+}
+
+.qrisCorner[data-pos="tl"] { top: -3px; left: -3px; border-width: 3px 0 0 3px; border-radius: 4px 0 0 0; }
+.qrisCorner[data-pos="tr"] { top: -3px; right: -3px; border-width: 3px 3px 0 0; border-radius: 0 4px 0 0; }
+.qrisCorner[data-pos="bl"] { bottom: -3px; left: -3px; border-width: 0 0 3px 3px; border-radius: 0 0 0 4px; }
+.qrisCorner[data-pos="br"] { bottom: -3px; right: -3px; border-width: 0 3px 3px 0; border-radius: 0 0 4px 0; }
+
+.qrisNote {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.bankIcons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+
+.bankIcon {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 4px 8px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-light);
+}
+
+/* REKENING */
+.rekeningList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.rekeningTitle {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.rekeningCard {
+  background: white;
+  border-radius: var(--radius-md);
+  padding: 20px 24px;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-light);
+  transition: all var(--transition-normal);
+}
+
+.rekeningCard:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--primary-200);
+}
+
+.rekeningHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.rekeningBank {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.rekeningRow {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rekeningLabel {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+
+.rekeningNo {
+  display: block;
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: 0.05em;
+  font-variant-numeric: tabular-nums;
+}
+
+.rekeningName {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+/* KONFIRMASI */
+.konfirmasi {
+  background: var(--primary-50);
+  border: 1px dashed var(--border-light);
+  border-radius: var(--radius-md);
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.konfirmasiText {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.waBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: #25D366;
+  color: white;
+  border-radius: var(--radius-full);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.waBtn:hover {
+  background: #128C7E;
+  transform: translateY(-2px);
+}
+
+/* STATS */
+.statsRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  background: var(--gradient-primary);
+  border-radius: var(--radius-xl);
+  padding: 36px;
+  overflow: hidden;
+}
+
+.statItem {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 0 24px;
+}
+
+.statNum {
+  font-size: clamp(1.5rem, 3vw, 2.2rem);
+  font-weight: 800;
+  color: white;
+}
+
+.statLabel {
+  font-size: 0.85rem;
+  color: rgba(255,255,255,0.7);
+  text-align: center;
+}
+
+.statDivider {
+  width: 1px;
+  height: 60px;
+  background: rgba(255,255,255,0.2);
+  flex-shrink: 0;
+}
+
+@media (max-width: 1024px) {
+  .donasiGrid { grid-template-columns: 1fr; max-width: 500px; margin-left: auto; margin-right: auto; }
+}
+
+@media (max-width: 768px) {
+  .statsRow { flex-direction: column; gap: 24px; }
+  .statDivider { width: 60px; height: 1px; }
+  .konfirmasi { flex-direction: column; align-items: flex-start; }
+}

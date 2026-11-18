@@ -1,0 +1,476 @@
+.pageHero {
+  position: relative;
+  min-height: 320px;
+  display: flex;
+  align-items: center;
+  padding-top: var(--navbar-height);
+  background-image: url('https://images.unsplash.com/photo-1573047441756-5a1cbb89be8d?w=1600&q=80');
+  background-size: cover;
+  background-position: center;
+  overflow: hidden;
+}
+
+.heroOverlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(10,20,15,0.9) 0%, rgba(27,107,69,0.5) 100%);
+}
+
+.heroContent {
+  position: relative;
+  z-index: 10;
+  padding: 60px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.heroTitle {
+  font-size: clamp(2rem, 4vw, 3rem);
+  font-weight: 800;
+  color: white;
+}
+
+.heroDesc {
+  font-size: 1rem;
+  color: rgba(255,255,255,0.75);
+  max-width: 500px;
+}
+
+/* PROFIL SECTION */
+.profilSection {
+  background: white;
+}
+
+.profilGrid {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 48px;
+  align-items: start;
+}
+
+.profilText {}
+
+.profilTable {
+  margin-top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tableRow {
+  display: flex;
+  gap: 12px;
+  font-size: 0.9rem;
+  align-items: flex-start;
+}
+
+.tableLabel {
+  width: 140px;
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.tableSep {
+  color: var(--text-muted);
+}
+
+.tableValue {
+  color: var(--text-primary);
+  font-weight: 500;
+  flex: 1;
+}
+
+.profilVisi {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.visiCard, .misiCard {
+  padding: 24px;
+  border-radius: var(--radius-lg);
+}
+
+.visiCard {
+  background: var(--gradient-primary);
+  color: white;
+}
+
+.misiCard {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+}
+
+.visiIcon, .misiIcon {
+  font-size: 2rem;
+  display: block;
+  margin-bottom: 12px;
+}
+
+.visiCard h3 { color: white; font-size: 1.1rem; margin-bottom: 10px; }
+.misiCard h3 { color: var(--text-primary); font-size: 1.1rem; margin-bottom: 10px; }
+
+.visiCard p { color: rgba(255,255,255,0.85); font-size: 0.9rem; line-height: 1.7; }
+
+.misiCard ul {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.misiCard ul li {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  padding-left: 16px;
+  position: relative;
+  line-height: 1.6;
+}
+
+.misiCard ul li::before {
+  content: '✓';
+  position: absolute;
+  left: 0;
+  color: var(--primary);
+  font-weight: 700;
+}
+
+/* SEJARAH LENGKAP DI PROFIL */
+.sejarahSection {
+  background: var(--bg-secondary);
+}
+
+.sejarahFullGrid {
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  gap: 36px;
+  align-items: start;
+}
+
+.sejarahLeftCol {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.profilSliderCard {
+  position: relative;
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  height: 330px;
+  box-shadow: 0 18px 42px rgba(12, 34, 22, 0.16);
+  border: 1px solid rgba(27, 107, 69, 0.18);
+  background: #0d2618;
+}
+
+.profilSlideItem {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 1.3s ease;
+}
+
+.profilSlideActive {
+  opacity: 1;
+  z-index: 2;
+}
+
+.profilSlideImg {
+  object-fit: cover;
+}
+
+.profilSlideOverlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(8, 24, 15, 0.1) 0%, rgba(6, 20, 13, 0.85) 100%);
+}
+
+.profilSlideTag {
+  position: absolute;
+  top: 16px;
+  left: 18px;
+  z-index: 3;
+  padding: 5px 14px;
+  border-radius: var(--radius-full);
+  background: rgba(12, 35, 22, 0.8);
+  border: 1px solid rgba(240, 192, 64, 0.45);
+  color: #ffe066;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.profilSlideCaption {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  right: 20px;
+  z-index: 3;
+}
+
+.profilSlideBadge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  background: linear-gradient(135deg, #f0c040, #d4a017);
+  color: #102418;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.profilSlideTitle {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: #ffffff;
+  margin: 0;
+}
+
+.sejarahNarrativeBox {
+  background: #ffffff;
+  border-radius: var(--radius-xl);
+  padding: 28px;
+  border: 1px solid rgba(27, 107, 69, 0.13);
+  box-shadow: 0 10px 28px rgba(27, 107, 69, 0.06);
+}
+
+.sejarahNarrativeBox h3 {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--primary-dark);
+  margin: 0 0 12px;
+}
+
+.sejarahNarrativeBox p {
+  font-size: 0.93rem;
+  line-height: 1.78;
+  color: var(--text-secondary);
+  margin: 0 0 12px;
+}
+
+.sejarahRightCol {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.sejarahTimelineCard {
+  background: #ffffff;
+  border-radius: var(--radius-xl);
+  padding: 28px;
+  border: 1px solid rgba(27, 107, 69, 0.13);
+  box-shadow: 0 10px 30px rgba(27, 107, 69, 0.06);
+}
+
+.sejarahFactCard {
+  background: linear-gradient(135deg, #0b2416 0%, #1b6b45 100%);
+  border-radius: var(--radius-xl);
+  padding: 24px 26px;
+  color: #ffffff;
+  border: 1px solid rgba(240, 192, 64, 0.42);
+}
+
+.sejarahFactCard span {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  background: rgba(240, 192, 64, 0.18);
+  border: 1px solid rgba(240, 192, 64, 0.45);
+  color: #ffe066;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.sejarahFactCard h4 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0 0 6px;
+}
+
+.sejarahFactCard p {
+  font-size: 0.86rem;
+  line-height: 1.65;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0;
+}
+
+.sejarahContent {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.sejarahTimeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.timelineItem {
+  display: grid;
+  grid-template-columns: 80px 40px 1fr;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.timelineYear {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--primary);
+  padding-top: 4px;
+  text-align: right;
+}
+
+.timelineLine {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+}
+
+.timelineDot {
+  width: 16px;
+  height: 16px;
+  background: var(--primary);
+  border-radius: 50%;
+  border: 3px solid white;
+  box-shadow: 0 0 0 2px var(--primary);
+  flex-shrink: 0;
+  margin-top: 4px;
+  z-index: 1;
+}
+
+.timelineConnector {
+  flex: 1;
+  width: 2px;
+  background: var(--border-light);
+  min-height: 60px;
+}
+
+.timelineContent {
+  padding-bottom: 40px;
+}
+
+.timelineContent h4 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.timelineContent p {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
+/* FASILITAS */
+.fasilitasSection {
+  background: white;
+}
+
+.fasilitasCard {
+  padding: 28px 24px;
+  background: var(--bg-primary);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-light);
+  text-align: center;
+  transition: all var(--transition-normal);
+}
+
+.fasilitasCard:hover {
+  transform: translateY(-6px);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--primary-200);
+  background: white;
+}
+
+.fasilitasIcon {
+  font-size: 2.5rem;
+  display: block;
+  margin-bottom: 12px;
+}
+
+.fasilitasLabel {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.fasilitasDesc {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+/* PENGURUS */
+.pengurusSection {
+  background: var(--bg-secondary);
+}
+
+.pengurusCard {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: white;
+  padding: 20px;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-light);
+  transition: all var(--transition-normal);
+}
+
+.pengurusCard:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-md);
+}
+
+.pengurusAvatar {
+  width: 56px;
+  height: 56px;
+  background: var(--primary-100);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  flex-shrink: 0;
+  border: 2px solid var(--border-light);
+}
+
+.pengurusInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pengurusJabatan {
+  font-size: 0.7rem;
+  color: var(--primary);
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.pengurusNama {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.pengurusPeriode {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+@media (max-width: 1024px) {
+  .profilGrid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 768px) {
+  .timelineItem { grid-template-columns: 60px 30px 1fr; gap: 12px; }
+}

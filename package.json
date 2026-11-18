@@ -1,0 +1,28 @@
+{
+  "name": "masjid-al-jihad-karawang",
+  "version": "1.0.0",
+  "description": "Website resmi Masjid Al-Jihad Karawang",
+  "scripts": {
+    "dev": "next dev -H 0.0.0.0",
+    "build": "next build",
+    "start": "next start -H 0.0.0.0",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.119.0",
+    "cloudinary": "^2.11.0",
+    "date-fns": "^4.4.0",
+    "next": "^14.2.35",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "swiper": "^14.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.43",
+    "@types/react": "^18.3.31",
+    "@types/react-dom": "^18.3.7",
+    "eslint": "^8.57.1",
+    "eslint-config-next": "^14.2.35",
+    "typescript": "^5.9.3"
+  }
+}

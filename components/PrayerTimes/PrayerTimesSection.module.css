@@ -1,0 +1,405 @@
+.section {
+  padding: var(--section-padding);
+  background: var(--bg-secondary);
+  position: relative;
+  overflow: hidden;
+}
+
+.section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--gradient-primary);
+}
+
+.header {
+  margin-bottom: 32px;
+}
+
+/* ===== LOADING / ERROR ===== */
+.loadingState,
+.errorState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 60px;
+  color: var(--text-secondary);
+}
+
+.errorState span {
+  font-size: 2rem;
+}
+
+/* ===== PRAYER CONTENT ===== */
+.prayerContent {
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+/* ===== REGION SELECTOR CARD ===== */
+.regionCard {
+  background: white;
+  border-radius: var(--radius-md);
+  padding: 18px 20px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-light);
+}
+
+.regionSelects {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.selectCol {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.selectCol label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.selectCol select {
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-light);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  font-weight: 500;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.selectCol select:focus {
+  border-color: var(--primary);
+}
+
+.regionActions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.gpsActionBtn,
+.checkpointActionBtn {
+  padding: 9px 16px;
+  border-radius: var(--radius-full);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.gpsActionBtn {
+  background: var(--gradient-primary);
+  color: white;
+  box-shadow: 0 3px 10px rgba(27, 107, 69, 0.25);
+}
+
+.gpsActionBtn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.checkpointActionBtn {
+  background: rgba(201, 162, 39, 0.12);
+  color: var(--accent-dark);
+  border: 1px solid var(--border-gold);
+}
+
+.checkpointActionBtn.activeCheckpoint {
+  background: var(--gradient-gold);
+  color: var(--bg-dark);
+  font-weight: 700;
+}
+
+.statusNote {
+  margin-top: 10px;
+  font-size: 0.8rem;
+  color: var(--primary);
+  font-weight: 500;
+}
+
+/* ===== DATE ROW ===== */
+.dateRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  margin-bottom: 24px;
+  padding: 16px 24px;
+  background: white;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  flex-wrap: wrap;
+}
+
+.dateItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dateIcon {
+  font-size: 1rem;
+}
+
+.dateText {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.dateDivider {
+  color: var(--border-light);
+  font-size: 1.2rem;
+}
+
+/* ===== NEXT PRAYER ===== */
+.nextPrayer {
+  background: var(--gradient-primary);
+  border-radius: var(--radius-lg);
+  padding: 24px 28px;
+  margin-bottom: 24px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 8px 30px rgba(27, 107, 69, 0.4);
+}
+
+.nextPrayer::before {
+  content: '☽';
+  position: absolute;
+  right: -20px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 8rem;
+  opacity: 0.05;
+}
+
+.nextPrayerContent {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.nextPrayerLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nextLabel {
+  font-size: 0.75rem;
+  color: rgba(255,255,255,0.65);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.nextName {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: white;
+}
+
+.nextTime {
+  font-size: 0.9rem;
+  color: rgba(255,255,255,0.8);
+}
+
+.nextPrayerRight {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.countdownLabel {
+  display: block;
+  font-size: 0.7rem;
+  color: rgba(255,255,255,0.6);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+.countdown {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--accent-light);
+  font-family: 'Courier New', monospace;
+  letter-spacing: 0.05em;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 20px rgba(240, 192, 64, 0.4);
+}
+
+.nextPrayerProgress {
+  margin-top: 16px;
+  height: 3px;
+  background: rgba(255,255,255,0.15);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progressBar {
+  height: 100%;
+  width: 60%;
+  background: rgba(255,255,255,0.6);
+  border-radius: 2px;
+  animation: progressAnim 60s linear infinite;
+}
+
+@keyframes progressAnim {
+  from { width: 0%; }
+  to { width: 100%; }
+}
+
+/* ===== PRAYER GRID ===== */
+.prayerGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.prayerCard {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  background: white;
+  border-radius: var(--radius-md);
+  border: 2px solid transparent;
+  transition: all var(--transition-normal);
+  box-shadow: var(--shadow-sm);
+}
+
+.prayerCard:hover {
+  transform: translateX(4px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--border-light);
+}
+
+.prayerCard.current {
+  background: rgba(27, 107, 69, 0.08);
+  border-color: var(--primary-200);
+}
+
+.prayerCard.next {
+  background: rgba(201, 162, 39, 0.06);
+  border-color: rgba(201, 162, 39, 0.3);
+}
+
+.prayerIcon {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+
+.prayerCard.current .prayerIcon {
+  background: var(--primary-100);
+}
+
+.prayerCard.next .prayerIcon {
+  background: rgba(201, 162, 39, 0.1);
+}
+
+.prayerInfo {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.prayerName {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.currentBadge,
+.nextBadge {
+  font-size: 0.65rem;
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+.currentBadge {
+  background: var(--primary-100);
+  color: var(--primary);
+}
+
+.nextBadge {
+  background: rgba(201, 162, 39, 0.12);
+  color: var(--accent-dark);
+}
+
+.prayerTime {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--primary);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+}
+
+.prayerTime small {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.prayerCard.next .prayerTime {
+  color: var(--accent-dark);
+}
+
+/* ===== FOOTER NOTE ===== */
+.footerNote {
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 600px) {
+  .regionSelects {
+    grid-template-columns: 1fr;
+  }
+
+  .nextPrayerContent {
+    flex-direction: column;
+    text-align: center;
+    align-items: center;
+  }
+
+  .nextPrayerRight {
+    text-align: center;
+  }
+
+  .dateRow {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .dateDivider {
+    display: none;
+  }
+}

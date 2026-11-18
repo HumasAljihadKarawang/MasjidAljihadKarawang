@@ -1,0 +1,330 @@
+.loaderOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(circle at 50% 45%, rgba(46, 204, 113, 0.22) 0%, transparent 55%),
+    radial-gradient(circle at 20% 80%, rgba(201, 162, 39, 0.12) 0%, transparent 45%),
+    linear-gradient(145deg, #07150d 0%, #0f2c1c 48%, #16462c 100%);
+  overflow: hidden;
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.95s cubic-bezier(0.4, 0, 0.2, 1),
+              visibility 0.95s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: opacity;
+}
+
+.loaderHidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* Subtle Islamic Geometric Pattern Background */
+.bgPattern {
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%232ECC71' fill-opacity='0.05'%3E%3Cpath d='M50 50c0-5.523 4.477-10 10-10s10 4.477 10 10-4.477 10-10 10c0 5.523-4.477 10-10 10s-10-4.477-10-10 4.477-10 10-10zM10 10c0-5.523 4.477-10 10-10s10 4.477 10 10-4.477 10-10 10c0 5.523-4.477 10-10 10S0 25.523 0 20s4.477-10 10-10zm10 8c4.418 0 8-3.582 8-8s-3.582-8-8-8-8 3.582-8 8 3.582 8 8 8zm40 40c4.418 0 8-3.582 8-8s-3.582-8-8-8-8 3.582-8 8 3.582 8 8 8z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  pointer-events: none;
+}
+
+/* Ambient Glowing Aura */
+.ambientGlow {
+  position: absolute;
+  width: 420px;
+  height: 420px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(46, 204, 113, 0.25) 0%, rgba(27, 107, 69, 0.08) 50%, transparent 70%);
+  filter: blur(30px);
+  animation: pulseAura 3.5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* ===== ORBIT STAGE ===== */
+.orbitStage {
+  position: relative;
+  width: 290px;
+  height: 290px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 28px;
+  animation: stageEnter 0.95s cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition: opacity 0.9s cubic-bezier(0.22, 1, 0.36, 1),
+              transform 0.9s cubic-bezier(0.22, 1, 0.36, 1),
+              filter 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Outer Orbit Ring (Clockwise) */
+.orbitRingOuter {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1px dashed rgba(240, 192, 64, 0.35);
+  box-shadow: 0 0 30px rgba(46, 204, 113, 0.12) inset;
+  animation: spinClockwise 12s linear infinite;
+}
+
+/* Glowing Gold Orb 1 on Outer Ring */
+.orbitNodeGold {
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #ffe066;
+  box-shadow: 0 0 16px #ffe066, 0 0 30px #f0c040;
+}
+
+/* Glowing Emerald Orb 2 on Outer Ring (Opposite Side) */
+.orbitNodeEmerald {
+  position: absolute;
+  bottom: -5px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #2ecc71;
+  box-shadow: 0 0 14px #2ecc71, 0 0 28px #2ecc71;
+}
+
+/* Middle Orbit Ring (Counter-Clockwise with Comet Trail) */
+.orbitRingMiddle {
+  position: absolute;
+  inset: 24px;
+  border-radius: 50%;
+  border: 1.5px solid transparent;
+  border-top-color: rgba(240, 192, 64, 0.85);
+  border-right-color: rgba(46, 204, 113, 0.65);
+  border-bottom-color: rgba(46, 204, 113, 0.1);
+  border-left-color: transparent;
+  animation: spinCounterClockwise 3.2s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+  filter: drop-shadow(0 0 10px rgba(240, 192, 64, 0.35));
+}
+
+.orbitStar {
+  position: absolute;
+  top: 14px;
+  right: 26px;
+  color: #ffe066;
+  font-size: 0.9rem;
+  text-shadow: 0 0 12px #ffe066;
+}
+
+/* Inner Orbit Ring (Tilted 3D Gyroscope Effect) */
+.orbitRingInner {
+  position: absolute;
+  inset: 46px;
+  border-radius: 50%;
+  border: 1px solid rgba(46, 204, 113, 0.32);
+  border-bottom-color: rgba(240, 192, 64, 0.7);
+  animation: spinGyro 5s linear infinite;
+}
+
+/* Center Logo Pedestal */
+.logoCenterBox {
+  position: relative;
+  z-index: 5;
+  width: 175px;
+  height: 175px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(18, 52, 34, 0.92) 0%,
+    rgba(10, 28, 18, 0.88) 100%
+  );
+  border: 1px solid rgba(240, 192, 64, 0.35);
+  box-shadow:
+    0 12px 35px rgba(0, 0, 0, 0.55),
+    0 0 25px rgba(46, 204, 113, 0.22),
+    inset 0 0 20px rgba(240, 192, 64, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 22px;
+  animation: floatLogo 3s ease-in-out infinite;
+}
+
+.logoImage {
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.45));
+}
+
+/* ===== TEXT & PROGRESS BAR ===== */
+.loaderTextWrap {
+  position: relative;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+  animation: textEnter 1s cubic-bezier(0.22, 1, 0.36, 1) 0.12s both;
+  transition: opacity 0.85s cubic-bezier(0.22, 1, 0.36, 1),
+              transform 0.85s cubic-bezier(0.22, 1, 0.36, 1),
+              filter 0.85s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.bismillah {
+  font-family: var(--font-arabic);
+  font-size: 1.45rem;
+  color: #ffe066;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+  letter-spacing: 0.5px;
+}
+
+.masjidTitle {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+}
+
+.progressTrack {
+  margin-top: 8px;
+  width: 200px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+  position: relative;
+}
+
+.progressBar {
+  height: 100%;
+  width: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #2ecc71, #ffe066, #2ecc71);
+  background-size: 200% 100%;
+  transform-origin: left center;
+  animation:
+    progressFill 2.5s cubic-bezier(0.22, 1, 0.36, 1) forwards,
+    progressShimmer 1.6s linear infinite;
+}
+
+/* ===== KEYFRAMES ===== */
+@keyframes overlayFadeIn {
+  0% {
+    opacity: 0.85;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes stageEnter {
+  0% {
+    opacity: 0;
+    transform: translateY(20px) scale(0.86);
+    filter: blur(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0px);
+  }
+}
+
+@keyframes textEnter {
+  0% {
+    opacity: 0;
+    transform: translateY(18px) scale(0.94);
+    filter: blur(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0px);
+  }
+}
+
+@keyframes progressFill {
+  0% {
+    transform: scaleX(0.05);
+  }
+  100% {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes progressShimmer {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 200% 50%;
+  }
+}
+@keyframes spinClockwise {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes spinCounterClockwise {
+  from {
+    transform: rotate(360deg);
+  }
+  to {
+    transform: rotate(0deg);
+  }
+}
+
+@keyframes spinGyro {
+  0% {
+    transform: rotateX(55deg) rotateY(15deg) rotateZ(0deg);
+  }
+  50% {
+    transform: rotateX(35deg) rotateY(-20deg) rotateZ(180deg);
+  }
+  100% {
+    transform: rotateX(55deg) rotateY(15deg) rotateZ(360deg);
+  }
+}
+
+@keyframes floatLogo {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.04);
+  }
+}
+
+@keyframes pulseAura {
+  0%,
+  100% {
+    transform: scale(0.95);
+    opacity: 0.7;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+}
+
+@keyframes progressSweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}

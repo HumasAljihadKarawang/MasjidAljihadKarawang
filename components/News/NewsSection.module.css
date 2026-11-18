@@ -1,0 +1,275 @@
+.section {
+  padding: 76px 0 84px;
+  background: #ffffff;
+}
+
+.headerRow {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+/* ===== EDITORIAL MAGAZINE MOSAIC GRID (SESUAI REFERENSI GAMBAR) ===== */
+.mosaicWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Baris Atas: 2 Berita Utama Besar */
+.topRowGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.topCard {
+  position: relative;
+  display: block;
+  height: 370px;
+  overflow: hidden;
+  background: #0d2116;
+  text-decoration: none;
+}
+
+/* Baris Bawah: 5 Berita Berjajar */
+.bottomRowGrid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+}
+
+.bottomCard {
+  position: relative;
+  display: block;
+  height: 230px;
+  overflow: hidden;
+  background: #0d2116;
+  text-decoration: none;
+}
+
+.cardBgImg {
+  object-fit: cover;
+  transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.topCard:hover .cardBgImg,
+.bottomCard:hover .cardBgImg {
+  transform: scale(1.06);
+}
+
+.cardOverlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0.05) 0%,
+    rgba(0, 0, 0, 0.32) 42%,
+    rgba(0, 0, 0, 0.88) 100%
+  );
+  transition: background 0.3s ease;
+}
+
+.topCard:hover .cardOverlay,
+.bottomCard:hover .cardOverlay {
+  background: linear-gradient(
+    180deg,
+    rgba(11, 36, 22, 0.1) 0%,
+    rgba(11, 36, 22, 0.42) 40%,
+    rgba(7, 25, 16, 0.94) 100%
+  );
+}
+
+.topCardContent {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 26px 26px 22px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.bottomCardContent {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 16px 14px 14px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.catTag {
+  display: inline-block;
+  padding: 4px 10px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #ffffff;
+  background: rgba(12, 22, 16, 0.86);
+  border-left: 3px solid #f0c040;
+}
+
+.catTagAccent {
+  background: #1b6b45;
+  border-left: 3px solid #ffe066;
+}
+
+.topTitle {
+  font-size: clamp(1.18rem, 1.8vw, 1.46rem);
+  font-weight: 800;
+  line-height: 1.28;
+  color: #ffffff;
+  text-transform: uppercase;
+  margin: 0;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.7);
+}
+
+.bottomTitle {
+  font-size: 0.86rem;
+  font-weight: 800;
+  line-height: 1.32;
+  color: #ffffff;
+  text-transform: uppercase;
+  margin: 0;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.75);
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.dateText {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+/* Modal Baca Berita Lengkap */
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: rgba(6, 20, 12, 0.75);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.modalBox {
+  background: #ffffff;
+  border-radius: var(--radius-xl);
+  max-width: 720px;
+  width: 100%;
+  max-height: 88vh;
+  overflow-y: auto;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(27, 107, 69, 0.2);
+}
+
+.modalHero {
+  position: relative;
+  height: 280px;
+}
+
+.modalBody {
+  padding: 28px 30px;
+}
+
+.modalTitle {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 10px 0 8px;
+}
+
+.modalDate {
+  display: block;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+}
+
+.modalText {
+  font-size: 0.96rem;
+  line-height: 1.8;
+  color: var(--text-secondary);
+  white-space: pre-line;
+}
+
+.modalCloseBtn {
+  margin-top: 20px;
+}
+
+@media (max-width: 1100px) {
+  .bottomRowGrid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .section {
+    padding: 48px 0 56px;
+  }
+
+  .topRowGrid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .topCard {
+    height: 240px;
+    border-radius: 12px;
+  }
+
+  .topCardContent {
+    padding: 16px;
+  }
+
+  .topTitle {
+    font-size: 1.04rem;
+  }
+
+  .bottomRowGrid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .bottomCard {
+    height: 185px;
+    border-radius: 10px;
+  }
+
+  .bottomCard:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+    height: 195px;
+  }
+
+  .bottomTitle {
+    font-size: 0.78rem;
+  }
+
+  .modalHero {
+    height: 200px;
+  }
+
+  .modalBody {
+    padding: 20px 16px;
+  }
+
+  .modalTitle {
+    font-size: 1.12rem;
+  }
+}

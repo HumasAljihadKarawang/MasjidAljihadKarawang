@@ -1,0 +1,569 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+/* ===== PANEL KONTROL ATAS ===== */
+.controlCard {
+  background: #ffffff;
+  border-radius: var(--radius-xl);
+  padding: 24px 28px;
+  border: 1px solid rgba(27, 107, 69, 0.16);
+  box-shadow: 0 12px 34px rgba(15, 42, 27, 0.07);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.filterGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.fieldBox {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fieldBox label {
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--primary);
+}
+
+.fieldBox select {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(27, 107, 69, 0.22);
+  background: #f9fcfa;
+  color: var(--text-primary);
+  font-size: 0.88rem;
+  font-weight: 600;
+  outline: none;
+}
+
+.fieldBox select:focus {
+  border-color: var(--primary);
+  background: #ffffff;
+}
+
+/* Panduan Warna Tajwid */
+.legendBar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  padding: 12px 16px;
+  border-radius: var(--radius-lg);
+  background: #fcfaf3;
+  border: 1px solid rgba(180, 140, 36, 0.3);
+}
+
+.legendTitle {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: #5c450e;
+  margin-right: 4px;
+}
+
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: #374151;
+}
+
+.legendDot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+/* Murottal Per Surat Bar */
+.murottalBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  background: linear-gradient(135deg, #0d2b1b 0%, #175234 100%);
+  border-radius: var(--radius-lg);
+  padding: 14px 20px;
+  color: #ffffff;
+  border: 1px solid rgba(240, 192, 64, 0.38);
+}
+
+.murottalLeft {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.playSuratBtn {
+  padding: 9px 18px;
+  border-radius: var(--radius-full);
+  border: none;
+  background: linear-gradient(135deg, #f0c040, #d4a017);
+  color: #0e2417;
+  font-size: 0.84rem;
+  font-weight: 800;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.playSuratBtn:hover {
+  transform: scale(1.03);
+  box-shadow: 0 6px 18px rgba(240, 192, 64, 0.35);
+}
+
+.murottalMeta {
+  display: flex;
+  flex-direction: column;
+}
+
+.murottalLabel {
+  font-size: 0.72rem;
+  color: #ffe066;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.murottalSurah {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.qariSelectWrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.qariSelectWrap label {
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.82);
+  font-weight: 600;
+}
+
+.qariSelect {
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(240, 192, 64, 0.4);
+  background: rgba(8, 24, 15, 0.85);
+  color: #ffe066;
+  font-size: 0.82rem;
+  font-weight: 700;
+  outline: none;
+}
+
+/* ===== MUSHAF BUKU TERBUKA 15 BARIS FULL HALAMAN ===== */
+.mushafStage {
+  perspective: 2200px;
+  padding: 8px 0;
+}
+
+.mushafCover {
+  background: linear-gradient(145deg, #081e12 0%, #134229 50%, #081e12 100%);
+  border-radius: 22px;
+  padding: 22px 28px;
+  border: 3px solid #c9a227;
+  box-shadow:
+    0 28px 65px rgba(7, 25, 16, 0.35),
+    inset 0 0 0 2px rgba(255, 224, 102, 0.25);
+}
+
+.mushafBookSpread {
+  display: grid;
+  grid-template-columns: 1fr 28px 1fr;
+  background: #fdf9ee;
+  border-radius: 14px;
+  min-height: 670px;
+  box-shadow:
+    -8px 0 0 #efe6ce,
+    -13px 0 0 #e2d6b5,
+    8px 0 0 #efe6ce,
+    13px 0 0 #e2d6b5,
+    0 14px 36px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+  transform-style: preserve-3d;
+}
+
+.flipNextAnim {
+  animation: bookTurnNext 0.72s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.flipPrevAnim {
+  animation: bookTurnPrev 0.72s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes bookTurnNext {
+  0% {
+    transform: rotateY(0deg);
+  }
+  38% {
+    transform: rotateY(14deg) scale(0.985);
+    box-shadow: -28px 14px 42px rgba(0, 0, 0, 0.35);
+  }
+  100% {
+    transform: rotateY(0deg) scale(1);
+  }
+}
+
+@keyframes bookTurnPrev {
+  0% {
+    transform: rotateY(0deg);
+  }
+  38% {
+    transform: rotateY(-14deg) scale(0.985);
+    box-shadow: 28px 14px 42px rgba(0, 0, 0, 0.35);
+  }
+  100% {
+    transform: rotateY(0deg) scale(1);
+  }
+}
+
+.mushafPage {
+  padding: 22px 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.mushafPageRight {
+  background: linear-gradient(90deg, #f1e6c9 0%, #fdf9ee 10%, #fffdf7 100%);
+}
+
+.mushafPageLeft {
+  background: linear-gradient(270deg, #f1e6c9 0%, #fdf9ee 10%, #fffdf7 100%);
+}
+
+.pageInnerFrame {
+  border: 3px double rgba(180, 140, 36, 0.65);
+  border-radius: 10px;
+  padding: 18px 22px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0px,
+      transparent 39px,
+      rgba(180, 140, 36, 0.1) 40px
+    ),
+    rgba(255, 253, 246, 0.82);
+}
+
+.bookSpine {
+  background: linear-gradient(
+    90deg,
+    #dfd2b0 0%,
+    #b8a477 35%,
+    #8f7b4e 50%,
+    #b8a477 65%,
+    #dfd2b0 100%
+  );
+  box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.35);
+}
+
+.pageHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 10px;
+  margin-bottom: 12px;
+  border-bottom: 1.5px solid rgba(180, 140, 36, 0.45);
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: #6b5314;
+}
+
+.surahHeaderOrnament {
+  background: linear-gradient(135deg, #123e27 0%, #1b6b45 50%, #123e27 100%);
+  border: 2px solid #d4af37;
+  border-radius: 8px;
+  padding: 8px 14px;
+  text-align: center;
+  color: #ffe066;
+  font-family: var(--font-arabic);
+  font-size: 1.32rem;
+  margin: 8px 0 10px;
+}
+
+.bismillahLine {
+  text-align: center;
+  font-family: var(--font-arabic);
+  font-size: 1.45rem;
+  color: #13442a;
+  padding: 4px 0 10px;
+}
+
+/* Teks Mushaf Full Halaman 15 Baris Rata Kanan-Kiri */
+.mushafFullText {
+  font-family: var(--font-arabic);
+  font-size: 1.66rem;
+  line-height: 2.38;
+  direction: rtl;
+  text-align: justify;
+  text-align-last: center;
+  color: #16231b;
+  padding: 6px 4px;
+  word-spacing: 2px;
+}
+
+.ayahInline {
+  display: inline;
+}
+
+.ayahEndSymbol {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 6px;
+  padding: 0 6px;
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: #6b5314;
+  background: rgba(212, 175, 55, 0.2);
+  border: 1px solid rgba(180, 140, 36, 0.55);
+  border-radius: 999px;
+  vertical-align: middle;
+}
+
+/* ===== WARNA TAJWID STANDAR MUSHAF TAJWID ===== */
+.mushafFullText :global(tajweed.ghunnah),
+.mushafFullText :global(.ghunnah) {
+  color: #e66100; /* Oranye Terang: Ghunnah (Dengung 2 Harakat) */
+}
+
+.mushafFullText :global(tajweed.idgham_ghunnah),
+.mushafFullText :global(tajweed.idgham_shafawi),
+.mushafFullText :global(.idgham_ghunnah) {
+  color: #16803c; /* Hijau: Idgham Bighunnah / Mimi */
+}
+
+.mushafFullText :global(tajweed.idgham_wo_ghunnah),
+.mushafFullText :global(tajweed.idgham_mutajanisayn),
+.mushafFullText :global(tajweed.idgham_mutaqaribayn) {
+  color: #6b7280; /* Abu-abu: Idgham Bilaghunnah / Lebur */
+}
+
+.mushafFullText :global(tajweed.ikhafa),
+.mushafFullText :global(tajweed.ikhafa_shafawi),
+.mushafFullText :global(.ikhafa) {
+  color: #9333ea; /* Ungu: Ikhfa Haqiqi & Syafawi */
+}
+
+.mushafFullText :global(tajweed.iqlab),
+.mushafFullText :global(.iqlab) {
+  color: #0284c7; /* Biru Muda: Iqlab */
+}
+
+.mushafFullText :global(tajweed.qalaqah),
+.mushafFullText :global(.qalaqah) {
+  color: #dc2626; /* Merah: Qalqalah (Pantulan) */
+}
+
+.mushafFullText :global(tajweed.madda_necessary),
+.mushafFullText :global(tajweed.madda_obligatory),
+.mushafFullText :global(tajweed.madda_permissible),
+.mushafFullText :global(tajweed.madda_normal) {
+  color: #1d4ed8; /* Biru Tua: Hukum Mad (Panjang) */
+}
+
+.mushafFullText :global(tajweed.ham_wasl),
+.mushafFullText :global(tajweed.slnt),
+.mushafFullText :global(tajweed.laam_shamsiyah) {
+  color: #9ca3af; /* Abu Lembut: Huruf Tidak Dibaca / Hamzah Washal */
+}
+
+.mushafFullText :global(span.end) {
+  display: none;
+}
+
+.pageFooter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-top: 10px;
+  margin-top: 12px;
+  border-top: 1px solid rgba(180, 140, 36, 0.4);
+}
+
+.pageNumberCircle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 14px;
+  border-radius: var(--radius-full);
+  background: rgba(180, 140, 36, 0.16);
+  border: 1px solid rgba(180, 140, 36, 0.45);
+  color: #5c450e;
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.bookBottomNav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.flipPageBtn {
+  padding: 11px 22px;
+  border-radius: var(--radius-full);
+  border: 1px solid rgba(240, 192, 64, 0.55);
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffe066;
+  font-size: 0.86rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.flipPageBtn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #f0c040, #d4a017);
+  color: #0e2417;
+  transform: translateY(-2px);
+}
+
+.flipPageBtn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.spreadIndicator {
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 0.86rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.loadingBox {
+  min-height: 440px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: #5c450e;
+  font-weight: 700;
+}
+
+@media (max-width: 992px) {
+  .filterGrid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .mushafBookSpread {
+    grid-template-columns: 1fr;
+    min-height: auto;
+  }
+
+  /* Di layar HP (1 kolom), tampilkan Halaman Kanan (Ganjil/Awal) di atas, lalu Halaman Kiri (Genap/Lanjutan) di bawah */
+  .mushafPageRight {
+    order: 1;
+  }
+
+  .bookSpine {
+    order: 2;
+    height: 10px;
+    width: 100%;
+  }
+
+  .mushafPageLeft {
+    order: 3;
+  }
+}
+
+@media (max-width: 640px) {
+  .controlCard {
+    padding: 16px 14px;
+    border-radius: 18px;
+    gap: 14px;
+  }
+
+  .legendBar {
+    padding: 10px 12px;
+    gap: 8px 12px;
+  }
+
+  .legendItem {
+    font-size: 0.7rem;
+  }
+
+  .murottalBar {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 14px;
+    gap: 12px;
+  }
+
+  .murottalLeft {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .playSuratBtn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .qariSelectWrap {
+    width: 100%;
+  }
+
+  .qariSelect {
+    flex: 1;
+    width: 100%;
+  }
+
+  .mushafCover {
+    padding: 10px;
+    border-radius: 16px;
+  }
+
+  .mushafPage {
+    padding: 12px 10px;
+  }
+
+  .pageInnerFrame {
+    padding: 14px 12px;
+  }
+
+  .mushafFullText {
+    font-size: 1.38rem;
+    line-height: 2.25;
+  }
+
+  .bookBottomNav {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .flipPageBtn {
+    width: 100%;
+    text-align: center;
+  }
+}
