@@ -3949,22 +3949,17 @@ export default function AdminSidebarPage() {
                         navigator.canShare({ files: [imgFile] })
                       ) {
                         try {
-                          await navigator.clipboard?.writeText(waSuratText)
-                        } catch {
-                          // ignore clipboard error
-                        }
-                        try {
-                          setWaShareHint(
-                            'Foto surat & teks pengantar dibagikan. Jika di WhatsApp Desktop kolom caption belum terisi, cukup tekan Ctrl+V.'
-                          )
                           await navigator.share({
                             files: [imgFile],
                             title: perihalSurat || 'Surat Undangan Resmi DKM Masjid Al-Jihad',
                             text: waSuratText,
                           })
+                          setWaShareHint('Foto surat & teks pengantar berhasil dibagikan.')
                           return
-                        } catch {
-                          // fallback below if share cancelled/unavailable
+                        } catch (err) {
+                          if (err instanceof Error && err.name === 'AbortError') {
+                            return
+                          }
                         }
                       }
 
@@ -3985,6 +3980,9 @@ export default function AdminSidebarPage() {
                       a.click()
                       URL.revokeObjectURL(url)
 
+                      setWaShareHint(
+                        'Gambar surat (.PNG) sudah disalin ke clipboard & diunduh. Di WhatsApp Web, tekan Ctrl+V di chat untuk menempelkan gambarnya.'
+                      )
                       window.open(
                         `https://wa.me/?text=${encodeURIComponent(waSuratText)}`,
                         '_blank',
