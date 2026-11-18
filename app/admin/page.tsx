@@ -1775,7 +1775,7 @@ export default function AdminSidebarPage() {
       "*Assalamu'alaikum Warahmatullahi Wabarakatuh*",
       '',
       `Yth. *${kepadaSurat || sapaan}*,`,
-      `Dengan hormat, bersama pesan ini kami sampaikan surat undangan resmi dari DKM Masjid Raya Al-Jihad Islamic Center Karawang (${perihalSurat || 'Undangan Resmi'}) sebagaimana terlampir pada dokumen PDF.`,
+      `Dengan hormat, bersama pesan ini kami sampaikan surat undangan resmi dari DKM Masjid Raya Al-Jihad Islamic Center Karawang (${perihalSurat || 'Undangan Resmi'}) sebagaimana terlampir.`,
       '',
       `Mohon kesediaan ${sapaan} untuk berkenan memeriksa rincian undangan tersebut. Atas perhatian dan kehadirannya kami ucapkan _Jazakumullahu Khairan Katsiran_.`,
       '',
@@ -1784,8 +1784,8 @@ export default function AdminSidebarPage() {
     ].join('\n')
   }
 
-  // Generate PDF A4 asli (1240x1754px) lengkap dengan KOP, isi surat, dan TTD transparan menimpa nama
-  const buildSuratPdfBlob = async (): Promise<Blob> => {
+  // Render kertas surat undangan A4 (1240x1754px) ke Canvas untuk output PDF & Share Foto WA
+  const renderSuratCanvas = async (): Promise<HTMLCanvasElement> => {
     const W = 1240
     const H = 1754
     const canvas = document.createElement('canvas')
@@ -1993,6 +1993,27 @@ export default function AdminSidebarPage() {
     ctx.moveTo(signCenterX - nameW / 2, nameY + 4)
     ctx.lineTo(signCenterX + nameW / 2, nameY + 4)
     ctx.stroke()
+
+    return canvas
+  }
+
+  const buildSuratImageBlob = async (): Promise<Blob> => {
+    const canvas = await renderSuratCanvas()
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob((b) => resolve(b), 'image/png')
+    )
+    if (blob) return blob
+    const dataUrl = canvas.toDataURL('image/png')
+    const bin = atob(dataUrl.split(',')[1])
+    const bytes = new Uint8Array(bin.length)
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+    return new Blob([bytes], { type: 'image/png' })
+  }
+
+  const buildSuratPdfBlob = async (): Promise<Blob> => {
+    const canvas = await renderSuratCanvas()
+    const W = canvas.width
+    const H = canvas.height
 
     // Encode Canvas JPEG ke dokumen PDF A4 valid (595 x 842 pt)
     const jpegDataUrl = canvas.toDataURL('image/jpeg', 0.94)
@@ -3918,26 +3939,26 @@ export default function AdminSidebarPage() {
                     onClick={async () => {
                       recordLastUsedNoSurat(noSurat)
                       const waSuratText = getSuratWaText()
-                      try {
-                        await navigator.clipboard?.writeText(waSuratText)
-                      } catch {
-                        // ignore clipboard error
-                      }
-                      const pdfBlob = await buildSuratPdfBlob()
-                      const fileName = `Surat-Undangan-DKM-${tanggalSuratAcara || 'Resmi'}.pdf`
-                      const pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' })
+                      const imgBlob = await buildSuratImageBlob()
+                      const fileName = `Surat-Undangan-DKM-${tanggalSuratAcara || 'Resmi'}.png`
+                      const imgFile = new File([imgBlob], fileName, { type: 'image/png' })
 
                       if (
                         typeof navigator !== 'undefined' &&
                         navigator.canShare &&
-                        navigator.canShare({ files: [pdfFile] })
+                        navigator.canShare({ files: [imgFile] })
                       ) {
                         try {
+                          await navigator.clipboard?.writeText(waSuratText)
+                        } catch {
+                          // ignore clipboard error
+                        }
+                        try {
                           setWaShareHint(
-                            'Teks pengantar otomatis disalin. Jika di WhatsApp Desktop kolom keterangan kosong, cukup tekan Ctrl+V sebelum kirim.'
+                            'Foto surat & teks pengantar dibagikan. Jika di WhatsApp Desktop kolom caption belum terisi, cukup tekan Ctrl+V.'
                           )
                           await navigator.share({
-                            files: [pdfFile],
+                            files: [imgFile],
                             title: perihalSurat || 'Surat Undangan Resmi DKM Masjid Al-Jihad',
                             text: waSuratText,
                           })
@@ -3947,7 +3968,17 @@ export default function AdminSidebarPage() {
                         }
                       }
 
-                      const url = URL.createObjectURL(pdfBlob)
+                      try {
+                        if (typeof ClipboardItem !== 'undefined' && navigator.clipboard?.write) {
+                          await navigator.clipboard.write([
+                            new ClipboardItem({ 'image/png': imgBlob }),
+                          ])
+                        }
+                      } catch {
+                        // ignore clipboard image fallback error
+                      }
+
+                      const url = URL.createObjectURL(imgBlob)
                       const a = document.createElement('a')
                       a.href = url
                       a.download = fileName
