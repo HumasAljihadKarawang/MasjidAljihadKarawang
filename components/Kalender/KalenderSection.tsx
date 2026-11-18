@@ -492,6 +492,13 @@ export default function KalenderSection() {
                   </button>
                 )
               })}
+
+              {Array.from(
+                { length: Math.max(0, 42 - (firstDayOfWeek + daysInMonth)) },
+                (_, i) => (
+                  <div key={`trail-${i}`} style={{ aspectRatio: '1' }} />
+                )
+              )}
             </div>
 
             <div className={styles.legendRow}>
