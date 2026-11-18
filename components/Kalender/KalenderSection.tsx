@@ -50,6 +50,7 @@ export default function KalenderSection() {
   const [tempatKegiatan, setTempatKegiatan] = useState('')
   const [peminjamanAset, setPeminjamanAset] = useState('')
   const [posterUrl, setPosterUrl] = useState('')
+  const [uploadingPoster, setUploadingPoster] = useState(false)
   const [catatanPengajuan, setCatatanPengajuan] = useState('')
   const [formError, setFormError] = useState('')
   const [submitSuccess, setSubmitSuccess] = useState('')
@@ -963,15 +964,43 @@ export default function KalenderSection() {
                 <input
                   type="file"
                   accept="image/*"
-                  onChange={(e) => {
+                  disabled={uploadingPoster}
+                  onChange={async (e) => {
                     const file = e.target.files?.[0]
                     if (!file) return
+                    setUploadingPoster(true)
+                    try {
+                      const fd = new FormData()
+                      fd.append('file', file)
+                      fd.append('folder', 'masjid-aljihad/kalender-poster')
+                      fd.append('resourceType', 'image')
+                      const res = await fetch('/api/upload', { method: 'POST', body: fd })
+                      const json = await res.json()
+                      if (res.ok && json.url) {
+                        setPosterUrl(json.url)
+                        return
+                      }
+                    } catch {
+                      // fallback below
+                    } finally {
+                      setUploadingPoster(false)
+                    }
                     const reader = new FileReader()
                     reader.onload = () => setPosterUrl(String(reader.result || ''))
                     reader.readAsDataURL(file)
                   }}
                   style={inputStyle}
                 />
+                {uploadingPoster && (
+                  <p style={{ margin: '4px 0 0', fontSize: '0.76rem', color: '#b45309', fontWeight: 700 }}>
+                    Mengunggah poster ke Cloudinary...
+                  </p>
+                )}
+                {!uploadingPoster && posterUrl && (
+                  <p style={{ margin: '4px 0 0', fontSize: '0.76rem', color: '#15803d', fontWeight: 700 }}>
+                    ✓ Poster siap ({posterUrl.startsWith('http') ? 'Tersimpan di Cloudinary' : 'Terlampir'})
+                  </p>
+                )}
               </div>
 
               <div>

@@ -144,6 +144,36 @@ export default function AdminSidebarPage() {
   const [sbUrlInput, setSbUrlInput] = useState('')
   const [sbKeyInput, setSbKeyInput] = useState('')
   const [syncingCloud, setSyncingCloud] = useState(false)
+  const [cloudinaryUploading, setCloudinaryUploading] = useState('')
+
+  const uploadFileToCloudinary = async (
+    file: File,
+    folder: string,
+    resourceType: 'auto' | 'image' | 'video' | 'raw' = 'auto',
+    targetKey: string
+  ): Promise<string | null> => {
+    setErrorMsg('')
+    setCloudinaryUploading(targetKey)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      fd.append('folder', folder)
+      fd.append('resourceType', resourceType)
+      const res = await fetch('/api/upload', { method: 'POST', body: fd })
+      const json = await res.json()
+      if (!res.ok || !json.url) {
+        setErrorMsg(json.error || 'Gagal mengunggah file ke Cloudinary.')
+        return null
+      }
+      setSuccessMsg(`File berhasil diunggah ke Cloudinary!`)
+      return String(json.url)
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Gagal mengunggah ke Cloudinary.')
+      return null
+    } finally {
+      setCloudinaryUploading('')
+    }
+  }
 
   // Data Stores
   const [kegiatanList, setKegiatanList] = useState<KegiatanUnggulanItem[]>([])
@@ -3700,13 +3730,35 @@ export default function AdminSidebarPage() {
                       />
                     </div>
                     <div className={styles.formGroup}>
-                      <label>URL Foto Berita</label>
+                      <label>URL Foto Berita (atau Upload ke Cloudinary)</label>
                       <input
                         type="url"
                         required
                         value={thumbBerita}
                         onChange={(e) => setThumbBerita(e.target.value)}
                       />
+                      <input
+                        type="file"
+                        accept="image/*"
+                        disabled={cloudinaryUploading === 'berita'}
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0]
+                          if (!file) return
+                          const url = await uploadFileToCloudinary(
+                            file,
+                            'masjid-aljihad/berita',
+                            'image',
+                            'berita'
+                          )
+                          if (url) setThumbBerita(url)
+                        }}
+                        style={{ marginTop: '6px' }}
+                      />
+                      {cloudinaryUploading === 'berita' && (
+                        <span className={styles.itemMeta} style={{ color: '#b45309' }}>
+                          Mengunggah foto berita ke Cloudinary...
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div className={styles.formGroup}>
@@ -3812,6 +3864,28 @@ export default function AdminSidebarPage() {
                       onChange={(e) => setUrlVideo(e.target.value)}
                       placeholder="https://...video.mp4"
                     />
+                    <input
+                      type="file"
+                      accept="video/*"
+                      disabled={cloudinaryUploading === 'video'}
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0]
+                        if (!file) return
+                        const url = await uploadFileToCloudinary(
+                          file,
+                          'masjid-aljihad/video',
+                          'video',
+                          'video'
+                        )
+                        if (url) setUrlVideo(url)
+                      }}
+                      style={{ marginTop: '6px' }}
+                    />
+                    {cloudinaryUploading === 'video' && (
+                      <span className={styles.itemMeta} style={{ color: '#b45309' }}>
+                        Mengunggah video ke Cloudinary...
+                      </span>
+                    )}
                   </div>
                   <div className={styles.formGroup}>
                     <label>URL Gambar Cover / Thumbnail Video</label>
@@ -4973,7 +5047,7 @@ export default function AdminSidebarPage() {
                     </select>
                   </div>
                   <div className={styles.formGroup}>
-                    <label>URL File PDF Kitab</label>
+                    <label>URL File PDF Kitab (atau Upload ke Cloudinary)</label>
                     <input
                       type="url"
                       required
@@ -4981,6 +5055,28 @@ export default function AdminSidebarPage() {
                       onChange={(e) => setFilePdfUrl(e.target.value)}
                       placeholder="https://.../kitab.pdf"
                     />
+                    <input
+                      type="file"
+                      accept="application/pdf"
+                      disabled={cloudinaryUploading === 'kitab'}
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0]
+                        if (!file) return
+                        const url = await uploadFileToCloudinary(
+                          file,
+                          'masjid-aljihad/kitab',
+                          'raw',
+                          'kitab'
+                        )
+                        if (url) setFilePdfUrl(url)
+                      }}
+                      style={{ marginTop: '6px' }}
+                    />
+                    {cloudinaryUploading === 'kitab' && (
+                      <span className={styles.itemMeta} style={{ color: '#b45309' }}>
+                        Mengunggah PDF Kitab ke Cloudinary...
+                      </span>
+                    )}
                   </div>
                 </div>
                 <button type="submit" className={styles.submitBtn}>
