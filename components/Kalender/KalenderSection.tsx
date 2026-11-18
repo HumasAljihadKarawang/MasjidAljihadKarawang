@@ -31,6 +31,9 @@ const CAPTCHA_STORAGE_KEY = 'aljihad_kalender_captcha_guard_v1'
 
 export default function KalenderSection() {
   const [agendas, setAgendas] = useState<AgendaKalenderItem[]>(masjidStore.getKalender())
+  const [pengajuanList, setPengajuanList] = useState<PengajuanKalenderItem[]>(
+    masjidStore.getPengajuanKalender()
+  )
   const [viewYear, setViewYear] = useState<number>(2026)
   const [viewMonth, setViewMonth] = useState<number>(10) // November (0-indexed = 10)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
@@ -66,6 +69,7 @@ export default function KalenderSection() {
 
   const syncKalender = useCallback(async () => {
     setAgendas(masjidStore.getKalender())
+    setPengajuanList(masjidStore.getPengajuanKalender())
     const cfg = getActiveSupabaseConfig()
     if (cfg.isConfigured) {
       const sb = getSupabaseClient()
@@ -85,8 +89,38 @@ export default function KalenderSection() {
           ruangan: d.lokasi || 'Ruang Sholat Utama Lantai 1',
           kategori: (d.kategori || 'Kajian') as AgendaKalenderItem['kategori'],
           keterangan: d.keterangan || '',
+          peminjamanAset: d.peminjaman_aset || '',
+          posterUrl: d.poster_url || '',
         }))
         setAgendas(mapped)
+      }
+
+      try {
+        const pgjRes = await sb
+          .from('pengajuan_kalender')
+          .select('*')
+          .order('created_at', { ascending: false })
+        if (pgjRes.data && pgjRes.data.length > 0) {
+          const mappedPgj: PengajuanKalenderItem[] = pgjRes.data.map((d) => ({
+            id: d.id,
+            namaKegiatan: d.nama_kegiatan,
+            deskripsi: d.deskripsi || '',
+            penanggungJawab: d.penanggung_jawab,
+            noTeleponPj: d.no_telepon_pj,
+            tanggal: d.tanggal,
+            jamMulai: d.jam_mulai,
+            jamSelesai: d.jam_selesai,
+            tempatKegiatan: d.tempat_kegiatan,
+            peminjamanAset: d.peminjaman_aset || '-',
+            posterUrl: d.poster_url || '',
+            catatan: d.catatan || '',
+            status: (d.status || 'Menunggu') as PengajuanKalenderItem['status'],
+            createdAt: d.created_at,
+          }))
+          setPengajuanList(mappedPgj)
+        }
+      } catch {
+        // tabel pengajuan_kalender opsional jika belum dibuat di Supabase
       }
     }
   }, [])
@@ -514,15 +548,183 @@ export default function KalenderSection() {
                     </div>
                     <h4 className={styles.agendaName}>{item.judul}</h4>
                     <span className={styles.agendaMeta}>
-                      {`Pemateri/PIC: ${item.pemateri || 'DKM Al-Jihad'} • Lokasi: ${
+                      {`Pemateri/PJ: ${item.pemateri || 'DKM Al-Jihad'} • Lokasi: ${
                         item.ruangan
                       }`}
                     </span>
+                    {item.peminjamanAset && item.peminjamanAset !== '-' && (
+                      <div
+                        style={{
+                          fontSize: '0.78rem',
+                          color: '#166534',
+                          fontWeight: 600,
+                          marginTop: '4px',
+                        }}
+                      >
+                        {`Peminjaman Aset: ${item.peminjamanAset}`}
+                      </div>
+                    )}
+                    {item.posterUrl && (
+                      <div style={{ marginTop: '8px' }}>
+                        <img
+                          src={item.posterUrl}
+                          alt={`Poster ${item.judul}`}
+                          style={{
+                            maxWidth: '180px',
+                            maxHeight: '220px',
+                            borderRadius: '10px',
+                            border: '1px solid rgba(27, 107, 69, 0.2)',
+                            objectFit: 'cover',
+                          }}
+                        />
+                      </div>
+                    )}
                   </div>
                 )
               })}
             </div>
           </div>
+        </div>
+
+        {/* LIST PENGAJUAN JADWAL KEGIATAN YANG BISA DILIHAT OLEH UMUM */}
+        <div
+          style={{
+            marginTop: '34px',
+            background: '#ffffff',
+            borderRadius: '18px',
+            padding: '24px',
+            border: '1px solid rgba(27, 107, 69, 0.14)',
+            boxShadow: '0 10px 28px rgba(15, 23, 42, 0.05)',
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '8px',
+              marginBottom: '14px',
+            }}
+          >
+            <h3 style={{ margin: 0, fontSize: '1.12rem', fontWeight: 800, color: '#0f4a2a' }}>
+              Daftar Pengajuan Jadwal Kegiatan ({pengajuanList.length})
+            </h3>
+            <span style={{ fontSize: '0.78rem', color: '#4b5563', fontWeight: 600 }}>
+              Transparansi antrean pengajuan kegiatan masyarakat &amp; instansi
+            </span>
+          </div>
+
+          {pengajuanList.length === 0 ? (
+            <div
+              style={{
+                padding: '24px',
+                textAlign: 'center',
+                background: '#f8faf8',
+                borderRadius: '12px',
+                border: '1px dashed rgba(27, 107, 69, 0.25)',
+                color: '#4a6355',
+                fontSize: '0.88rem',
+                fontWeight: 600,
+              }}
+            >
+              Belum ada pengajuan jadwal kegiatan yang masuk.
+            </div>
+          ) : (
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))',
+                gap: '14px',
+              }}
+            >
+              {pengajuanList.map((pgj) => (
+                <div
+                  key={pgj.id}
+                  style={{
+                    padding: '14px 16px',
+                    borderRadius: '14px',
+                    border: '1px solid rgba(27, 107, 69, 0.16)',
+                    background: '#f9fbf9',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '6px',
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      gap: '8px',
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: '0.74rem',
+                        fontWeight: 700,
+                        color: '#14532d',
+                      }}
+                    >
+                      {`${pgj.tanggal} • ${pgj.jamMulai}–${pgj.jamSelesai} WIB`}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: '0.72rem',
+                        fontWeight: 800,
+                        padding: '3px 10px',
+                        borderRadius: '999px',
+                        background:
+                          pgj.status === 'Disetujui'
+                            ? '#dcfce7'
+                            : pgj.status === 'Ditolak'
+                              ? '#fee2e2'
+                              : '#fef3c7',
+                        color:
+                          pgj.status === 'Disetujui'
+                            ? '#166534'
+                            : pgj.status === 'Ditolak'
+                              ? '#991b1b'
+                              : '#92400e',
+                      }}
+                    >
+                      {pgj.status === 'Menunggu' ? 'Menunggu Tinjauan' : pgj.status}
+                    </span>
+                  </div>
+                  <h4 style={{ margin: 0, fontSize: '0.96rem', fontWeight: 800, color: '#111827' }}>
+                    {pgj.namaKegiatan}
+                  </h4>
+                  <div style={{ fontSize: '0.8rem', color: '#374151', lineHeight: 1.5 }}>
+                    <div>
+                      <strong>PJ:</strong> {pgj.penanggungJawab}
+                    </div>
+                    <div>
+                      <strong>Tempat:</strong> {pgj.tempatKegiatan}
+                    </div>
+                    {pgj.peminjamanAset && pgj.peminjamanAset !== '-' && (
+                      <div>
+                        <strong>Aset:</strong> {pgj.peminjamanAset}
+                      </div>
+                    )}
+                  </div>
+                  {pgj.posterUrl && (
+                    <img
+                      src={pgj.posterUrl}
+                      alt={`Poster ${pgj.namaKegiatan}`}
+                      style={{
+                        marginTop: '4px',
+                        maxWidth: '140px',
+                        maxHeight: '170px',
+                        borderRadius: '8px',
+                        border: '1px solid rgba(27, 107, 69, 0.18)',
+                        objectFit: 'cover',
+                      }}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

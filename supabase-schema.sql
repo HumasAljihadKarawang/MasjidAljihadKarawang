@@ -46,6 +46,8 @@ CREATE TABLE IF NOT EXISTS jadwal_terdekat (
   lokasi TEXT DEFAULT 'Ruang Sholat Utama Lantai 1',
   kategori TEXT DEFAULT 'Kajian',
   keterangan TEXT,
+  peminjaman_aset TEXT,
+  poster_url TEXT,
   aktif BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT now()
 );

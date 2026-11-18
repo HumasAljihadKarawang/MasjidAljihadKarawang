@@ -543,6 +543,8 @@ export default function AdminSidebarPage() {
           ruangan: d.lokasi || 'Ruang Sholat Utama Lantai 1',
           kategori: (d.kategori || 'Kajian') as AgendaKalenderItem['kategori'],
           keterangan: d.keterangan || '',
+          peminjamanAset: d.peminjaman_aset || '',
+          posterUrl: d.poster_url || '',
         }))
         setKalenderList(mappedJ)
         masjidStore.saveKalender(mappedJ)
@@ -2353,6 +2355,7 @@ export default function AdminSidebarPage() {
         lokasi: newAgenda.ruangan,
         kategori: newAgenda.kategori,
         keterangan: newAgenda.keterangan,
+        peminjaman_aset: newAgenda.peminjamanAset || '',
         aktif: true,
       })
     }
@@ -2417,6 +2420,8 @@ export default function AdminSidebarPage() {
           lokasi: newAgenda.ruangan,
           kategori: newAgenda.kategori,
           keterangan: newAgenda.keterangan,
+          peminjaman_aset: newAgenda.peminjamanAset || '',
+          poster_url: newAgenda.posterUrl || '',
           aktif: true,
         })
       }
