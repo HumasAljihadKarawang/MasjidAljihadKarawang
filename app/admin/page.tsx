@@ -2542,7 +2542,7 @@ export default function AdminSidebarPage() {
                 <span>Kritik &amp; Saran Jamaah</span>
               </button>
 
-              <span className={styles.navGroupLabel}>Studio Administrasi &amp; Literasi</span>
+              <span className={styles.navGroupLabel}>PENGELOLAAN ADMINISTRASI</span>
 
               <button
                 type="button"
