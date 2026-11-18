@@ -73,12 +73,12 @@ export default function KalenderSection() {
     const cfg = getActiveSupabaseConfig()
     if (cfg.isConfigured) {
       const sb = getSupabaseClient()
-      const { data } = await sb
+      const { data, error } = await sb
         .from('jadwal_terdekat')
         .select('*')
         .eq('aktif', true)
         .order('tanggal', { ascending: true })
-      if (data && data.length > 0) {
+      if (!error && data) {
         const mapped: AgendaKalenderItem[] = data.map((d) => ({
           id: d.id,
           judul: d.nama_acara,
@@ -100,7 +100,7 @@ export default function KalenderSection() {
           .from('pengajuan_kalender')
           .select('*')
           .order('created_at', { ascending: false })
-        if (pgjRes.data && pgjRes.data.length > 0) {
+        if (!pgjRes.error && pgjRes.data) {
           const mappedPgj: PengajuanKalenderItem[] = pgjRes.data.map((d) => ({
             id: d.id,
             namaKegiatan: d.nama_kegiatan,
@@ -525,7 +525,25 @@ export default function KalenderSection() {
             </div>
 
             <div className={styles.agendaList}>
-              {displayedAgendas.map((item) => {
+              {displayedAgendas.length === 0 ? (
+                <div
+                  style={{
+                    padding: '28px 18px',
+                    textAlign: 'center',
+                    background: '#f8faf8',
+                    borderRadius: '12px',
+                    border: '1px dashed rgba(27, 107, 69, 0.25)',
+                    color: '#4a6355',
+                    fontSize: '0.88rem',
+                    fontWeight: 600,
+                  }}
+                >
+                  {selectedDate
+                    ? `Belum ada jadwal kegiatan pada tanggal ${selectedDate}.`
+                    : 'Belum ada jadwal kegiatan yang terdaftar.'}
+                </div>
+              ) : (
+                displayedAgendas.map((item) => {
                 const conflicts = findScheduleConflicts(item, agendas, item.id)
                 const isConflict = conflicts.length > 0
 
@@ -581,7 +599,8 @@ export default function KalenderSection() {
                     )}
                   </div>
                 )
-              })}
+              })
+              )}
             </div>
           </div>
         </div>

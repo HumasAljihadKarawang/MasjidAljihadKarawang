@@ -532,7 +532,7 @@ export default function AdminSidebarPage() {
         masjidStore.saveKegiatan(mappedP)
       }
 
-      if (jRes.data && jRes.data.length > 0) {
+      if (!jRes.error && jRes.data) {
         const mappedJ: AgendaKalenderItem[] = jRes.data.map((d) => ({
           id: d.id,
           judul: d.nama_acara,
@@ -555,7 +555,7 @@ export default function AdminSidebarPage() {
           .from('pengajuan_kalender')
           .select('*')
           .order('created_at', { ascending: false })
-        if (pgjRes.data && pgjRes.data.length > 0) {
+        if (!pgjRes.error && pgjRes.data) {
           const mappedPgj: PengajuanKalenderItem[] = pgjRes.data.map((d) => ({
             id: d.id,
             namaKegiatan: d.nama_kegiatan,

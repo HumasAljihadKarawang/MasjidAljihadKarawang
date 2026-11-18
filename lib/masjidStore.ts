@@ -199,58 +199,13 @@ export const INITIAL_VIDEO_KEGIATAN: VideoKegiatanItem[] = mockReels.map((r, i) 
 
 export const INITIAL_KEGIATAN_UNGGULAN: KegiatanUnggulanItem[] = []
 
-export const INITIAL_KALENDER: AgendaKalenderItem[] = [
-  {
-    id: 'kal-1',
-    judul: 'Kajian Tafsir Al-Qur’an & Hadits Pilihan',
-    pemateri: 'KH. Ahmad Fauzan, S.Ag.',
-    tanggal: '2026-11-17',
-    jamMulai: '18:30',
-    jamSelesai: '20:00',
-    ruangan: 'Ruang Sholat Utama Lantai 1',
-    kategori: 'Kajian',
-    keterangan: 'Terbuka untuk jamaah ikhwan dan akhwat',
-  },
-  {
-    id: 'kal-2',
-    judul: 'Khutbah & Sholat Jumat Berjamaah',
-    pemateri: 'Ustaz Muhammad Ridwan, M.Pd.I.',
-    tanggal: '2026-11-20',
-    jamMulai: '11:30',
-    jamSelesai: '13:00',
-    ruangan: 'Ruang Sholat Utama Lantai 1 & 2',
-    kategori: 'Khutbah Jumat',
-    keterangan: 'Tema: Memakmurkan Masjid sebagai Pusat Peradaban Umat',
-  },
-  {
-    id: 'kal-3',
-    judul: 'Pembinaan Tahsin & Tahfidz Al-Qur’an Anak',
-    pemateri: 'Tim Asatidz TPQ Al-Jihad',
-    tanggal: '2026-11-20',
-    jamMulai: '15:30',
-    jamSelesai: '17:15',
-    ruangan: 'Aula Pendidikan Islamic Center',
-    kategori: 'Pendidikan',
-    keterangan: 'Kelas reguler santri TPA & Madrasah',
-  },
-  {
-    id: 'kal-4',
-    judul: 'Kuliah Subuh Akhir Pekan & Sarapan Bersama',
-    pemateri: 'Drs. KH. Abdullah Rahman',
-    tanggal: '2026-11-22',
-    jamMulai: '05:00',
-    jamSelesai: '06:30',
-    ruangan: 'Ruang Sholat Utama Lantai 1',
-    kategori: 'Kajian',
-    keterangan: 'Dilanjutkan ramah tamah di serambi masjid',
-  },
-]
+export const INITIAL_KALENDER: AgendaKalenderItem[] = []
 
 const KEYS = {
   berita: 'aljihad_berita_v1',
   video: 'aljihad_video_v1',
   kegiatan: 'aljihad_kegiatan_v2',
-  kalender: 'aljihad_kalender_v1',
+  kalender: 'aljihad_kalender_v2',
   pengajuanKalender: 'aljihad_pengajuan_kalender_v1',
   kritik: 'aljihad_kritik_v1',
 }
