@@ -47,7 +47,43 @@ export interface AgendaKalenderItem {
   ruangan: string
   kategori: 'Kajian' | 'Khutbah Jumat' | 'Rapat DKM' | 'Sosial' | 'Pendidikan' | 'PHBI'
   keterangan: string
+  peminjamanAset?: string
+  noTeleponPj?: string
+  posterUrl?: string
+  internalMasjid?: boolean
 }
+
+export interface PengajuanKalenderItem {
+  id: string
+  namaKegiatan: string
+  deskripsi?: string
+  penanggungJawab: string
+  noTeleponPj: string
+  tanggal: string // YYYY-MM-DD
+  jamMulai: string // HH:mm
+  jamSelesai: string // HH:mm
+  tempatKegiatan: string
+  peminjamanAset: string
+  posterUrl?: string
+  catatan?: string
+  status: 'Menunggu' | 'Disetujui' | 'Ditolak'
+  createdAt: string
+}
+
+export const ASET_MASJID_LIST: Array<{ nama: string; stok: string; kategori: string }> = [
+  { nama: 'Meja Panjang', stok: '10 unit', kategori: 'Perlengkapan' },
+  { nama: 'Kursi Lipat / Plastik', stok: '100 unit', kategori: 'Perlengkapan' },
+  { nama: 'Sound System Utama Masjid', stok: '1 set', kategori: 'Audio' },
+  { nama: 'Sound System Portable (Pelataran)', stok: '2 unit', kategori: 'Audio' },
+  { nama: 'Mic Wireless / Kabel', stok: '6 unit', kategori: 'Audio' },
+  { nama: 'Proyektor & Layar Screen', stok: '2 set', kategori: 'Multimedia' },
+  { nama: 'Karpet / Sajadah Roll', stok: '15 roll', kategori: 'Ibadah' },
+  { nama: 'Podium / Mimbar Portable', stok: '2 unit', kategori: 'Perlengkapan' },
+  { nama: 'Whiteboard & Spidol', stok: '3 unit', kategori: 'Pendidikan' },
+  { nama: 'Tenda / Kanopi Lipat', stok: '4 unit', kategori: 'Area Luar' },
+  { nama: 'Kipas Angin Blower / Standing', stok: '8 unit', kategori: 'Kenyamanan' },
+  { nama: 'Dispenser & Galon Air Minum', stok: '3 unit', kategori: 'Konsumsi' },
+]
 
 export interface KritikSaranItem {
   id: string
@@ -215,6 +251,7 @@ const KEYS = {
   video: 'aljihad_video_v1',
   kegiatan: 'aljihad_kegiatan_v2',
   kalender: 'aljihad_kalender_v1',
+  pengajuanKalender: 'aljihad_pengajuan_kalender_v1',
   kritik: 'aljihad_kritik_v1',
 }
 
@@ -252,6 +289,17 @@ export const masjidStore = {
 
   getKalender: (): AgendaKalenderItem[] => safeGet(KEYS.kalender, INITIAL_KALENDER),
   saveKalender: (list: AgendaKalenderItem[]) => safeSet(KEYS.kalender, list),
+
+  getPengajuanKalender: (): PengajuanKalenderItem[] => {
+    if (typeof window === 'undefined') return []
+    try {
+      const raw = window.localStorage.getItem(KEYS.pengajuanKalender)
+      return raw ? JSON.parse(raw) : []
+    } catch {
+      return []
+    }
+  },
+  savePengajuanKalender: (list: PengajuanKalenderItem[]) => safeSet(KEYS.pengajuanKalender, list),
 
   getKritik: (): KritikSaranItem[] => {
     if (typeof window === 'undefined') return []

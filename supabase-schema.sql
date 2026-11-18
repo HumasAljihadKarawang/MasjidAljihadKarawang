@@ -118,6 +118,28 @@ CREATE POLICY "Public Access Program" ON program FOR ALL USING (true) WITH CHECK
 DROP POLICY IF EXISTS "Public Access Jadwal" ON jadwal_terdekat;
 CREATE POLICY "Public Access Jadwal" ON jadwal_terdekat FOR ALL USING (true) WITH CHECK (true);
 
+-- 8. Tabel Pengajuan Jadwal Kalender oleh Pengguna
+CREATE TABLE IF NOT EXISTS pengajuan_kalender (
+  id TEXT PRIMARY KEY,
+  nama_kegiatan TEXT NOT NULL,
+  deskripsi TEXT,
+  penanggung_jawab TEXT NOT NULL,
+  no_telepon_pj TEXT NOT NULL,
+  tanggal DATE NOT NULL,
+  jam_mulai TEXT NOT NULL,
+  jam_selesai TEXT NOT NULL,
+  tempat_kegiatan TEXT NOT NULL,
+  peminjaman_aset TEXT,
+  poster_url TEXT,
+  catatan TEXT,
+  status TEXT DEFAULT 'Menunggu',
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE pengajuan_kalender ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public Access Pengajuan Kalender" ON pengajuan_kalender;
+CREATE POLICY "Public Access Pengajuan Kalender" ON pengajuan_kalender FOR ALL USING (true) WITH CHECK (true);
+
 DROP POLICY IF EXISTS "Public Access Khatib" ON jadwal_khatib;
 CREATE POLICY "Public Access Khatib" ON jadwal_khatib FOR ALL USING (true) WITH CHECK (true);
 
