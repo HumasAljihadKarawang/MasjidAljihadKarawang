@@ -3177,38 +3177,16 @@ export default function AdminSidebarPage() {
                   </div>
 
                   <div className={styles.formGroup}>
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        marginBottom: '6px',
-                      }}
-                    >
-                      <label style={{ marginBottom: 0 }}>Peminjaman Aset Masjid (Opsional)</label>
-                      <button
-                        type="button"
-                        onClick={() => setShowAsetAdminModal(true)}
-                        style={{
-                          border: '1px solid rgba(27, 107, 69, 0.3)',
-                          background: '#f0fdf4',
-                          color: '#14532d',
-                          borderRadius: '8px',
-                          padding: '4px 10px',
-                          fontSize: '0.76rem',
-                          fontWeight: 700,
-                          cursor: 'pointer',
-                        }}
-                      >
-                        Lihat Daftar Aset Masjid
-                      </button>
-                    </div>
+                    <label>Peminjaman Aset Masjid (Opsional)</label>
                     <input
                       type="text"
                       value={asetKal}
                       onChange={(e) => setAsetKal(e.target.value)}
-                      placeholder="Contoh: Meja Panjang (2), Kursi Lipat (20)"
+                      placeholder="Contoh: Meja Panjang (2), Kursi (2)"
                     />
+                    <span className={styles.itemMeta} style={{ marginTop: '4px', display: 'block' }}>
+                      Contoh pengisian: Meja Panjang (2), Kursi (2), Sound System Portable (1).
+                    </span>
                   </div>
 
                   <button

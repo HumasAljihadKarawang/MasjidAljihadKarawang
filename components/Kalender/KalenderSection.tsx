@@ -945,41 +945,17 @@ export default function KalenderSection() {
               </div>
 
               <div>
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    marginBottom: '5px',
-                  }}
-                >
-                  <label style={{ ...labelStyle, marginBottom: 0 }}>
-                    Peminjaman Aset Masjid (Isi Manual)
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => setShowAsetModal(true)}
-                    style={{
-                      border: '1px solid rgba(27, 107, 69, 0.3)',
-                      background: '#f0fdf4',
-                      color: '#14532d',
-                      borderRadius: '8px',
-                      padding: '4px 10px',
-                      fontSize: '0.76rem',
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    Lihat Daftar Aset Masjid
-                  </button>
-                </div>
+                <label style={labelStyle}>Peminjaman Aset Masjid (Isi Manual)</label>
                 <input
                   type="text"
                   value={peminjamanAset}
                   onChange={(e) => setPeminjamanAset(e.target.value)}
-                  placeholder="Contoh: Meja Panjang (2), Kursi (2), Sound System Portable (1)"
+                  placeholder="Contoh: Meja Panjang (2), Kursi (2), Sound System (1)"
                   style={inputStyle}
                 />
+                <p style={{ margin: '5px 0 0', fontSize: '0.76rem', color: '#4b5563', lineHeight: 1.45 }}>
+                  Contoh pengisian: <strong>Meja Panjang (2), Kursi (2), Sound System Portable (1)</strong>. Ketik nama aset beserta jumlahnya sesuai kebutuhan acara.
+                </p>
               </div>
 
               <div>

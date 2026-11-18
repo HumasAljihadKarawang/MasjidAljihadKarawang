@@ -17,6 +17,7 @@ const navLinks = [
   { href: '/kegiatan', label: 'Kegiatan' },
   { href: '/el-jihad', label: 'El Jihad' },
   { href: '/kontak', label: 'Kontak' },
+  { href: '/aset', label: 'Aset Masjid' },
 ]
 
 export default function Navbar() {
