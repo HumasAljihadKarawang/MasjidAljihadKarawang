@@ -280,6 +280,40 @@ export default function ProfilPage() {
             </div>
           </div>
         </section>
+        {/* Daftar Aset Masjid */}
+        <section id="aset-masjid" className={`section ${styles.fasilitasSection}`}>
+          <div className="container">
+            <div className="section-header center">
+              <span className="section-badge">Inventaris DKM</span>
+              <h2 className="section-title">
+                Daftar <span>Aset Masjid</span>
+              </h2>
+              <p className="section-subtitle">
+                Daftar perlengkapan &amp; aset Masjid Al-Jihad yang dapat diajukan peminjamannya
+              </p>
+            </div>
+            <div
+              style={{
+                maxWidth: '720px',
+                margin: '0 auto',
+                background: '#ffffff',
+                borderRadius: '18px',
+                padding: '32px 24px',
+                textAlign: 'center',
+                border: '1px dashed rgba(27, 107, 69, 0.28)',
+              }}
+            >
+              <h4 style={{ margin: '0 0 8px', color: '#0f4a2a', fontWeight: 800 }}>
+                Daftar Aset Masjid Belum Tersedia
+              </h4>
+              <p style={{ margin: 0, color: '#4b5563', fontSize: '0.9rem', lineHeight: 1.6 }}>
+                Daftar lengkap inventaris aset masjid sedang dalam pendataan oleh DKM dan akan segera
+                ditampilkan di sini. Untuk pengajuan saat ini, silakan ketik langsung kebutuhan aset
+                Anda pada formulir Kalender Kegiatan.
+              </p>
+            </div>
+          </div>
+        </section>
       </main>
       <Footer />
     </>
