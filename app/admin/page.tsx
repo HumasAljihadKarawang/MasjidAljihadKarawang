@@ -2508,15 +2508,6 @@ export default function AdminSidebarPage() {
 
               <button
                 type="button"
-                className={`${styles.sidebarBtn} ${activeTab === 'kalender' ? styles.sidebarBtnActive : ''
-                  }`}
-                onClick={() => selectMenu('kalender')}
-              >
-                <span>Kalender Anti-Bentrok</span>
-              </button>
-
-              <button
-                type="button"
                 className={`${styles.sidebarBtn} ${activeTab === 'berita' ? styles.sidebarBtnActive : ''
                   }`}
                 onClick={() => selectMenu('berita')}
@@ -2543,6 +2534,15 @@ export default function AdminSidebarPage() {
               </button>
 
               <span className={styles.navGroupLabel}>PENGELOLAAN ADMINISTRASI</span>
+
+              <button
+                type="button"
+                className={`${styles.sidebarBtn} ${activeTab === 'kalender' ? styles.sidebarBtnActive : ''
+                  }`}
+                onClick={() => selectMenu('kalender')}
+              >
+                <span>Kalender Anti-Bentrok</span>
+              </button>
 
               <button
                 type="button"
@@ -3206,7 +3206,6 @@ export default function AdminSidebarPage() {
             >
               <div className={styles.panelCard}>
                 <h2 className={styles.panelTitle}>Poster Online</h2>
-                <p className={styles.panelSub}>Unggah Foto dan Isi Data</p>
 
                 <div className={styles.formGroup}>
                   <label>Jenis Poster</label>
