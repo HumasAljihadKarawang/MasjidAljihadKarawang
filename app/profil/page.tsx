@@ -5,6 +5,7 @@ import Image from 'next/image'
 import Navbar from '@/components/Navbar/Navbar'
 import Footer from '@/components/Footer/Footer'
 import { SLIDE_PROFIL, FAKTA_MENARIK } from '@/components/Sejarah/SejarahSection'
+import { ASET_MASJID_LIST } from '@/lib/masjidStore'
 import styles from './profil.module.css'
 
 const FASILITAS = [
@@ -294,23 +295,64 @@ export default function ProfilPage() {
             </div>
             <div
               style={{
-                maxWidth: '720px',
+                maxWidth: '860px',
                 margin: '0 auto',
                 background: '#ffffff',
                 borderRadius: '18px',
-                padding: '32px 24px',
-                textAlign: 'center',
-                border: '1px dashed rgba(27, 107, 69, 0.28)',
+                padding: '20px',
+                border: '1px solid rgba(27, 107, 69, 0.16)',
+                boxShadow: '0 10px 28px rgba(15, 23, 42, 0.05)',
               }}
             >
-              <h4 style={{ margin: '0 0 8px', color: '#0f4a2a', fontWeight: 800 }}>
-                Daftar Aset Masjid Belum Tersedia
-              </h4>
-              <p style={{ margin: 0, color: '#4b5563', fontSize: '0.9rem', lineHeight: 1.6 }}>
-                Daftar lengkap inventaris aset masjid sedang dalam pendataan oleh DKM dan akan segera
-                ditampilkan di sini. Untuk pengajuan saat ini, silakan ketik langsung kebutuhan aset
-                Anda pada formulir Kalender Kegiatan.
-              </p>
+              <div style={{ maxHeight: '420px', overflowY: 'auto', borderRadius: '10px' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
+                  <thead>
+                    <tr
+                      style={{
+                        background: '#0f4a2a',
+                        color: '#ffffff',
+                        position: 'sticky',
+                        top: 0,
+                        textAlign: 'left',
+                      }}
+                    >
+                      <th style={{ padding: '10px 12px', width: '52px' }}>No</th>
+                      <th style={{ padding: '10px 12px' }}>Nama Barang</th>
+                      <th style={{ padding: '10px 12px' }}>Kategori</th>
+                      <th style={{ padding: '10px 12px', textAlign: 'right' }}>Jumlah</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {ASET_MASJID_LIST.map((item, idx) => (
+                      <tr
+                        key={item.nama}
+                        style={{
+                          borderBottom: '1px solid #e5e7eb',
+                          background: idx % 2 === 0 ? '#ffffff' : '#f8faf8',
+                        }}
+                      >
+                        <td style={{ padding: '9px 12px', fontWeight: 700, color: '#4b5563' }}>
+                          {idx + 1}
+                        </td>
+                        <td style={{ padding: '9px 12px', fontWeight: 700, color: '#111827' }}>
+                          {item.nama}
+                        </td>
+                        <td style={{ padding: '9px 12px', color: '#374151' }}>{item.kategori}</td>
+                        <td
+                          style={{
+                            padding: '9px 12px',
+                            textAlign: 'right',
+                            fontWeight: 700,
+                            color: '#15803d',
+                          }}
+                        >
+                          {item.stok}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </section>

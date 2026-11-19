@@ -55,8 +55,18 @@ export default function KalenderSection() {
   const [formError, setFormError] = useState('')
   const [submitSuccess, setSubmitSuccess] = useState('')
 
-  // State Pop-up Daftar Aset Masjid (bisa di-scroll + input ketik di bawah)
+  // State Pop-up Daftar Aset Masjid (Tabel Pilih + Jumlah Maksimal Stok + Ketik Manual)
   const [showAsetModal, setShowAsetModal] = useState(false)
+  const [selectedAsetQty, setSelectedAsetQty] = useState<Record<string, number>>({})
+  const [manualAsetExtra, setManualAsetExtra] = useState('')
+
+  const syncUserAsetSelection = (nextQty: Record<string, number>, nextExtra: string) => {
+    const picked = ASET_MASJID_LIST.filter((a) => (nextQty[a.nama] || 0) > 0).map(
+      (a) => `${a.nama} (${nextQty[a.nama]} ${a.satuan})`
+    )
+    const parts = [...picked, ...(nextExtra.trim() ? [nextExtra.trim()] : [])]
+    setPeminjamanAset(parts.join(', '))
+  }
 
   // State Pop-up Verifikasi Captcha 4-Digit Angka Random
   const [showCaptchaModal, setShowCaptchaModal] = useState(false)
@@ -1105,51 +1115,142 @@ export default function KalenderSection() {
               </button>
             </div>
             <p style={{ margin: '0 0 10px', fontSize: '0.78rem', color: '#4b5563' }}>
-              Gulir daftar di bawah untuk melihat aset yang tersedia, lalu ketik manual nama aset
-              beserta jumlahnya pada kolom di bawah.
+              Pilih aset &amp; atur jumlah peminjaman pada tabel (maksimal sesuai stok tersedia),
+              atau ketik manual kebutuhan lainnya di kolom bawah.
             </p>
             <div
               style={{
-                maxHeight: '230px',
+                maxHeight: '260px',
                 overflowY: 'auto',
                 border: '1px solid rgba(27, 107, 69, 0.2)',
                 borderRadius: '10px',
-                padding: '8px',
-                display: 'grid',
-                gap: '6px',
-                background: '#f8faf8',
+                background: '#ffffff',
                 marginBottom: '12px',
               }}
             >
-              {ASET_MASJID_LIST.map((aset) => (
-                <div
-                  key={aset.nama}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '8px 10px',
-                    borderRadius: '8px',
-                    border: '1px solid rgba(27, 107, 69, 0.14)',
-                    background: '#ffffff',
-                  }}
-                >
-                  <span style={{ fontWeight: 700, fontSize: '0.84rem', color: '#111827' }}>
-                    {aset.nama}
-                  </span>
-                  <span style={{ fontSize: '0.76rem', color: '#15803d', fontWeight: 700 }}>
-                    {`${aset.kategori} • ${aset.stok}`}
-                  </span>
-                </div>
-              ))}
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+                <thead>
+                  <tr
+                    style={{
+                      background: '#0f4a2a',
+                      color: '#ffffff',
+                      position: 'sticky',
+                      top: 0,
+                      textAlign: 'left',
+                    }}
+                  >
+                    <th style={{ padding: '8px 10px', width: '36px' }}>No</th>
+                    <th style={{ padding: '8px 10px' }}>Nama Barang</th>
+                    <th style={{ padding: '8px 10px' }}>Stok</th>
+                    <th style={{ padding: '8px 10px', textAlign: 'center' }}>Pinjam</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ASET_MASJID_LIST.map((aset, idx) => {
+                    const qty = selectedAsetQty[aset.nama] || 0
+                    return (
+                      <tr
+                        key={aset.nama}
+                        style={{
+                          borderBottom: '1px solid #e5e7eb',
+                          background: qty > 0 ? '#f0fdf4' : idx % 2 === 0 ? '#ffffff' : '#f9fafb',
+                        }}
+                      >
+                        <td style={{ padding: '7px 10px', color: '#6b7280', fontWeight: 700 }}>
+                          {idx + 1}
+                        </td>
+                        <td style={{ padding: '7px 10px', fontWeight: 700, color: '#111827' }}>
+                          {aset.nama}
+                        </td>
+                        <td style={{ padding: '7px 10px', color: '#15803d', fontWeight: 700 }}>
+                          {aset.stok}
+                        </td>
+                        <td style={{ padding: '7px 10px', textAlign: 'center' }}>
+                          <div
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                            }}
+                          >
+                            <button
+                              type="button"
+                              disabled={qty <= 0}
+                              onClick={() => {
+                                const next = {
+                                  ...selectedAsetQty,
+                                  [aset.nama]: Math.max(0, qty - 1),
+                                }
+                                setSelectedAsetQty(next)
+                                syncUserAsetSelection(next, manualAsetExtra)
+                              }}
+                              style={{
+                                width: '24px',
+                                height: '24px',
+                                borderRadius: '6px',
+                                border: '1px solid #d1d5db',
+                                background: '#ffffff',
+                                fontWeight: 800,
+                                cursor: qty > 0 ? 'pointer' : 'not-allowed',
+                                opacity: qty > 0 ? 1 : 0.45,
+                              }}
+                            >
+                              -
+                            </button>
+                            <span
+                              style={{
+                                minWidth: '22px',
+                                textAlign: 'center',
+                                fontWeight: 800,
+                                color: qty > 0 ? '#0f4a2a' : '#6b7280',
+                              }}
+                            >
+                              {qty}
+                            </span>
+                            <button
+                              type="button"
+                              disabled={qty >= aset.maxQty}
+                              onClick={() => {
+                                const next = {
+                                  ...selectedAsetQty,
+                                  [aset.nama]: Math.min(aset.maxQty, qty + 1),
+                                }
+                                setSelectedAsetQty(next)
+                                syncUserAsetSelection(next, manualAsetExtra)
+                              }}
+                              style={{
+                                width: '24px',
+                                height: '24px',
+                                borderRadius: '6px',
+                                border: '1px solid #15803d',
+                                background: '#ecfdf5',
+                                color: '#14532d',
+                                fontWeight: 800,
+                                cursor: qty < aset.maxQty ? 'pointer' : 'not-allowed',
+                                opacity: qty < aset.maxQty ? 1 : 0.45,
+                              }}
+                            >
+                              +
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
             </div>
             <div>
-              <label style={labelStyle}>Ketik Aset &amp; Jumlah yang Dipinjam</label>
+              <label style={labelStyle}>Ketik Manual / Tambahan Aset Lainnya (Opsional)</label>
               <input
                 type="text"
-                value={peminjamanAset}
-                onChange={(e) => setPeminjamanAset(e.target.value)}
-                placeholder="Contoh: Meja Panjang (2), Kursi Lipat (20)"
+                value={manualAsetExtra}
+                onChange={(e) => {
+                  const val = e.target.value
+                  setManualAsetExtra(val)
+                  syncUserAsetSelection(selectedAsetQty, val)
+                }}
+                placeholder="Contoh: Meja Panjang (2), Kursi (10)"
                 style={inputStyle}
               />
             </div>

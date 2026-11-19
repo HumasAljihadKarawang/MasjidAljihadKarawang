@@ -70,19 +70,45 @@ export interface PengajuanKalenderItem {
   createdAt: string
 }
 
-export const ASET_MASJID_LIST: Array<{ nama: string; stok: string; kategori: string }> = [
-  { nama: 'Meja Panjang', stok: '10 unit', kategori: 'Perlengkapan' },
-  { nama: 'Kursi Lipat / Plastik', stok: '100 unit', kategori: 'Perlengkapan' },
-  { nama: 'Sound System Utama Masjid', stok: '1 set', kategori: 'Audio' },
-  { nama: 'Sound System Portable (Pelataran)', stok: '2 unit', kategori: 'Audio' },
-  { nama: 'Mic Wireless / Kabel', stok: '6 unit', kategori: 'Audio' },
-  { nama: 'Proyektor & Layar Screen', stok: '2 set', kategori: 'Multimedia' },
-  { nama: 'Karpet / Sajadah Roll', stok: '15 roll', kategori: 'Ibadah' },
-  { nama: 'Podium / Mimbar Portable', stok: '2 unit', kategori: 'Perlengkapan' },
-  { nama: 'Whiteboard & Spidol', stok: '3 unit', kategori: 'Pendidikan' },
-  { nama: 'Tenda / Kanopi Lipat', stok: '4 unit', kategori: 'Area Luar' },
-  { nama: 'Kipas Angin Blower / Standing', stok: '8 unit', kategori: 'Kenyamanan' },
-  { nama: 'Dispenser & Galon Air Minum', stok: '3 unit', kategori: 'Konsumsi' },
+export interface AsetMasjidItem {
+  nama: string
+  maxQty: number
+  satuan: string
+  stok: string
+  kategori: string
+}
+
+export const ASET_MASJID_LIST: AsetMasjidItem[] = [
+  { nama: 'AC AUX Standing', maxQty: 2, satuan: 'unit', stok: '2 unit', kategori: 'Pendingin' },
+  { nama: 'AC GREE Standing', maxQty: 6, satuan: 'unit', stok: '6 unit', kategori: 'Pendingin' },
+  { nama: 'Kulkas Polytron', maxQty: 1, satuan: 'unit', stok: '1 unit', kategori: 'Elektronik' },
+  { nama: 'Kipas Angin', maxQty: 22, satuan: 'unit', stok: '22 unit', kategori: 'Pendingin' },
+  { nama: 'Kipas Angin Tower Kris', maxQty: 1, satuan: 'unit', stok: '1 unit', kategori: 'Pendingin' },
+  { nama: 'Dispenser', maxQty: 4, satuan: 'unit', stok: '4 unit', kategori: 'Perlengkapan' },
+  { nama: 'Lemari Buku', maxQty: 1, satuan: 'unit', stok: '1 unit', kategori: 'Furnitur' },
+  { nama: 'Meja Kerja', maxQty: 1, satuan: 'unit', stok: '1 unit', kategori: 'Furnitur' },
+  { nama: 'Meja Krisbow', maxQty: 1, satuan: 'unit', stok: '1 unit', kategori: 'Furnitur' },
+  { nama: 'Komputer (CPU & LED 20")', maxQty: 1, satuan: 'unit', stok: '1 unit', kategori: 'Elektronik' },
+  { nama: 'Laptop', maxQty: 1, satuan: 'unit', stok: '1 unit', kategori: 'Elektronik' },
+  { nama: 'Printer Epson L120', maxQty: 1, satuan: 'unit', stok: '1 unit', kategori: 'Elektronik' },
+  { nama: 'Infocus (Proyektor)', maxQty: 1, satuan: 'unit', stok: '1 unit', kategori: 'Multimedia' },
+  { nama: 'LED CCTV', maxQty: 1, satuan: 'unit', stok: '1 unit', kategori: 'Keamanan' },
+  { nama: 'Google TV Changhong 55 inch', maxQty: 2, satuan: 'unit', stok: '2 unit', kategori: 'Multimedia' },
+  { nama: 'Google TV Changhong 65 inch', maxQty: 1, satuan: 'unit', stok: '1 unit', kategori: 'Multimedia' },
+  { nama: 'Amplifier', maxQty: 7, satuan: 'unit', stok: '7 unit', kategori: 'Audio' },
+  { nama: 'Speaker Active', maxQty: 1, satuan: 'unit', stok: '1 unit', kategori: 'Audio' },
+  { nama: 'Walkie Talkie', maxQty: 4, satuan: 'unit', stok: '4 unit', kategori: 'Komunikasi' },
+  { nama: 'Sofa', maxQty: 2, satuan: 'set', stok: '2 set', kategori: 'Furnitur' },
+  { nama: 'Showcase (Sofcace)', maxQty: 1, satuan: 'unit', stok: '1 unit', kategori: 'Elektronik' },
+  { nama: 'Jam Besar', maxQty: 3, satuan: 'unit', stok: '3 unit', kategori: 'Perlengkapan' },
+  { nama: 'Lampu Gantung', maxQty: 1, satuan: 'unit', stok: '1 unit', kategori: 'Penerangan' },
+  { nama: 'Vacuum Hamra', maxQty: 1, satuan: 'unit', stok: '1 unit', kategori: 'Kebersihan' },
+  { nama: 'Vacuum Krisbow', maxQty: 2, satuan: 'unit', stok: '2 unit', kategori: 'Kebersihan' },
+  { nama: 'Steam Cleaner', maxQty: 1, satuan: 'unit', stok: '1 unit', kategori: 'Kebersihan' },
+  { nama: 'Mesin Jet Pump', maxQty: 1, satuan: 'unit', stok: '1 unit', kategori: 'Utilitas' },
+  { nama: 'Mesin Semi Jet Pump', maxQty: 2, satuan: 'unit', stok: '2 unit', kategori: 'Utilitas' },
+  { nama: 'Satelit', maxQty: 1, satuan: 'unit', stok: '1 unit', kategori: 'Komunikasi' },
+  { nama: 'Selang Panjang 20m', maxQty: 1, satuan: 'unit', stok: '1 unit', kategori: 'Kebersihan' },
 ]
 
 export interface KritikSaranItem {
