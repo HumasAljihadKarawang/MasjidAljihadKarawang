@@ -848,9 +848,11 @@ export default function KalenderSection() {
                   required
                   value={namaKegiatan}
                   onChange={(e) => setNamaKegiatan(e.target.value)}
-                  placeholder="Contoh: Santunan Anak Yatim & Kajian Bersama"
                   style={inputStyle}
                 />
+                <p style={{ margin: '4px 0 0', fontSize: '0.75rem', color: '#4b5563' }}>
+                  Contoh: Santunan Anak Yatim &amp; Kajian Bersama
+                </p>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
@@ -861,9 +863,11 @@ export default function KalenderSection() {
                     required
                     value={penanggungJawab}
                     onChange={(e) => setPenanggungJawab(e.target.value)}
-                    placeholder="Contoh: Husna (Karawang Peduli)"
                     style={inputStyle}
                   />
+                  <p style={{ margin: '4px 0 0', fontSize: '0.75rem', color: '#4b5563' }}>
+                    Contoh: Husna (Karawang Peduli)
+                  </p>
                 </div>
                 <div>
                   <label style={labelStyle}>No. Telepon / WhatsApp PJ *</label>
@@ -872,9 +876,11 @@ export default function KalenderSection() {
                     required
                     value={noTeleponPj}
                     onChange={(e) => setNoTeleponPj(e.target.value)}
-                    placeholder="Contoh: 081234567890"
                     style={inputStyle}
                   />
+                  <p style={{ margin: '4px 0 0', fontSize: '0.75rem', color: '#4b5563' }}>
+                    Contoh: 081234567890
+                  </p>
                 </div>
               </div>
 
@@ -937,9 +943,11 @@ export default function KalenderSection() {
                   required
                   value={tempatKegiatan}
                   onChange={(e) => setTempatKegiatan(e.target.value)}
-                  placeholder="Contoh: Pelataran Masjid / Ruang Sholat Utama Lantai 1"
                   style={inputStyle}
                 />
+                <p style={{ margin: '4px 0 0', fontSize: '0.75rem', color: '#4b5563' }}>
+                  Contoh: Pelataran Masjid / Ruang Sholat Utama Lantai 1
+                </p>
               </div>
 
               <div>
@@ -952,7 +960,7 @@ export default function KalenderSection() {
                   }}
                 >
                   <label style={{ ...labelStyle, marginBottom: 0 }}>
-                    Peminjaman Aset Masjid (Isi Manual)
+                    Peminjaman Aset Masjid (Opsional)
                   </label>
                   <button
                     type="button"
@@ -975,11 +983,10 @@ export default function KalenderSection() {
                   type="text"
                   value={peminjamanAset}
                   onChange={(e) => setPeminjamanAset(e.target.value)}
-                  placeholder="Contoh: Meja Panjang (2), Kursi (2), Sound System (1)"
                   style={inputStyle}
                 />
-                <p style={{ margin: '5px 0 0', fontSize: '0.76rem', color: '#4b5563', lineHeight: 1.45 }}>
-                  Contoh pengisian: <strong>Meja Panjang (2), Kursi (2), Sound System Portable (1)</strong>. Ketik nama aset beserta jumlahnya sesuai kebutuhan acara.
+                <p style={{ margin: '5px 0 0', fontSize: '0.75rem', color: '#4b5563', lineHeight: 1.45 }}>
+                  Contoh: Meja Panjang (2), Kursi (2), Sound System Portable (1).
                 </p>
               </div>
 
@@ -1090,9 +1097,11 @@ export default function KalenderSection() {
                   rows={2}
                   value={catatanPengajuan}
                   onChange={(e) => setCatatanPengajuan(e.target.value)}
-                  placeholder="Misal: Permintaan khusus, koordinasi pertemuan, atau poster menyusul..."
                   style={inputStyle}
                 />
+                <p style={{ margin: '4px 0 0', fontSize: '0.75rem', color: '#4b5563' }}>
+                  Contoh: Permintaan khusus, koordinasi pertemuan, atau poster menyusul.
+                </p>
               </div>
 
               <div>
@@ -1101,9 +1110,11 @@ export default function KalenderSection() {
                   rows={2}
                   value={deskripsiKegiatan}
                   onChange={(e) => setDeskripsiKegiatan(e.target.value)}
-                  placeholder="Catatan ringkas agar DKM mengetahui gambaran isi kegiatan..."
                   style={inputStyle}
                 />
+                <p style={{ margin: '4px 0 0', fontSize: '0.75rem', color: '#4b5563' }}>
+                  Catatan ringkas agar DKM mengetahui gambaran isi kegiatan.
+                </p>
               </div>
 
               <button
@@ -1169,10 +1180,6 @@ export default function KalenderSection() {
                 ✕
               </button>
             </div>
-            <p style={{ margin: '0 0 10px', fontSize: '0.78rem', color: '#4b5563' }}>
-              Pilih aset &amp; atur jumlah peminjaman pada tabel (maksimal sesuai stok tersedia),
-              atau ketik manual kebutuhan lainnya di kolom bawah.
-            </p>
             <div
               style={{
                 maxHeight: '260px',
