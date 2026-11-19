@@ -803,11 +803,8 @@ export default function KalenderSection() {
             >
               <div>
                 <h3 style={{ margin: 0, fontSize: '1.15rem', color: '#0f4a2a', fontWeight: 800 }}>
-                  Ajukan Jadwal Kegiatan Masjid
+                  Formulir Pengajuan Kegiatan Masjid Al-Jihad
                 </h3>
-                <p style={{ margin: '2px 0 0', fontSize: '0.8rem', color: '#4b5563' }}>
-                  Pengajuan akan ditinjau oleh Admin DKM Masjid Al-Jihad Karawang
-                </p>
               </div>
               <button
                 type="button"
@@ -852,17 +849,6 @@ export default function KalenderSection() {
                   value={namaKegiatan}
                   onChange={(e) => setNamaKegiatan(e.target.value)}
                   placeholder="Contoh: Santunan Anak Yatim & Kajian Bersama"
-                  style={inputStyle}
-                />
-              </div>
-
-              <div>
-                <label style={labelStyle}>Deskripsi Kegiatan (Opsional)</label>
-                <textarea
-                  rows={2}
-                  value={deskripsiKegiatan}
-                  onChange={(e) => setDeskripsiKegiatan(e.target.value)}
-                  placeholder="Catatan ringkas agar DKM mengetahui gambaran isi kegiatan..."
                   style={inputStyle}
                 />
               </div>
@@ -1109,12 +1095,23 @@ export default function KalenderSection() {
                 />
               </div>
 
+              <div>
+                <label style={labelStyle}>Deskripsi Kegiatan (Opsional)</label>
+                <textarea
+                  rows={2}
+                  value={deskripsiKegiatan}
+                  onChange={(e) => setDeskripsiKegiatan(e.target.value)}
+                  placeholder="Catatan ringkas agar DKM mengetahui gambaran isi kegiatan..."
+                  style={inputStyle}
+                />
+              </div>
+
               <button
                 type="submit"
                 className="btn btn-gold"
                 style={{ width: '100%', padding: '12px', fontWeight: 800, marginTop: '4px' }}
               >
-                Ajukan Jadwal Kegiatan
+                Ajukan Kegiatan
               </button>
             </form>
           </div>
