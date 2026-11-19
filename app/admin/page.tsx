@@ -3207,7 +3207,32 @@ export default function AdminSidebarPage() {
                   </div>
 
                   <div className={styles.formGroup}>
-                    <label>Peminjaman Aset Masjid (Opsional)</label>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        marginBottom: '6px',
+                      }}
+                    >
+                      <label style={{ marginBottom: 0 }}>Peminjaman Aset Masjid (Opsional)</label>
+                      <button
+                        type="button"
+                        onClick={() => setShowAsetAdminModal(true)}
+                        style={{
+                          border: '1px solid rgba(27, 107, 69, 0.3)',
+                          background: '#f0fdf4',
+                          color: '#14532d',
+                          borderRadius: '8px',
+                          padding: '4px 10px',
+                          fontSize: '0.76rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Lihat Daftar Aset Masjid
+                      </button>
+                    </div>
                     <input
                       type="text"
                       value={asetKal}
@@ -3465,14 +3490,8 @@ export default function AdminSidebarPage() {
                       }}
                     >
                       {ASET_MASJID_LIST.map((aset) => (
-                        <button
+                        <div
                           key={aset.nama}
-                          type="button"
-                          onClick={() =>
-                            setAsetKal((prev) =>
-                              prev.trim() ? `${prev.trim()}, ${aset.nama} (1)` : `${aset.nama} (1)`
-                            )
-                          }
                           style={{
                             display: 'flex',
                             justifyContent: 'space-between',
@@ -3481,15 +3500,13 @@ export default function AdminSidebarPage() {
                             borderRadius: '8px',
                             border: '1px solid rgba(27, 107, 69, 0.14)',
                             background: '#ffffff',
-                            cursor: 'pointer',
-                            textAlign: 'left',
                           }}
                         >
                           <span style={{ fontWeight: 700, fontSize: '0.84rem' }}>{aset.nama}</span>
                           <span style={{ fontSize: '0.76rem', color: '#15803d', fontWeight: 700 }}>
                             {`${aset.kategori} • ${aset.stok}`}
                           </span>
-                        </button>
+                        </div>
                       ))}
                     </div>
                     <div className={styles.formGroup}>

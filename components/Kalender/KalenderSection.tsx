@@ -946,7 +946,34 @@ export default function KalenderSection() {
               </div>
 
               <div>
-                <label style={labelStyle}>Peminjaman Aset Masjid (Isi Manual)</label>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    marginBottom: '5px',
+                  }}
+                >
+                  <label style={{ ...labelStyle, marginBottom: 0 }}>
+                    Peminjaman Aset Masjid (Isi Manual)
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowAsetModal(true)}
+                    style={{
+                      border: '1px solid rgba(27, 107, 69, 0.3)',
+                      background: '#f0fdf4',
+                      color: '#14532d',
+                      borderRadius: '8px',
+                      padding: '4px 10px',
+                      fontSize: '0.76rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Lihat Daftar Aset Masjid
+                  </button>
+                </div>
                 <input
                   type="text"
                   value={peminjamanAset}
@@ -1078,8 +1105,8 @@ export default function KalenderSection() {
               </button>
             </div>
             <p style={{ margin: '0 0 10px', fontSize: '0.78rem', color: '#4b5563' }}>
-              Gulir daftar di bawah untuk melihat aset yang tersedia (klik item untuk
-              menambahkan), lalu ketik/sesuaikan jumlahnya pada kolom di bawah.
+              Gulir daftar di bawah untuk melihat aset yang tersedia, lalu ketik manual nama aset
+              beserta jumlahnya pada kolom di bawah.
             </p>
             <div
               style={{
@@ -1095,14 +1122,8 @@ export default function KalenderSection() {
               }}
             >
               {ASET_MASJID_LIST.map((aset) => (
-                <button
+                <div
                   key={aset.nama}
-                  type="button"
-                  onClick={() =>
-                    setPeminjamanAset((prev) =>
-                      prev.trim() ? `${prev.trim()}, ${aset.nama} (1)` : `${aset.nama} (1)`
-                    )
-                  }
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -1111,8 +1132,6 @@ export default function KalenderSection() {
                     borderRadius: '8px',
                     border: '1px solid rgba(27, 107, 69, 0.14)',
                     background: '#ffffff',
-                    cursor: 'pointer',
-                    textAlign: 'left',
                   }}
                 >
                   <span style={{ fontWeight: 700, fontSize: '0.84rem', color: '#111827' }}>
@@ -1121,7 +1140,7 @@ export default function KalenderSection() {
                   <span style={{ fontSize: '0.76rem', color: '#15803d', fontWeight: 700 }}>
                     {`${aset.kategori} • ${aset.stok}`}
                   </span>
-                </button>
+                </div>
               ))}
             </div>
             <div>
