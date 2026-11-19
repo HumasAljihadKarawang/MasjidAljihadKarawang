@@ -343,35 +343,88 @@ export default function AdminSidebarPage() {
       img.src = srcUrl
     })
 
-  // Proses AI Neural Network Background Removal (@imgly/background-removal ISNet seperti web remove.bg)
+  // Perkecil foto ke maks 960px sebelum diproses AI agar 5x-10x lebih cepat tanpa mengurangi ketajaman poster
+  const resizePhotoForAi = (srcUrl: string, maxDim = 960): Promise<Blob | null> =>
+    new Promise((resolve) => {
+      const img = new window.Image()
+      img.onload = () => {
+        const sw = img.width || 1
+        const sh = img.height || 1
+        const scale = Math.min(1, maxDim / Math.max(sw, sh))
+        const dw = Math.max(1, Math.round(sw * scale))
+        const dh = Math.max(1, Math.round(sh * scale))
+        const c = document.createElement('canvas')
+        c.width = dw
+        c.height = dh
+        const cctx = c.getContext('2d')
+        if (!cctx) {
+          resolve(null)
+          return
+        }
+        cctx.drawImage(img, 0, 0, dw, dh)
+        c.toBlob((b) => resolve(b), 'image/jpeg', 0.92)
+      }
+      img.onerror = () => resolve(null)
+      img.src = srcUrl
+    })
+
+  // Preload modul AI saat membuka tab Studio Poster agar saat upload langsung responsif
+  const aiModulePromiseRef = useRef<Promise<unknown> | null>(null)
+  useEffect(() => {
+    if (activeTab === 'poster_khatib' && !aiModulePromiseRef.current) {
+      aiModulePromiseRef.current = import(
+        // @ts-expect-error ESM remote import resolved at runtime in browser
+        /* webpackIgnore: true */ 'https://esm.sh/@imgly/background-removal@1.4.5'
+      ).catch(() => null)
+    }
+  }, [activeTab])
+
+  // Proses AI Neural Network Background Removal (@imgly/background-removal ISNet cepat & responsif)
   const handleUploadKhatibWithAI = async (file: File) => {
+    setAiCutoutPhoto(null)
+    setAiProcessing(true)
+    setAiProgressPct(2)
+    setAiProgressText('2%')
+
     const reader = new FileReader()
     reader.onload = async () => {
       const dataUrl = reader.result as string
       setRawKhatibPhoto(dataUrl)
-      setAiCutoutPhoto(null)
-      setAiProcessing(true)
-      setAiProgressPct(0)
-      setAiProgressText('0%')
 
       // Animasi persen awal halus selama inisialisasi modul AI
       let hasRealProgress = false
       const warmupTimer = window.setInterval(() => {
         if (hasRealProgress) return
         setAiProgressPct((prev) => {
-          const next = prev < 18 ? prev + 2 : prev
+          const next = prev < 22 ? prev + 3 : prev
           setAiProgressText(`${next}%`)
           return next
         })
-      }, 220)
+      }, 150)
 
       try {
-        const mod = await import(
-          // @ts-expect-error ESM remote import resolved at runtime in browser
-          /* webpackIgnore: true */ 'https://esm.sh/@imgly/background-removal@1.4.5'
-        )
+        const [resizedBlob, modRaw] = await Promise.all([
+          resizePhotoForAi(dataUrl, 960),
+          aiModulePromiseRef.current ||
+            import(
+              // @ts-expect-error ESM remote import resolved at runtime in browser
+              /* webpackIgnore: true */ 'https://esm.sh/@imgly/background-removal@1.4.5'
+            ),
+        ])
+        const mod = modRaw as {
+          removeBackground?: (
+            input: Blob | File,
+            cfg?: Record<string, unknown>
+          ) => Promise<Blob>
+          default?: (input: Blob | File, cfg?: Record<string, unknown>) => Promise<Blob>
+        }
         const removeBgFn = mod.removeBackground || mod.default
-        const blobResult: Blob = await removeBgFn(file, {
+        if (!removeBgFn) throw new Error('AI module unavailable')
+
+        const inputForAi = resizedBlob || file
+        const blobResult: Blob = await removeBgFn(inputForAi, {
+          model: 'small',
+          output: { format: 'image/png', quality: 0.9 },
           progress: (_key: string, current: number, total: number) => {
             if (total > 0) {
               hasRealProgress = true
