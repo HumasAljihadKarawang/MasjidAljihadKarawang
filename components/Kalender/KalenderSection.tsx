@@ -51,6 +51,7 @@ export default function KalenderSection() {
   const [peminjamanAset, setPeminjamanAset] = useState('')
   const [posterUrl, setPosterUrl] = useState('')
   const [uploadingPoster, setUploadingPoster] = useState(false)
+  const [posterUploadPct, setPosterUploadPct] = useState(0)
   const [catatanPengajuan, setCatatanPengajuan] = useState('')
   const [formError, setFormError] = useState('')
   const [submitSuccess, setSubmitSuccess] = useState('')
@@ -1006,36 +1007,93 @@ export default function KalenderSection() {
                     const file = e.target.files?.[0]
                     if (!file) return
                     setUploadingPoster(true)
+                    setPosterUploadPct(5)
                     try {
                       const fd = new FormData()
                       fd.append('file', file)
                       fd.append('folder', 'masjid-aljihad/kalender-poster')
                       fd.append('resourceType', 'image')
-                      const res = await fetch('/api/upload', { method: 'POST', body: fd })
-                      const json = await res.json()
-                      if (res.ok && json.url) {
-                        setPosterUrl(json.url)
+
+                      const uploadedUrl = await new Promise<string | null>((resolve) => {
+                        const xhr = new XMLHttpRequest()
+                        xhr.open('POST', '/api/upload')
+                        xhr.upload.onprogress = (ev) => {
+                          if (ev.lengthComputable && ev.total > 0) {
+                            const pct = Math.min(95, Math.max(10, Math.round((ev.loaded / ev.total) * 95)))
+                            setPosterUploadPct(pct)
+                          }
+                        }
+                        xhr.onload = () => {
+                          try {
+                            const json = JSON.parse(xhr.responseText || '{}')
+                            if (xhr.status >= 200 && xhr.status < 300 && json.url) {
+                              resolve(String(json.url))
+                              return
+                            }
+                          } catch {
+                            // ignore parse error
+                          }
+                          resolve(null)
+                        }
+                        xhr.onerror = () => resolve(null)
+                        xhr.send(fd)
+                      })
+
+                      if (uploadedUrl) {
+                        setPosterUploadPct(100)
+                        setPosterUrl(uploadedUrl)
+                        setUploadingPoster(false)
                         return
                       }
                     } catch {
                       // fallback below
-                    } finally {
+                    }
+
+                    const reader = new FileReader()
+                    reader.onload = () => {
+                      setPosterUrl(String(reader.result || ''))
+                      setPosterUploadPct(100)
                       setUploadingPoster(false)
                     }
-                    const reader = new FileReader()
-                    reader.onload = () => setPosterUrl(String(reader.result || ''))
                     reader.readAsDataURL(file)
                   }}
                   style={inputStyle}
                 />
                 {uploadingPoster && (
-                  <p style={{ margin: '4px 0 0', fontSize: '0.76rem', color: '#b45309', fontWeight: 700 }}>
-                    Mengunggah poster ke Cloudinary...
-                  </p>
+                  <div style={{ marginTop: '6px' }}>
+                    <div
+                      style={{
+                        height: '6px',
+                        width: '100%',
+                        borderRadius: '999px',
+                        background: '#e5e7eb',
+                        overflow: 'hidden',
+                      }}
+                    >
+                      <div
+                        style={{
+                          height: '100%',
+                          width: `${posterUploadPct}%`,
+                          background: 'linear-gradient(90deg, #16a34a, #15803d)',
+                          transition: 'width 0.2s ease',
+                        }}
+                      />
+                    </div>
+                    <p
+                      style={{
+                        margin: '4px 0 0',
+                        fontSize: '0.76rem',
+                        color: '#b45309',
+                        fontWeight: 700,
+                      }}
+                    >
+                      {`Mengunggah poster... ${posterUploadPct}%`}
+                    </p>
+                  </div>
                 )}
                 {!uploadingPoster && posterUrl && (
                   <p style={{ margin: '4px 0 0', fontSize: '0.76rem', color: '#15803d', fontWeight: 700 }}>
-                    ✓ Poster siap ({posterUrl.startsWith('http') ? 'Tersimpan di Cloudinary' : 'Terlampir'})
+                    ✓ Terupload (100%)
                   </p>
                 )}
               </div>
