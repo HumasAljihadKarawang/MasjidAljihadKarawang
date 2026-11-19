@@ -58,6 +58,7 @@ export default function KalenderSection() {
 
   // State Pop-up Daftar Aset Masjid (Tabel Pilih + Jumlah Maksimal Stok + Ketik Manual)
   const [showAsetModal, setShowAsetModal] = useState(false)
+  const [previewPengajuan, setPreviewPengajuan] = useState<PengajuanKalenderItem | null>(null)
   const [selectedAsetQty, setSelectedAsetQty] = useState<Record<string, number>>({})
   const [manualAsetExtra, setManualAsetExtra] = useState('')
 
@@ -669,48 +670,52 @@ export default function KalenderSection() {
               Belum ada pengajuan jadwal kegiatan yang masuk.
             </div>
           ) : (
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))',
-                gap: '14px',
-              }}
-            >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {pengajuanList.map((pgj) => (
-                <div
+                <button
                   key={pgj.id}
+                  type="button"
+                  onClick={() => setPreviewPengajuan(pgj)}
                   style={{
-                    padding: '14px 16px',
-                    borderRadius: '14px',
+                    width: '100%',
+                    padding: '12px 16px',
+                    borderRadius: '12px',
                     border: '1px solid rgba(27, 107, 69, 0.16)',
                     background: '#f9fbf9',
                     display: 'flex',
-                    flexDirection: 'column',
-                    gap: '6px',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '10px',
+                    cursor: 'pointer',
+                    textAlign: 'left',
                   }}
                 >
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      gap: '8px',
-                    }}
-                  >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', flex: 1 }}>
                     <span
                       style={{
                         fontSize: '0.74rem',
                         fontWeight: 700,
                         color: '#14532d',
+                        background: '#ecfdf5',
+                        padding: '4px 10px',
+                        borderRadius: '8px',
+                        whiteSpace: 'nowrap',
                       }}
                     >
                       {`${pgj.tanggal} • ${pgj.jamMulai}–${pgj.jamSelesai} WIB`}
                     </span>
+                    <span style={{ fontSize: '0.92rem', fontWeight: 800, color: '#111827' }}>
+                      {pgj.namaKegiatan}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <span
                       style={{
                         fontSize: '0.72rem',
                         fontWeight: 800,
-                        padding: '3px 10px',
+                        padding: '4px 10px',
                         borderRadius: '999px',
                         background:
                           pgj.status === 'Disetujui'
@@ -728,43 +733,156 @@ export default function KalenderSection() {
                     >
                       {pgj.status === 'Menunggu' ? 'Menunggu Tinjauan' : pgj.status}
                     </span>
-                  </div>
-                  <h4 style={{ margin: 0, fontSize: '0.96rem', fontWeight: 800, color: '#111827' }}>
-                    {pgj.namaKegiatan}
-                  </h4>
-                  <div style={{ fontSize: '0.8rem', color: '#374151', lineHeight: 1.5 }}>
-                    <div>
-                      <strong>PJ:</strong> {pgj.penanggungJawab}
-                    </div>
-                    <div>
-                      <strong>Tempat:</strong> {pgj.tempatKegiatan}
-                    </div>
-                    {pgj.peminjamanAset && pgj.peminjamanAset !== '-' && (
-                      <div>
-                        <strong>Aset:</strong> {pgj.peminjamanAset}
-                      </div>
-                    )}
-                  </div>
-                  {pgj.posterUrl && (
-                    <img
-                      src={pgj.posterUrl}
-                      alt={`Poster ${pgj.namaKegiatan}`}
+                    <span
                       style={{
-                        marginTop: '4px',
-                        maxWidth: '140px',
-                        maxHeight: '170px',
-                        borderRadius: '8px',
-                        border: '1px solid rgba(27, 107, 69, 0.18)',
-                        objectFit: 'cover',
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        color: '#1b6b45',
+                        whiteSpace: 'nowrap',
                       }}
-                    />
-                  )}
-                </div>
+                    >
+                      Preview ›
+                    </span>
+                  </div>
+                </button>
               ))}
             </div>
           )}
         </div>
       </div>
+
+      {/* POP-UP PREVIEW DETAIL PENGAJUAN UNTUK PENGGUNA UMUM */}
+      {previewPengajuan && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.68)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 9995,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px',
+          }}
+          onClick={() => setPreviewPengajuan(null)}
+        >
+          <div
+            style={{
+              background: '#ffffff',
+              borderRadius: '18px',
+              width: '100%',
+              maxWidth: '500px',
+              maxHeight: '88vh',
+              overflowY: 'auto',
+              padding: '22px',
+              boxShadow: '0 24px 60px rgba(0, 0, 0, 0.3)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: '12px',
+              }}
+            >
+              <span
+                style={{
+                  fontSize: '0.75rem',
+                  fontWeight: 800,
+                  padding: '4px 12px',
+                  borderRadius: '999px',
+                  background:
+                    previewPengajuan.status === 'Disetujui'
+                      ? '#dcfce7'
+                      : previewPengajuan.status === 'Ditolak'
+                        ? '#fee2e2'
+                        : '#fef3c7',
+                  color:
+                    previewPengajuan.status === 'Disetujui'
+                      ? '#166534'
+                      : previewPengajuan.status === 'Ditolak'
+                        ? '#991b1b'
+                        : '#92400e',
+                }}
+              >
+                {previewPengajuan.status === 'Menunggu'
+                  ? 'Menunggu Tinjauan Admin'
+                  : previewPengajuan.status}
+              </span>
+              <button
+                type="button"
+                onClick={() => setPreviewPengajuan(null)}
+                style={{
+                  border: 'none',
+                  background: '#f3f4f6',
+                  borderRadius: '8px',
+                  width: '32px',
+                  height: '32px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <h3 style={{ margin: '0 0 12px', fontSize: '1.15rem', fontWeight: 800, color: '#0f4a2a' }}>
+              {previewPengajuan.namaKegiatan}
+            </h3>
+
+            <div
+              style={{
+                display: 'grid',
+                gap: '8px',
+                fontSize: '0.86rem',
+                color: '#1f2937',
+                background: '#f8faf8',
+                padding: '14px',
+                borderRadius: '12px',
+                border: '1px solid rgba(27, 107, 69, 0.14)',
+              }}
+            >
+              <div>
+                <strong>Hari / Tanggal :</strong> {previewPengajuan.tanggal}
+              </div>
+              <div>
+                <strong>Waktu :</strong>{' '}
+                {`${previewPengajuan.jamMulai} – ${previewPengajuan.jamSelesai} WIB`}
+              </div>
+              <div>
+                <strong>Penanggung Jawab :</strong> {previewPengajuan.penanggungJawab}
+              </div>
+              <div>
+                <strong>Tempat Kegiatan :</strong> {previewPengajuan.tempatKegiatan}
+              </div>
+              {previewPengajuan.peminjamanAset && previewPengajuan.peminjamanAset !== '-' && (
+                <div>
+                  <strong>Peminjaman Aset :</strong> {previewPengajuan.peminjamanAset}
+                </div>
+              )}
+            </div>
+
+            {previewPengajuan.posterUrl && (
+              <div style={{ marginTop: '14px', textAlign: 'center' }}>
+                <img
+                  src={previewPengajuan.posterUrl}
+                  alt={`Poster ${previewPengajuan.namaKegiatan}`}
+                  style={{
+                    maxWidth: '100%',
+                    maxHeight: '320px',
+                    borderRadius: '12px',
+                    border: '1px solid rgba(27, 107, 69, 0.18)',
+                    objectFit: 'contain',
+                  }}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* POP-UP FORM PENGAJUAN JADWAL OLEH PENGGUNA */}
       {showPengajuanModal && (
