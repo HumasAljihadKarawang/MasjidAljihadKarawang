@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import Image from 'next/image'
+import logoMasjidWarna from '@/logo/Logo Masjid Al-Jihad.png'
 import {
   masjidStore,
   findScheduleConflicts,
@@ -55,6 +57,7 @@ export default function KalenderSection() {
   const [catatanPengajuan, setCatatanPengajuan] = useState('')
   const [formError, setFormError] = useState('')
   const [submitSuccess, setSubmitSuccess] = useState('')
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
 
   // State Pop-up Daftar Aset Masjid (Tabel Pilih + Jumlah Maksimal Stok + Ketik Manual)
   const [showAsetModal, setShowAsetModal] = useState(false)
@@ -366,9 +369,12 @@ export default function KalenderSection() {
     setPeminjamanAset('')
     setPosterUrl('')
     setCatatanPengajuan('')
+    setSelectedAsetQty({})
+    setManualAsetExtra('')
     setSubmitSuccess(
-      'Pengajuan jadwal kegiatan Anda berhasil dikirim dan masuk ke Dashboard Admin DKM untuk ditinjau.'
+      'Pengajuan berhasil terkirim! Tinggal menunggu tinjauan dari Admin DKM Masjid Al-Jihad.'
     )
+    setShowSuccessModal(true)
   }
 
   const formatCountdown = (sec: number) => {
@@ -1574,6 +1580,64 @@ export default function KalenderSection() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* POP-UP ANIMASI AL-JIHAD BERHASIL TERKIRIM */}
+      {showSuccessModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.72)',
+            backdropFilter: 'blur(5px)',
+            zIndex: 10020,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px',
+          }}
+        >
+          <div className={styles.successModalCard}>
+            <div className={styles.successLogoWrap}>
+              <span className={styles.successPulseRing} />
+              <Image
+                src={logoMasjidWarna}
+                alt="Logo Masjid Al-Jihad"
+                width={logoMasjidWarna.width}
+                height={logoMasjidWarna.height}
+                style={{
+                  width: '72px',
+                  height: 'auto',
+                  objectFit: 'contain',
+                  position: 'relative',
+                  zIndex: 2,
+                }}
+              />
+              <span className={styles.successCheckBadge}>✓</span>
+            </div>
+            <h3 style={{ margin: '0 0 8px', color: '#0f4a2a', fontSize: '1.2rem', fontWeight: 800 }}>
+              Pengajuan Berhasil Terkirim
+            </h3>
+            <p
+              style={{
+                margin: '0 0 18px',
+                fontSize: '0.86rem',
+                color: '#374151',
+                lineHeight: 1.6,
+              }}
+            >
+              Data pengajuan kegiatan Anda sudah diterima sistem dan sedang menunggu tinjauan dari
+              Admin DKM Masjid Al-Jihad Karawang.
+            </p>
+            <button
+              type="button"
+              className="btn btn-gold"
+              onClick={() => setShowSuccessModal(false)}
+              style={{ width: '100%', padding: '11px', fontWeight: 800 }}
+            >
+              Selesai
+            </button>
           </div>
         </div>
       )}
