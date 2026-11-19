@@ -855,6 +855,19 @@ export default function KalenderSection() {
                 </p>
               </div>
 
+              <div>
+                <label style={labelStyle}>Deskripsi Kegiatan (Opsional)</label>
+                <textarea
+                  rows={2}
+                  value={deskripsiKegiatan}
+                  onChange={(e) => setDeskripsiKegiatan(e.target.value)}
+                  style={inputStyle}
+                />
+                <p style={{ margin: '4px 0 0', fontSize: '0.75rem', color: '#4b5563' }}>
+                  Catatan ringkas agar DKM mengetahui gambaran isi kegiatan.
+                </p>
+              </div>
+
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 <div>
                   <label style={labelStyle}>Penanggung Jawab &amp; Instansi *</label>
@@ -1101,19 +1114,6 @@ export default function KalenderSection() {
                 />
                 <p style={{ margin: '4px 0 0', fontSize: '0.75rem', color: '#4b5563' }}>
                   Contoh: Permintaan khusus, koordinasi pertemuan, atau poster menyusul.
-                </p>
-              </div>
-
-              <div>
-                <label style={labelStyle}>Deskripsi Kegiatan (Opsional)</label>
-                <textarea
-                  rows={2}
-                  value={deskripsiKegiatan}
-                  onChange={(e) => setDeskripsiKegiatan(e.target.value)}
-                  style={inputStyle}
-                />
-                <p style={{ margin: '4px 0 0', fontSize: '0.75rem', color: '#4b5563' }}>
-                  Catatan ringkas agar DKM mengetahui gambaran isi kegiatan.
                 </p>
               </div>
 
