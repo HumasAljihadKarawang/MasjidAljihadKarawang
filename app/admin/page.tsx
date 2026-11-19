@@ -2385,7 +2385,7 @@ export default function AdminSidebarPage() {
 
     if (getActiveSupabaseConfig().isConfigured) {
       const sb = getSupabaseClient()
-      await sb.from('jadwal_terdekat').insert({
+      const { error: insErr } = await sb.from('jadwal_terdekat').insert({
         nama_acara: newAgenda.judul,
         pemateri: newAgenda.pemateri,
         tanggal: newAgenda.tanggal,
@@ -2398,6 +2398,20 @@ export default function AdminSidebarPage() {
         peminjaman_aset: newAgenda.peminjamanAset || '',
         aktif: true,
       })
+      if (insErr) {
+        await sb.from('jadwal_terdekat').insert({
+          nama_acara: newAgenda.judul,
+          pemateri: newAgenda.pemateri,
+          tanggal: newAgenda.tanggal,
+          jam_mulai: newAgenda.jamMulai,
+          jam_selesai: newAgenda.jamSelesai,
+          waktu: `${newAgenda.jamMulai} - ${newAgenda.jamSelesai} WIB`,
+          lokasi: newAgenda.ruangan,
+          kategori: newAgenda.kategori,
+          keterangan: newAgenda.keterangan,
+          aktif: true,
+        })
+      }
     }
 
     setJudulKal('')
@@ -2450,7 +2464,7 @@ export default function AdminSidebarPage() {
 
       if (getActiveSupabaseConfig().isConfigured) {
         const sb = getSupabaseClient()
-        await sb.from('jadwal_terdekat').insert({
+        const { error: insErr } = await sb.from('jadwal_terdekat').insert({
           nama_acara: newAgenda.judul,
           pemateri: newAgenda.pemateri,
           tanggal: newAgenda.tanggal,
@@ -2464,6 +2478,20 @@ export default function AdminSidebarPage() {
           poster_url: newAgenda.posterUrl || '',
           aktif: true,
         })
+        if (insErr) {
+          await sb.from('jadwal_terdekat').insert({
+            nama_acara: newAgenda.judul,
+            pemateri: newAgenda.pemateri,
+            tanggal: newAgenda.tanggal,
+            jam_mulai: newAgenda.jamMulai,
+            jam_selesai: newAgenda.jamSelesai,
+            waktu: `${newAgenda.jamMulai} - ${newAgenda.jamSelesai} WIB`,
+            lokasi: newAgenda.ruangan,
+            kategori: newAgenda.kategori,
+            keterangan: newAgenda.keterangan,
+            aktif: true,
+          })
+        }
       }
       setSuccessMsg(`Pengajuan "${item.namaKegiatan}" telah disetujui dan masuk ke Kalender Masjid!`)
     } else {

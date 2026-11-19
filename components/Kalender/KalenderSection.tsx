@@ -219,9 +219,39 @@ export default function KalenderSection() {
     setSelectedDate(null)
   }
 
+  // Gabungkan jadwal terdaftar dengan pengajuan yang sudah Disetujui agar kalender selalu aktif otomatis
+  const approvedFromSubmissions: AgendaKalenderItem[] = pengajuanList
+    .filter((p) => p.status === 'Disetujui')
+    .map((p) => ({
+      id: `approved-${p.id}`,
+      judul: p.namaKegiatan,
+      pemateri: p.penanggungJawab,
+      tanggal: p.tanggal,
+      jamMulai: p.jamMulai,
+      jamSelesai: p.jamSelesai,
+      ruangan: p.tempatKegiatan,
+      kategori: 'Sosial' as AgendaKalenderItem['kategori'],
+      keterangan: '',
+      peminjamanAset: p.peminjamanAset,
+      posterUrl: p.posterUrl,
+    }))
+
+  const effectiveAgendas: AgendaKalenderItem[] = [...agendas]
+  for (const ap of approvedFromSubmissions) {
+    const alreadyExists = effectiveAgendas.some(
+      (a) =>
+        a.judul.trim().toLowerCase() === ap.judul.trim().toLowerCase() &&
+        a.tanggal === ap.tanggal &&
+        a.jamMulai === ap.jamMulai
+    )
+    if (!alreadyExists) {
+      effectiveAgendas.push(ap)
+    }
+  }
+
   const displayedAgendas = selectedDate
-    ? agendas.filter((a) => a.tanggal === selectedDate)
-    : agendas
+    ? effectiveAgendas.filter((a) => a.tanggal === selectedDate)
+    : effectiveAgendas
 
   // Cek bentrok jadwal pengajuan pengguna secara real-time (tanggal sama boleh, jam tidak boleh bertabrakan)
   const userConflicts = findScheduleConflicts(
@@ -235,7 +265,7 @@ export default function KalenderSection() {
       kategori: 'Kajian',
       keterangan: deskripsiKegiatan,
     },
-    agendas
+    effectiveAgendas
   )
 
   const handleOpenCaptchaVerification = (e: React.FormEvent) => {
@@ -480,9 +510,9 @@ export default function KalenderSection() {
                 const dateStr = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(
                   dayNum
                 ).padStart(2, '0')}`
-                const dayEvents = agendas.filter((a) => a.tanggal === dateStr)
+                const dayEvents = effectiveAgendas.filter((a) => a.tanggal === dateStr)
                 const hasConflict = dayEvents.some(
-                  (ev) => findScheduleConflicts(ev, agendas, ev.id).length > 0
+                  (ev) => findScheduleConflicts(ev, effectiveAgendas, ev.id).length > 0
                 )
 
                 return (
@@ -570,7 +600,7 @@ export default function KalenderSection() {
                 </div>
               ) : (
                 displayedAgendas.map((item) => {
-                const conflicts = findScheduleConflicts(item, agendas, item.id)
+                const conflicts = findScheduleConflicts(item, effectiveAgendas, item.id)
                 const isConflict = conflicts.length > 0
 
                 return (
