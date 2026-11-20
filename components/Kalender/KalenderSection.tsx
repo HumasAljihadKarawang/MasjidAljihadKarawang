@@ -64,6 +64,10 @@ export default function KalenderSection() {
   const [previewPengajuan, setPreviewPengajuan] = useState<PengajuanKalenderItem | null>(null)
   const [selectedAsetQty, setSelectedAsetQty] = useState<Record<string, number>>({})
   const [manualAsetExtra, setManualAsetExtra] = useState('')
+  const [unsavedModalUser, setUnsavedModalUser] = useState<{
+    contextLabel?: string
+    onDiscard: () => void
+  } | null>(null)
 
   const syncUserAsetSelection = (nextQty: Record<string, number>, nextExtra: string) => {
     const picked = ASET_MASJID_LIST.filter((a) => (nextQty[a.nama] || 0) > 0).map(
@@ -249,9 +253,19 @@ export default function KalenderSection() {
     }
   }
 
+  const nowLocalUser = new Date()
+  const todayIsoUser = `${nowLocalUser.getFullYear()}-${String(
+    nowLocalUser.getMonth() + 1
+  ).padStart(2, '0')}-${String(nowLocalUser.getDate()).padStart(2, '0')}`
+
+  // Hanya tampilkan kegiatan yang belum lewat tanggalnya & urutkan yang paling dekat waktunya di paling atas
+  const upcomingAgendas: AgendaKalenderItem[] = effectiveAgendas
+    .filter((a) => a.tanggal >= todayIsoUser)
+    .sort((a, b) => a.tanggal.localeCompare(b.tanggal) || a.jamMulai.localeCompare(b.jamMulai))
+
   const displayedAgendas = selectedDate
-    ? effectiveAgendas.filter((a) => a.tanggal === selectedDate)
-    : effectiveAgendas
+    ? upcomingAgendas.filter((a) => a.tanggal === selectedDate)
+    : upcomingAgendas
 
   // Cek bentrok jadwal pengajuan pengguna secara real-time (tanggal sama boleh, jam tidak boleh bertabrakan)
   const userConflicts = findScheduleConflicts(
@@ -934,6 +948,25 @@ export default function KalenderSection() {
             justifyContent: 'center',
             padding: '16px',
           }}
+          onClick={() =>
+            setUnsavedModalUser({
+              contextLabel: 'Formulir Pengajuan Kegiatan Masjid Al-Jihad',
+              onDiscard: () => {
+                setShowPengajuanModal(false)
+                setNamaKegiatan('')
+                setDeskripsiKegiatan('')
+                setPenanggungJawab('')
+                setNoTeleponPj('')
+                setTempatKegiatan('')
+                setPeminjamanAset('')
+                setPosterUrl('')
+                setCatatanPengajuan('')
+                setSelectedAsetQty({})
+                setManualAsetExtra('')
+                setFormError('')
+              },
+            })
+          }
         >
           <div
             style={{
@@ -946,6 +979,7 @@ export default function KalenderSection() {
               padding: '24px',
               boxShadow: '0 24px 60px rgba(0, 0, 0, 0.28)',
             }}
+            onClick={(e) => e.stopPropagation()}
           >
             <div
               style={{
@@ -962,7 +996,26 @@ export default function KalenderSection() {
               </div>
               <button
                 type="button"
-                onClick={() => setShowPengajuanModal(false)}
+                aria-label="Tutup Pop-up"
+                onClick={() =>
+                  setUnsavedModalUser({
+                    contextLabel: 'Formulir Pengajuan Kegiatan Masjid Al-Jihad',
+                    onDiscard: () => {
+                      setShowPengajuanModal(false)
+                      setNamaKegiatan('')
+                      setDeskripsiKegiatan('')
+                      setPenanggungJawab('')
+                      setNoTeleponPj('')
+                      setTempatKegiatan('')
+                      setPeminjamanAset('')
+                      setPosterUrl('')
+                      setCatatanPengajuan('')
+                      setSelectedAsetQty({})
+                      setManualAsetExtra('')
+                      setFormError('')
+                    },
+                  })
+                }
                 style={{
                   border: 'none',
                   background: '#f3f4f6',
@@ -1296,6 +1349,17 @@ export default function KalenderSection() {
             justifyContent: 'center',
             padding: '16px',
           }}
+          onClick={() =>
+            setUnsavedModalUser({
+              contextLabel: 'Pilihan Peminjaman Aset Masjid',
+              onDiscard: () => {
+                setSelectedAsetQty({})
+                setManualAsetExtra('')
+                setPeminjamanAset('')
+                setShowAsetModal(false)
+              },
+            })
+          }
         >
           <div
             style={{
@@ -1306,6 +1370,7 @@ export default function KalenderSection() {
               padding: '20px',
               boxShadow: '0 24px 60px rgba(0, 0, 0, 0.3)',
             }}
+            onClick={(e) => e.stopPropagation()}
           >
             <div
               style={{
@@ -1320,7 +1385,17 @@ export default function KalenderSection() {
               </h4>
               <button
                 type="button"
-                onClick={() => setShowAsetModal(false)}
+                onClick={() =>
+                  setUnsavedModalUser({
+                    contextLabel: 'Pilihan Peminjaman Aset Masjid',
+                    onDiscard: () => {
+                      setSelectedAsetQty({})
+                      setManualAsetExtra('')
+                      setPeminjamanAset('')
+                      setShowAsetModal(false)
+                    },
+                  })
+                }
                 style={{
                   border: 'none',
                   background: '#f3f4f6',
@@ -1495,6 +1570,12 @@ export default function KalenderSection() {
             justifyContent: 'center',
             padding: '16px',
           }}
+          onClick={() =>
+            setUnsavedModalUser({
+              contextLabel: 'Verifikasi Keamanan Pengajuan',
+              onDiscard: () => setShowCaptchaModal(false),
+            })
+          }
         >
           <div
             style={{
@@ -1505,8 +1586,34 @@ export default function KalenderSection() {
               padding: '22px',
               boxShadow: '0 24px 60px rgba(0, 0, 0, 0.32)',
               textAlign: 'center',
+              position: 'relative',
             }}
+            onClick={(e) => e.stopPropagation()}
           >
+            <button
+              type="button"
+              aria-label="Tutup Pop-up"
+              onClick={() =>
+                setUnsavedModalUser({
+                  contextLabel: 'Verifikasi Keamanan Pengajuan',
+                  onDiscard: () => setShowCaptchaModal(false),
+                })
+              }
+              style={{
+                position: 'absolute',
+                top: '14px',
+                right: '14px',
+                border: 'none',
+                background: '#f3f4f6',
+                borderRadius: '8px',
+                width: '30px',
+                height: '30px',
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              ✕
+            </button>
             <h4 style={{ margin: '0 0 6px', color: '#0f4a2a', fontWeight: 800 }}>
               Verifikasi Keamanan
             </h4>
@@ -1587,7 +1694,12 @@ export default function KalenderSection() {
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button
                   type="button"
-                  onClick={() => setShowCaptchaModal(false)}
+                  onClick={() =>
+                    setUnsavedModalUser({
+                      contextLabel: 'Verifikasi Keamanan Pengajuan',
+                      onDiscard: () => setShowCaptchaModal(false),
+                    })
+                  }
                   style={{
                     flex: 1,
                     padding: '10px',
@@ -1627,8 +1739,32 @@ export default function KalenderSection() {
             justifyContent: 'center',
             padding: '16px',
           }}
+          onClick={() => setShowSuccessModal(false)}
         >
-          <div className={styles.successModalCard}>
+          <div
+            className={styles.successModalCard}
+            style={{ position: 'relative' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              aria-label="Tutup Pop-up"
+              onClick={() => setShowSuccessModal(false)}
+              style={{
+                position: 'absolute',
+                top: '14px',
+                right: '14px',
+                border: 'none',
+                background: '#f3f4f6',
+                borderRadius: '8px',
+                width: '30px',
+                height: '30px',
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              ✕
+            </button>
             <div className={styles.successLogoWrap}>
               <span className={styles.successPulseRing} />
               <Image
@@ -1668,6 +1804,135 @@ export default function KalenderSection() {
             >
               Selesai
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* POP-UP ALA WEB: NOTIFIKASI PERUBAHAN TIDAK AKAN DISIMPAN */}
+      {unsavedModalUser && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.72)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 10050,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px',
+          }}
+          onClick={() => setUnsavedModalUser(null)}
+        >
+          <div
+            style={{
+              background: '#ffffff',
+              borderRadius: '18px',
+              width: '100%',
+              maxWidth: '420px',
+              padding: '24px',
+              boxShadow: '0 24px 60px rgba(0, 0, 0, 0.34)',
+              position: 'relative',
+              textAlign: 'center',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              aria-label="Tutup"
+              onClick={() => setUnsavedModalUser(null)}
+              style={{
+                position: 'absolute',
+                top: '14px',
+                right: '14px',
+                border: 'none',
+                background: '#f3f4f6',
+                borderRadius: '8px',
+                width: '30px',
+                height: '30px',
+                fontWeight: 800,
+                cursor: 'pointer',
+              }}
+            >
+              ✕
+            </button>
+
+            <div
+              style={{
+                width: '54px',
+                height: '54px',
+                borderRadius: '999px',
+                background: '#fef3c7',
+                border: '2px solid #f59e0b',
+                color: '#b45309',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '1.5rem',
+                fontWeight: 900,
+                marginBottom: '12px',
+              }}
+            >
+              !
+            </div>
+
+            <h3 style={{ margin: '0 0 8px', color: '#0f4a2a', fontSize: '1.12rem', fontWeight: 800 }}>
+              Perubahan Tidak Akan Disimpan
+            </h3>
+
+            <p
+              style={{
+                margin: '0 0 18px',
+                fontSize: '0.86rem',
+                color: '#374151',
+                lineHeight: 1.55,
+              }}
+            >
+              {unsavedModalUser.contextLabel
+                ? `Anda akan menutup ${unsavedModalUser.contextLabel}. Data yang sudah diisi belum dikirim dan perubahan tidak akan disimpan.`
+                : 'Data yang sedang Anda isi belum dikirim. Jika keluar sekarang, perubahan tidak akan disimpan.'}
+            </p>
+
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                type="button"
+                onClick={() => setUnsavedModalUser(null)}
+                style={{
+                  flex: 1,
+                  padding: '10px 14px',
+                  borderRadius: '10px',
+                  border: '1px solid #d1d5db',
+                  background: '#f9fafb',
+                  color: '#1f2937',
+                  fontWeight: 700,
+                  fontSize: '0.84rem',
+                  cursor: 'pointer',
+                }}
+              >
+                Lanjut Mengisi
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const act = unsavedModalUser.onDiscard
+                  setUnsavedModalUser(null)
+                  act()
+                }}
+                style={{
+                  flex: 1,
+                  padding: '10px 14px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  background: '#dc2626',
+                  color: '#ffffff',
+                  fontWeight: 800,
+                  fontSize: '0.84rem',
+                  cursor: 'pointer',
+                }}
+              >
+                Keluar (Jangan Simpan)
+              </button>
+            </div>
           </div>
         </div>
       )}

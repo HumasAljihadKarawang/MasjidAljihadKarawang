@@ -11,6 +11,8 @@ export default function KritikSaranSection() {
   const [kategori, setKategori] = useState('Fasilitas & Kebersihan')
   const [pesan, setPesan] = useState('')
   const [sent, setSent] = useState(false)
+  const [showUnsavedModal, setShowUnsavedModal] = useState(false)
+  const hasUnsavedInput = Boolean(nama.trim() || kontak.trim() || pesan.trim())
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -117,12 +119,161 @@ export default function KritikSaranSection() {
               />
             </div>
 
-            <button type="submit" className="btn btn-primary">
-              Kirim Kritik &amp; Saran ke Admin DKM →
-            </button>
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+              <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>
+                Kirim Kritik &amp; Saran ke Admin DKM →
+              </button>
+              {hasUnsavedInput && (
+                <button
+                  type="button"
+                  onClick={() => setShowUnsavedModal(true)}
+                  style={{
+                    padding: '12px 16px',
+                    borderRadius: '12px',
+                    border: '1px solid #d1d5db',
+                    background: '#f9fafb',
+                    color: '#374151',
+                    fontWeight: 700,
+                    fontSize: '0.86rem',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Batalkan Input
+                </button>
+              )}
+            </div>
           </form>
         </div>
       </div>
+
+      {/* POP-UP ALA WEB: NOTIFIKASI PERUBAHAN TIDAK AKAN DISIMPAN */}
+      {showUnsavedModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.72)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 10050,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px',
+          }}
+          onClick={() => setShowUnsavedModal(false)}
+        >
+          <div
+            style={{
+              background: '#ffffff',
+              borderRadius: '18px',
+              width: '100%',
+              maxWidth: '420px',
+              padding: '24px',
+              boxShadow: '0 24px 60px rgba(0, 0, 0, 0.34)',
+              position: 'relative',
+              textAlign: 'center',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              aria-label="Tutup"
+              onClick={() => setShowUnsavedModal(false)}
+              style={{
+                position: 'absolute',
+                top: '14px',
+                right: '14px',
+                border: 'none',
+                background: '#f3f4f6',
+                borderRadius: '8px',
+                width: '30px',
+                height: '30px',
+                fontWeight: 800,
+                cursor: 'pointer',
+              }}
+            >
+              ✕
+            </button>
+
+            <div
+              style={{
+                width: '54px',
+                height: '54px',
+                borderRadius: '999px',
+                background: '#fef3c7',
+                border: '2px solid #f59e0b',
+                color: '#b45309',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '1.5rem',
+                fontWeight: 900,
+                marginBottom: '12px',
+              }}
+            >
+              !
+            </div>
+
+            <h3 style={{ margin: '0 0 8px', color: '#0f4a2a', fontSize: '1.12rem', fontWeight: 800 }}>
+              Perubahan Tidak Akan Disimpan
+            </h3>
+
+            <p
+              style={{
+                margin: '0 0 18px',
+                fontSize: '0.86rem',
+                color: '#374151',
+                lineHeight: 1.55,
+              }}
+            >
+              Data kritik &amp; saran yang sedang Anda isi belum dikirim. Jika dibatalkan sekarang,
+              perubahan tidak akan disimpan.
+            </p>
+
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                type="button"
+                onClick={() => setShowUnsavedModal(false)}
+                style={{
+                  flex: 1,
+                  padding: '10px 14px',
+                  borderRadius: '10px',
+                  border: '1px solid #d1d5db',
+                  background: '#f9fafb',
+                  color: '#1f2937',
+                  fontWeight: 700,
+                  fontSize: '0.84rem',
+                  cursor: 'pointer',
+                }}
+              >
+                Lanjut Mengisi
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setNama('')
+                  setKontak('')
+                  setPesan('')
+                  setShowUnsavedModal(false)
+                }}
+                style={{
+                  flex: 1,
+                  padding: '10px 14px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  background: '#dc2626',
+                  color: '#ffffff',
+                  fontWeight: 800,
+                  fontSize: '0.84rem',
+                  cursor: 'pointer',
+                }}
+              >
+                Keluar (Jangan Simpan)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   )
 }
