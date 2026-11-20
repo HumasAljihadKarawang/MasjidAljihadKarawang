@@ -36,8 +36,8 @@ export default function KalenderSection() {
   const [pengajuanList, setPengajuanList] = useState<PengajuanKalenderItem[]>(
     masjidStore.getPengajuanKalender()
   )
-  const [viewYear, setViewYear] = useState<number>(2026)
-  const [viewMonth, setViewMonth] = useState<number>(10) // November (0-indexed = 10)
+  const [viewYear, setViewYear] = useState<number>(() => new Date().getFullYear())
+  const [viewMonth, setViewMonth] = useState<number>(() => new Date().getMonth())
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
 
   // State Form Pengajuan Jadwal oleh Pengguna
@@ -882,6 +882,28 @@ export default function KalenderSection() {
             <h3 style={{ margin: '0 0 12px', fontSize: '1.15rem', fontWeight: 800, color: '#0f4a2a' }}>
               {previewPengajuan.namaKegiatan}
             </h3>
+
+            {previewPengajuan.status === 'Disetujui' && (
+              <div
+                style={{
+                  padding: '9px 12px',
+                  borderRadius: '10px',
+                  background: '#ecfdf5',
+                  border: '1px solid rgba(22, 163, 74, 0.28)',
+                  color: '#14532d',
+                  fontSize: '0.8rem',
+                  fontWeight: 700,
+                  marginBottom: '12px',
+                }}
+              >
+                {`Disetujui oleh Pihak DKM pada: ${
+                  previewPengajuan.disetujuiPada ||
+                  (previewPengajuan.createdAt
+                    ? previewPengajuan.createdAt.slice(0, 10)
+                    : previewPengajuan.tanggal)
+                }`}
+              </div>
+            )}
 
             <div
               style={{

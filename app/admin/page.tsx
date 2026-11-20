@@ -41,7 +41,7 @@ type AdminTab =
 
 const MENU_LABELS: Record<AdminTab, string> = {
   kegiatan_custom: 'Master & Custom Kegiatan Unggulan',
-  kalender: 'Kalender Kegiatan & Anti-Bentrok Jadwal',
+  kalender: 'Pengelolaan Kegiatan Masjid',
   berita: 'Kelola Berita Masjid (Magazine Grid)',
   video: 'Kelola Video Kegiatan Masjid',
   kritik_saran: 'Kotak Masuk Kritik & Saran Jamaah',
@@ -210,6 +210,7 @@ export default function AdminSidebarPage() {
   const [adminKalYear, setAdminKalYear] = useState<number>(() => new Date().getFullYear())
   const [adminKalMonth, setAdminKalMonth] = useState<number>(() => new Date().getMonth())
   const [adminKalSelectedDate, setAdminKalSelectedDate] = useState<string | null>(null)
+  const [previewKegiatanAdmin, setPreviewKegiatanAdmin] = useState<AgendaKalenderItem | null>(null)
   const [showAsetAdminModal, setShowAsetAdminModal] = useState(false)
   const [selectedAsetQtyAdmin, setSelectedAsetQtyAdmin] = useState<Record<string, number>>({})
   const [manualAsetExtraAdmin, setManualAsetExtraAdmin] = useState('')
@@ -2428,6 +2429,7 @@ export default function AdminSidebarPage() {
       peminjamanAset: p.peminjamanAset,
       noTeleponPj: p.noTeleponPj,
       posterUrl: p.posterUrl,
+      disetujuiPada: p.disetujuiPada || (p.createdAt ? p.createdAt.slice(0, 10) : p.tanggal),
     }))
 
   const effectiveAdminAgendas: AgendaKalenderItem[] = [...kalenderList]
@@ -2472,6 +2474,21 @@ export default function AdminSidebarPage() {
     'November',
     'Desember',
   ]
+
+  const formatTanggalDisetujuiAdmin = (kal: AgendaKalenderItem): string => {
+    const raw = (kal.disetujuiPada || todayIsoAdmin).slice(0, 10)
+    const parts = raw.split('-')
+    if (parts.length === 3) {
+      const y = Number(parts[0])
+      const m = Number(parts[1]) - 1
+      const d = Number(parts[2])
+      if (!Number.isNaN(y) && !Number.isNaN(m) && !Number.isNaN(d) && NAMA_BULAN_ADMIN[m]) {
+        return `${d} ${NAMA_BULAN_ADMIN[m]} ${y}`
+      }
+    }
+    return raw
+  }
+
   const adminDaysInMonth = new Date(adminKalYear, adminKalMonth + 1, 0).getDate()
   const adminFirstDayOfWeek = new Date(adminKalYear, adminKalMonth, 1).getDay()
 
@@ -2524,6 +2541,7 @@ export default function AdminSidebarPage() {
       peminjamanAset: asetKal.trim() || '-',
       noTeleponPj: internalMasjidKal ? '' : noTelpKal.trim(),
       internalMasjid: internalMasjidKal,
+      disetujuiPada: todayIsoAdmin,
     }
     const updated = [...kalenderList, newAgenda]
     setKalenderList(updated)
@@ -2576,7 +2594,13 @@ export default function AdminSidebarPage() {
     decision: 'Disetujui' | 'Ditolak'
   ) => {
     const updatedPgj = pengajuanKalenderList.map((p) =>
-      p.id === item.id ? { ...p, status: decision } : p
+      p.id === item.id
+        ? {
+            ...p,
+            status: decision,
+            ...(decision === 'Disetujui' ? { disetujuiPada: todayIsoAdmin } : {}),
+          }
+        : p
     )
     setPengajuanKalenderList(updatedPgj)
     masjidStore.savePengajuanKalender(updatedPgj)
@@ -2606,6 +2630,7 @@ export default function AdminSidebarPage() {
         peminjamanAset: item.peminjamanAset,
         noTeleponPj: item.noTeleponPj,
         posterUrl: item.posterUrl,
+        disetujuiPada: todayIsoAdmin,
       }
       const updatedKal = [...kalenderList, newAgenda]
       setKalenderList(updatedKal)
@@ -3069,7 +3094,7 @@ export default function AdminSidebarPage() {
                   }`}
                 onClick={() => selectMenu('kalender')}
               >
-                <span>Kalender Anti-Bentrok</span>
+                <span>Kalender Kegiatan Masjid</span>
               </button>
 
               <button
@@ -3483,15 +3508,11 @@ export default function AdminSidebarPage() {
                       }}
                     >
                       <div>
-                        <h2 className={styles.panelTitle} style={{ marginBottom: '2px' }}>
+                        <h2 className={styles.panelTitle} style={{ marginBottom: 0 }}>
                           {adminKalSelectedDate
                             ? `Kegiatan Masjid pada Tanggal ${adminKalSelectedDate}`
-                            : 'Daftar Kegiatan Masjid (Sudah Disetujui & Terdekat)'}
+                            : 'Daftar Kegiatan Terdekat'}
                         </h2>
-                        <p className={styles.panelSub} style={{ marginBottom: 0 }}>
-                          Diurutkan otomatis dari jadwal yang paling dekat waktunya. Kegiatan yang
-                          sudah lewat tanggal otomatis tidak ditampilkan di daftar ini.
-                        </p>
                       </div>
                       {adminKalSelectedDate && (
                         <button
@@ -3516,13 +3537,13 @@ export default function AdminSidebarPage() {
                     {displayedKegiatanMasjidList.length === 0 ? (
                       <div
                         style={{
-                          padding: '26px 18px',
+                          padding: '22px 16px',
                           textAlign: 'center',
                           background: '#f8faf8',
                           borderRadius: '12px',
                           border: '1px dashed rgba(27, 107, 69, 0.25)',
                           color: '#4a6355',
-                          fontSize: '0.88rem',
+                          fontSize: '0.86rem',
                           fontWeight: 600,
                         }}
                       >
@@ -3531,7 +3552,7 @@ export default function AdminSidebarPage() {
                           : 'Belum ada kegiatan masjid terdekat yang aktif.'}
                       </div>
                     ) : (
-                      <div className={styles.itemList}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
                         {displayedKegiatanMasjidList.map((kal, idx) => {
                           const conflicts = findScheduleConflicts(
                             kal,
@@ -3542,112 +3563,145 @@ export default function AdminSidebarPage() {
                           return (
                             <div
                               key={kal.id}
-                              className={styles.itemRow}
+                              onClick={() => setPreviewKegiatanAdmin(kal)}
                               style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                flexWrap: 'wrap',
+                                gap: '10px',
+                                padding: '9px 14px',
+                                borderRadius: '10px',
+                                border: '1px solid rgba(27, 107, 69, 0.16)',
                                 borderLeft: isConflict
                                   ? '4px solid #dc2626'
                                   : idx === 0
                                     ? '4px solid #15803d'
                                     : '4px solid rgba(27, 107, 69, 0.35)',
-                                background: idx === 0 ? '#f0fdf4' : '#ffffff',
+                                background: idx === 0 ? '#f0fdf4' : '#f9fbf9',
+                                cursor: 'pointer',
                               }}
                             >
-                              <div style={{ flex: 1 }}>
-                                <div
-                                  style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '8px',
-                                    flexWrap: 'wrap',
-                                    marginBottom: '4px',
-                                  }}
-                                >
-                                  <span
-                                    style={{
-                                      fontSize: '0.74rem',
-                                      fontWeight: 800,
-                                      padding: '3px 10px',
-                                      borderRadius: '999px',
-                                      background: '#dcfce7',
-                                      color: '#166534',
-                                    }}
-                                  >
-                                    {`${kal.tanggal} • ${kal.jamMulai}–${kal.jamSelesai} WIB`}
-                                  </span>
-                                  {idx === 0 && !adminKalSelectedDate && (
-                                    <span
-                                      style={{
-                                        fontSize: '0.7rem',
-                                        fontWeight: 800,
-                                        padding: '2px 8px',
-                                        borderRadius: '999px',
-                                        background: '#fef3c7',
-                                        color: '#92400e',
-                                      }}
-                                    >
-                                      Waktu Terdekat
-                                    </span>
-                                  )}
-                                  <span
-                                    style={{
-                                      fontSize: '0.7rem',
-                                      fontWeight: 800,
-                                      padding: '2px 8px',
-                                      borderRadius: '999px',
-                                      background: isConflict ? '#fee2e2' : '#ecfdf5',
-                                      color: isConflict ? '#991b1b' : '#0f4a2a',
-                                    }}
-                                  >
-                                    {isConflict
-                                      ? `⚠️ Bentrok: ${conflicts[0].judul}`
-                                      : '✓ Disetujui & Terjadwal'}
-                                  </span>
-                                </div>
-                                <h4 className={styles.itemTitle} style={{ margin: '2px 0 4px' }}>
-                                  {kal.judul}
-                                </h4>
-                                <span className={styles.itemMeta} style={{ display: 'block' }}>
-                                  {`PJ/Pemateri: ${kal.pemateri || 'DKM Al-Jihad'} • Tempat: ${kal.ruangan}`}
-                                  {kal.peminjamanAset && kal.peminjamanAset !== '-'
-                                    ? ` • Aset: ${kal.peminjamanAset}`
-                                    : ''}
-                                </span>
-                              </div>
-                              <button
-                                type="button"
-                                className={styles.deleteBtn}
-                                onClick={async () => {
-                                  if (kal.id.startsWith('approved-')) {
-                                    const rawPgjId = kal.id.replace(/^approved-/, '')
-                                    const nextPgj = pengajuanKalenderList.filter(
-                                      (p) => p.id !== rawPgjId
-                                    )
-                                    setPengajuanKalenderList(nextPgj)
-                                    masjidStore.savePengajuanKalender(nextPgj)
-                                    if (getActiveSupabaseConfig().isConfigured) {
-                                      try {
-                                        await getSupabaseClient()
-                                          .from('pengajuan_kalender')
-                                          .delete()
-                                          .eq('id', rawPgjId)
-                                      } catch {
-                                        // ignore
-                                      }
-                                    }
-                                  }
-                                  const filtered = kalenderList.filter((x) => x.id !== kal.id)
-                                  setKalenderList(filtered)
-                                  masjidStore.saveKalender(filtered)
-                                  if (getActiveSupabaseConfig().isConfigured) {
-                                    await getSupabaseClient()
-                                      .from('jadwal_terdekat')
-                                      .delete()
-                                      .eq('id', kal.id)
-                                  }
+                              <div
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '10px',
+                                  flexWrap: 'wrap',
+                                  flex: 1,
+                                  minWidth: 0,
                                 }}
                               >
-                                Hapus
-                              </button>
+                                <span
+                                  style={{
+                                    fontSize: '0.73rem',
+                                    fontWeight: 800,
+                                    padding: '3px 9px',
+                                    borderRadius: '7px',
+                                    background: '#dcfce7',
+                                    color: '#166534',
+                                    whiteSpace: 'nowrap',
+                                  }}
+                                >
+                                  {`${kal.tanggal} • ${kal.jamMulai}–${kal.jamSelesai} WIB`}
+                                </span>
+                                <span
+                                  style={{
+                                    fontSize: '0.88rem',
+                                    fontWeight: 800,
+                                    color: '#111827',
+                                  }}
+                                >
+                                  {kal.judul}
+                                </span>
+                                {idx === 0 && !adminKalSelectedDate && (
+                                  <span
+                                    style={{
+                                      fontSize: '0.68rem',
+                                      fontWeight: 800,
+                                      padding: '2px 7px',
+                                      borderRadius: '999px',
+                                      background: '#fef3c7',
+                                      color: '#92400e',
+                                    }}
+                                  >
+                                    Terdekat
+                                  </span>
+                                )}
+                              </div>
+
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span
+                                  style={{
+                                    fontSize: '0.7rem',
+                                    fontWeight: 800,
+                                    padding: '3px 8px',
+                                    borderRadius: '999px',
+                                    background: isConflict ? '#fee2e2' : '#ecfdf5',
+                                    color: isConflict ? '#991b1b' : '#0f4a2a',
+                                    whiteSpace: 'nowrap',
+                                  }}
+                                >
+                                  {isConflict ? '⚠️ Bentrok' : '✓ Disetujui'}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setPreviewKegiatanAdmin(kal)
+                                  }}
+                                  style={{
+                                    border: '1px solid rgba(27, 107, 69, 0.25)',
+                                    background: '#ffffff',
+                                    color: '#14532d',
+                                    borderRadius: '7px',
+                                    padding: '4px 10px',
+                                    fontSize: '0.74rem',
+                                    fontWeight: 800,
+                                    cursor: 'pointer',
+                                    whiteSpace: 'nowrap',
+                                  }}
+                                >
+                                  Preview ›
+                                </button>
+                                <button
+                                  type="button"
+                                  className={styles.deleteBtn}
+                                  style={{ padding: '4px 10px', fontSize: '0.74rem' }}
+                                  onClick={async (e) => {
+                                    e.stopPropagation()
+                                    if (kal.id.startsWith('approved-')) {
+                                      const rawPgjId = kal.id.replace(/^approved-/, '')
+                                      const nextPgj = pengajuanKalenderList.filter(
+                                        (p) => p.id !== rawPgjId
+                                      )
+                                      setPengajuanKalenderList(nextPgj)
+                                      masjidStore.savePengajuanKalender(nextPgj)
+                                      if (getActiveSupabaseConfig().isConfigured) {
+                                        try {
+                                          await getSupabaseClient()
+                                            .from('pengajuan_kalender')
+                                            .delete()
+                                            .eq('id', rawPgjId)
+                                        } catch {
+                                          // ignore
+                                        }
+                                      }
+                                    }
+                                    const filtered = kalenderList.filter((x) => x.id !== kal.id)
+                                    setKalenderList(filtered)
+                                    masjidStore.saveKalender(filtered)
+                                    if (getActiveSupabaseConfig().isConfigured) {
+                                      await getSupabaseClient()
+                                        .from('jadwal_terdekat')
+                                        .delete()
+                                        .eq('id', kal.id)
+                                    }
+                                  }}
+                                >
+                                  Hapus
+                                </button>
+                              </div>
                             </div>
                           )
                         })}
@@ -3803,37 +3857,25 @@ export default function AdminSidebarPage() {
                   }}
                 >
                   <div>
-                    <h2 className={styles.panelTitle} style={{ marginBottom: '2px' }}>
-                      {`Kalender Kegiatan Masjid — ${NAMA_BULAN_ADMIN[adminKalMonth]} ${adminKalYear}`}
+                    <h2 className={styles.panelTitle} style={{ marginBottom: 0 }}>
+                      {NAMA_BULAN_ADMIN[adminKalMonth]}
                     </h2>
-                    <p className={styles.panelSub} style={{ marginBottom: 0 }}>
-                      Tampilan kalender memanjang (landscape). Klik tanggal untuk menyaring daftar
-                      Kegiatan Masjid di atas.
-                    </p>
                   </div>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const now = new Date()
-                        setAdminKalYear(now.getFullYear())
-                        setAdminKalMonth(now.getMonth())
-                        setAdminKalSelectedDate(null)
-                      }}
+                    <span
                       style={{
-                        border: '1px solid rgba(27, 107, 69, 0.25)',
-                        background: '#f0fdf4',
-                        color: '#14532d',
+                        padding: '6px 12px',
                         borderRadius: '8px',
-                        padding: '7px 12px',
-                        fontSize: '0.78rem',
-                        fontWeight: 700,
-                        cursor: 'pointer',
+                        background: '#f0fdf4',
+                        border: '1px solid rgba(27, 107, 69, 0.22)',
+                        color: '#0f4a2a',
+                        fontSize: '0.84rem',
+                        fontWeight: 800,
                       }}
                     >
-                      Bulan Ini
-                    </button>
+                      {`Tahun ${adminKalYear}`}
+                    </span>
                     <button
                       type="button"
                       onClick={handleAdminPrevMonth}
@@ -4052,6 +4094,166 @@ export default function AdminSidebarPage() {
                   })}
                 </div>
               </div>
+
+              {/* POP-UP PREVIEW DETAIL KEGIATAN MASJID (DENGAN TANGGAL DISETUJUI OLEH DKM) */}
+              {previewKegiatanAdmin && (
+                <div
+                  style={{
+                    position: 'fixed',
+                    inset: 0,
+                    background: 'rgba(15, 23, 42, 0.68)',
+                    backdropFilter: 'blur(4px)',
+                    zIndex: 9994,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '16px',
+                  }}
+                  onClick={() => setPreviewKegiatanAdmin(null)}
+                >
+                  <div
+                    style={{
+                      background: '#ffffff',
+                      borderRadius: '18px',
+                      width: '100%',
+                      maxWidth: '500px',
+                      maxHeight: '88vh',
+                      overflowY: 'auto',
+                      padding: '22px',
+                      boxShadow: '0 24px 60px rgba(0, 0, 0, 0.32)',
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        marginBottom: '12px',
+                        gap: '8px',
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: '0.75rem',
+                          fontWeight: 800,
+                          padding: '4px 12px',
+                          borderRadius: '999px',
+                          background: '#dcfce7',
+                          color: '#166534',
+                        }}
+                      >
+                        ✓ Disetujui oleh Pihak DKM
+                      </span>
+                      <button
+                        type="button"
+                        aria-label="Tutup Preview"
+                        onClick={() => setPreviewKegiatanAdmin(null)}
+                        style={{
+                          border: 'none',
+                          background: '#f3f4f6',
+                          borderRadius: '8px',
+                          width: '32px',
+                          height: '32px',
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        ✕
+                      </button>
+                    </div>
+
+                    <h3
+                      style={{
+                        margin: '0 0 10px',
+                        fontSize: '1.15rem',
+                        fontWeight: 800,
+                        color: '#0f4a2a',
+                      }}
+                    >
+                      {previewKegiatanAdmin.judul}
+                    </h3>
+
+                    <div
+                      style={{
+                        padding: '9px 12px',
+                        borderRadius: '10px',
+                        background: '#ecfdf5',
+                        border: '1px solid rgba(22, 163, 74, 0.28)',
+                        color: '#14532d',
+                        fontSize: '0.8rem',
+                        fontWeight: 700,
+                        marginBottom: '12px',
+                      }}
+                    >
+                      {`Disetujui oleh Pihak DKM pada: ${formatTanggalDisetujuiAdmin(
+                        previewKegiatanAdmin
+                      )}`}
+                    </div>
+
+                    <div
+                      style={{
+                        display: 'grid',
+                        gap: '8px',
+                        fontSize: '0.86rem',
+                        color: '#1f2937',
+                        background: '#f8faf8',
+                        padding: '14px',
+                        borderRadius: '12px',
+                        border: '1px solid rgba(27, 107, 69, 0.14)',
+                      }}
+                    >
+                      <div>
+                        <strong>Hari / Tanggal Pelaksanaan :</strong> {previewKegiatanAdmin.tanggal}
+                      </div>
+                      <div>
+                        <strong>Waktu :</strong>{' '}
+                        {`${previewKegiatanAdmin.jamMulai} – ${previewKegiatanAdmin.jamSelesai} WIB`}
+                      </div>
+                      <div>
+                        <strong>Kategori :</strong> {previewKegiatanAdmin.kategori}
+                      </div>
+                      <div>
+                        <strong>Penanggung Jawab / Pemateri :</strong>{' '}
+                        {previewKegiatanAdmin.pemateri || 'DKM Masjid Al-Jihad'}
+                      </div>
+                      {previewKegiatanAdmin.noTeleponPj && (
+                        <div>
+                          <strong>No. Telepon PJ :</strong> {previewKegiatanAdmin.noTeleponPj}
+                        </div>
+                      )}
+                      <div>
+                        <strong>Tempat / Area Masjid :</strong> {previewKegiatanAdmin.ruangan}
+                      </div>
+                      <div>
+                        <strong>Peminjaman Aset :</strong>{' '}
+                        {previewKegiatanAdmin.peminjamanAset || '-'}
+                      </div>
+                      {previewKegiatanAdmin.keterangan && (
+                        <div>
+                          <strong>Keterangan :</strong> {previewKegiatanAdmin.keterangan}
+                        </div>
+                      )}
+                    </div>
+
+                    {previewKegiatanAdmin.posterUrl && (
+                      <div style={{ marginTop: '14px', textAlign: 'center' }}>
+                        <img
+                          src={previewKegiatanAdmin.posterUrl}
+                          alt={`Poster ${previewKegiatanAdmin.judul}`}
+                          style={{
+                            maxWidth: '100%',
+                            maxHeight: '300px',
+                            borderRadius: '12px',
+                            border: '1px solid rgba(27, 107, 69, 0.18)',
+                            objectFit: 'contain',
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* POP-UP MODAL INPUT JADWAL KALENDER OLEH ADMIN */}
               {showInputKalenderModal && (

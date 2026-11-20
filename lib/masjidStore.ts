@@ -51,6 +51,7 @@ export interface AgendaKalenderItem {
   noTeleponPj?: string
   posterUrl?: string
   internalMasjid?: boolean
+  disetujuiPada?: string
 }
 
 export interface PengajuanKalenderItem {
@@ -68,6 +69,7 @@ export interface PengajuanKalenderItem {
   catatan?: string
   status: 'Menunggu' | 'Disetujui' | 'Ditolak'
   createdAt: string
+  disetujuiPada?: string
 }
 
 export interface AsetMasjidItem {
