@@ -24,7 +24,14 @@ import {
   type AgendaKalenderItem,
   type PengajuanKalenderItem,
   type KritikSaranItem,
+  type LaporanKeuanganItem,
 } from '@/lib/masjidStore'
+import {
+  exportLaporanMingguanPdf,
+  exportLaporanBulananPdf,
+  formatRupiah,
+  formatTanggalIndo,
+} from '@/lib/keuanganPdf'
 import { getPrayerTimesByLocation, DEFAULT_LOCATION } from '@/lib/prayerTimes'
 import type { User } from '@supabase/supabase-js'
 import styles from './admin.module.css'
@@ -32,6 +39,7 @@ import styles from './admin.module.css'
 type AdminTab =
   | 'kegiatan_custom'
   | 'kalender'
+  | 'keuangan'
   | 'berita'
   | 'video'
   | 'kritik_saran'
@@ -42,6 +50,7 @@ type AdminTab =
 const MENU_LABELS: Record<AdminTab, string> = {
   kegiatan_custom: 'Master & Custom Kegiatan Unggulan',
   kalender: 'Pengelolaan Kegiatan Masjid',
+  keuangan: 'Pencatatan & Rekap Laporan Keuangan Masjid',
   berita: 'Kelola Berita Masjid (Magazine Grid)',
   video: 'Kelola Video Kegiatan Masjid',
   kritik_saran: 'Kotak Masuk Kritik & Saran Jamaah',
@@ -182,6 +191,31 @@ export default function AdminSidebarPage() {
   const [beritaList, setBeritaList] = useState<BeritaItem[]>([])
   const [videoList, setVideoList] = useState<VideoKegiatanItem[]>([])
   const [kritikList, setKritikList] = useState<KritikSaranItem[]>([])
+  const [keuanganList, setKeuanganList] = useState<LaporanKeuanganItem[]>([])
+
+  // State Pencatatan & Rekap Laporan Keuangan Masjid (Input per Pengeluaran + PDF Mingguan/Bulanan)
+  const [showInputKeuanganModal, setShowInputKeuanganModal] = useState(false)
+  const [previewKeuanganItem, setPreviewKeuanganItem] = useState<LaporanKeuanganItem | null>(null)
+  const [tglPengeluaran, setTglPengeluaran] = useState(() => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
+      d.getDate()
+    ).padStart(2, '0')}`
+  })
+  const [kategoriPengeluaran, setKategoriPengeluaran] = useState('Operasional & Listrik/Air')
+  const [uraianPengeluaran, setUraianPengeluaran] = useState('')
+  const [nominalPengeluaran, setNominalPengeluaran] = useState('')
+  const [pjPengeluaran, setPjPengeluaran] = useState('Bendahara DKM Al-Jihad')
+  const [metodePengeluaran, setMetodePengeluaran] = useState<
+    'Tunai (Kas DKM)' | 'Transfer Bank' | 'QRIS'
+  >('Tunai (Kas DKM)')
+  const [catatanPengeluaran, setCatatanPengeluaran] = useState('')
+  const [rekapKeuanganMode, setRekapKeuanganMode] = useState<'bulanan' | 'mingguan'>('bulanan')
+  const [rekapKeuanganYear, setRekapKeuanganYear] = useState<number>(() => new Date().getFullYear())
+  const [rekapKeuanganMonth, setRekapKeuanganMonth] = useState<number>(() => new Date().getMonth())
+  const [rekapKeuanganMingguKe, setRekapKeuanganMingguKe] = useState<number>(() =>
+    Math.min(5, Math.floor((new Date().getDate() - 1) / 7) + 1)
+  )
 
   // 1. State Master Kegiatan & Custom Layanan Unggulan
   const [namaKegiatanBaru, setNamaKegiatanBaru] = useState('')
@@ -590,6 +624,7 @@ export default function AdminSidebarPage() {
     setBeritaList(masjidStore.getBerita())
     setVideoList(masjidStore.getVideo())
     setKritikList(masjidStore.getKritik())
+    setKeuanganList(masjidStore.getKeuangan())
 
     if (cfg.isConfigured) {
       const sb = getSupabaseClient()
@@ -2854,12 +2889,84 @@ export default function AdminSidebarPage() {
     link.click()
   }
 
+  const handleAddKeuangan = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setErrorMsg('')
+    setSuccessMsg('')
+    const cleanNominal = Number(String(nominalPengeluaran).replace(/\D/g, ''))
+    if (!uraianPengeluaran.trim() || !cleanNominal || cleanNominal <= 0) {
+      setErrorMsg('Mohon lengkapi Uraian Pengeluaran dan Nominal (Rp) yang valid.')
+      return
+    }
+    const newItem: LaporanKeuanganItem = {
+      id: 'keu-' + Date.now(),
+      tanggal: tglPengeluaran,
+      kategori: kategoriPengeluaran,
+      uraian: uraianPengeluaran.trim(),
+      nominal: cleanNominal,
+      penanggungJawab: pjPengeluaran.trim() || 'Bendahara DKM Al-Jihad',
+      metodePembayaran: metodePengeluaran,
+      catatan: catatanPengeluaran.trim(),
+      createdAt: new Date().toISOString(),
+    }
+    const updated = [newItem, ...keuanganList].sort((a, b) =>
+      b.tanggal.localeCompare(a.tanggal)
+    )
+    setKeuanganList(updated)
+    masjidStore.saveKeuangan(updated)
+
+    if (getActiveSupabaseConfig().isConfigured) {
+      try {
+        await getSupabaseClient().from('laporan_keuangan').insert({
+          id: newItem.id,
+          tanggal: newItem.tanggal,
+          kategori: newItem.kategori,
+          uraian: newItem.uraian,
+          nominal: newItem.nominal,
+          penanggung_jawab: newItem.penanggungJawab,
+          metode_pembayaran: newItem.metodePembayaran,
+          catatan: newItem.catatan || '',
+        })
+      } catch {
+        // fallback ke localStorage sudah tersimpan
+      }
+    }
+
+    setUraianPengeluaran('')
+    setNominalPengeluaran('')
+    setCatatanPengeluaran('')
+    setShowInputKeuanganModal(false)
+    setSuccessMsg(
+      `Catatan pengeluaran "${newItem.uraian}" (${formatRupiah(
+        newItem.nominal
+      )}) berhasil disimpan!`
+    )
+  }
+
+  const handleDeleteKeuangan = async (id: string) => {
+    const filtered = keuanganList.filter((item) => item.id !== id)
+    setKeuanganList(filtered)
+    masjidStore.saveKeuangan(filtered)
+    if (getActiveSupabaseConfig().isConfigured) {
+      try {
+        await getSupabaseClient().from('laporan_keuangan').delete().eq('id', id)
+      } catch {
+        // ignore
+      }
+    }
+  }
+
   const hasUnsavedAdminInput = (tab: AdminTab): boolean => {
     if (tab === 'kegiatan_custom') {
       return Boolean(namaKegiatanBaru.trim() || deskripsiKegiatanBaru.trim())
     }
     if (tab === 'kalender') {
       return Boolean(judulKal.trim() || pemateriKal.trim() || noTelpKal.trim() || asetKal.trim())
+    }
+    if (tab === 'keuangan') {
+      return Boolean(
+        uraianPengeluaran.trim() || nominalPengeluaran.trim() || catatanPengeluaran.trim()
+      )
     }
     if (tab === 'berita') {
       return Boolean(judulBerita.trim() || ringkasanBerita.trim() || kontenBerita.trim())
@@ -2895,6 +3002,11 @@ export default function AdminSidebarPage() {
       setManualAsetExtraAdmin('')
       setInternalMasjidKal(false)
       setShowInputKalenderModal(false)
+    } else if (tab === 'keuangan') {
+      setUraianPengeluaran('')
+      setNominalPengeluaran('')
+      setCatatanPengeluaran('')
+      setShowInputKeuanganModal(false)
     } else if (tab === 'berita') {
       setJudulBerita('')
       setRingkasanBerita('')
@@ -3095,6 +3207,15 @@ export default function AdminSidebarPage() {
                 onClick={() => selectMenu('kalender')}
               >
                 <span>Kalender Kegiatan Masjid</span>
+              </button>
+
+              <button
+                type="button"
+                className={`${styles.sidebarBtn} ${activeTab === 'keuangan' ? styles.sidebarBtnActive : ''
+                  }`}
+                onClick={() => selectMenu('keuangan')}
+              >
+                <span>Laporan Keuangan Masjid</span>
               </button>
 
               <button
@@ -5014,6 +5135,1111 @@ export default function AdminSidebarPage() {
                       >
                         Selesai Saja
                       </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* MENU TAMBAHAN: PENCATATAN & REKAP LAPORAN KEUANGAN MASJID (INPUT PER PENGELUARAN + PDF MINGGUAN & BULANAN) */}
+            <div
+              style={{
+                display: activeTab === 'keuangan' ? 'flex' : 'none',
+                flexDirection: 'column',
+                gap: '22px',
+              }}
+            >
+              {(() => {
+                const monthPrefix = `${rekapKeuanganYear}-${String(
+                  rekapKeuanganMonth + 1
+                ).padStart(2, '0')}`
+                const daysInSelectedMonth = new Date(
+                  rekapKeuanganYear,
+                  rekapKeuanganMonth + 1,
+                  0
+                ).getDate()
+                const monthName = NAMA_BULAN_ADMIN[rekapKeuanganMonth] || 'Bulan'
+
+                const itemsInMonth = [...keuanganList]
+                  .filter((it) => it.tanggal.startsWith(monthPrefix))
+                  .sort((a, b) => a.tanggal.localeCompare(b.tanggal))
+
+                const totalBulanIni = itemsInMonth.reduce(
+                  (acc, it) => acc + (Number(it.nominal) || 0),
+                  0
+                )
+
+                const weekDefs = [
+                  { mingguKe: 1, label: 'Minggu Ke-1', startDay: 1, endDay: 7 },
+                  { mingguKe: 2, label: 'Minggu Ke-2', startDay: 8, endDay: 14 },
+                  { mingguKe: 3, label: 'Minggu Ke-3', startDay: 15, endDay: 21 },
+                  { mingguKe: 4, label: 'Minggu Ke-4', startDay: 22, endDay: 28 },
+                  {
+                    mingguKe: 5,
+                    label: 'Minggu Ke-5',
+                    startDay: 29,
+                    endDay: daysInSelectedMonth,
+                  },
+                ]
+
+                const selectedWeekDef =
+                  weekDefs.find((w) => w.mingguKe === rekapKeuanganMingguKe) || weekDefs[0]
+                const weekStartDay = Math.min(selectedWeekDef.startDay, daysInSelectedMonth)
+                const weekEndDay = Math.max(weekStartDay, selectedWeekDef.endDay)
+                const weekStartIso = `${monthPrefix}-${String(weekStartDay).padStart(2, '0')}`
+                const weekEndIso = `${monthPrefix}-${String(weekEndDay).padStart(2, '0')}`
+
+                const itemsInSelectedWeek = itemsInMonth.filter((it) => {
+                  const dayNum = Number(it.tanggal.slice(8, 10))
+                  return dayNum >= weekStartDay && dayNum <= weekEndDay
+                })
+                const totalMingguIni = itemsInSelectedWeek.reduce(
+                  (acc, it) => acc + (Number(it.nominal) || 0),
+                  0
+                )
+
+                const activeItems =
+                  rekapKeuanganMode === 'bulanan' ? itemsInMonth : itemsInSelectedWeek
+                const minTableRows = rekapKeuanganMode === 'bulanan' ? 10 : 6
+                const emptyRowsCount = Math.max(0, minTableRows - activeItems.length)
+
+                return (
+                  <>
+                    {/* PANEL KONTROL ATAS: PILIH REKAP BULANAN / MINGGUAN + TOMBOL INPUT PENGELUARAN & UNDUH PDF */}
+                    <div className={styles.panelCard}>
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          flexWrap: 'wrap',
+                          gap: '12px',
+                          paddingBottom: '14px',
+                          marginBottom: '16px',
+                          borderBottom: '1px solid rgba(27, 107, 69, 0.14)',
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px',
+                            flexWrap: 'wrap',
+                          }}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => setRekapKeuanganMode('bulanan')}
+                            style={{
+                              padding: '9px 16px',
+                              borderRadius: '10px',
+                              border:
+                                rekapKeuanganMode === 'bulanan'
+                                  ? '1px solid #0f4a2a'
+                                  : '1px solid rgba(27, 107, 69, 0.22)',
+                              background:
+                                rekapKeuanganMode === 'bulanan' ? '#0f4a2a' : '#f0fdf4',
+                              color: rekapKeuanganMode === 'bulanan' ? '#ffffff' : '#14532d',
+                              fontWeight: 800,
+                              fontSize: '0.86rem',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            Rekap Laporan Bulanan
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setRekapKeuanganMode('mingguan')}
+                            style={{
+                              padding: '9px 16px',
+                              borderRadius: '10px',
+                              border:
+                                rekapKeuanganMode === 'mingguan'
+                                  ? '1px solid #0f4a2a'
+                                  : '1px solid rgba(27, 107, 69, 0.22)',
+                              background:
+                                rekapKeuanganMode === 'mingguan' ? '#0f4a2a' : '#ffffff',
+                              color: rekapKeuanganMode === 'mingguan' ? '#ffffff' : '#14532d',
+                              fontWeight: 800,
+                              fontSize: '0.86rem',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            Rekap Laporan Mingguan
+                          </button>
+                        </div>
+
+                        <button
+                          type="button"
+                          className={styles.submitBtn}
+                          onClick={() => setShowInputKeuanganModal(true)}
+                          style={{
+                            width: 'auto',
+                            marginTop: 0,
+                            padding: '10px 18px',
+                            fontSize: '0.86rem',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                          }}
+                        >
+                          + Input Pengeluaran Masjid
+                        </button>
+                      </div>
+
+                      {/* FILTER PERIODE BULAN / TAHUN / MINGGU + TOMBOL EKSPOR PDF */}
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'flex-end',
+                          justifyContent: 'space-between',
+                          flexWrap: 'wrap',
+                          gap: '14px',
+                          background: '#f8faf8',
+                          padding: '16px',
+                          borderRadius: '14px',
+                          border: '1px solid rgba(27, 107, 69, 0.16)',
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'flex-end',
+                            gap: '12px',
+                            flexWrap: 'wrap',
+                          }}
+                        >
+                          <div>
+                            <label
+                              style={{
+                                display: 'block',
+                                fontSize: '0.78rem',
+                                fontWeight: 800,
+                                color: '#14532d',
+                                marginBottom: '4px',
+                              }}
+                            >
+                              Pilih Bulan
+                            </label>
+                            <select
+                              value={rekapKeuanganMonth}
+                              onChange={(e) => setRekapKeuanganMonth(Number(e.target.value))}
+                              style={{
+                                padding: '9px 12px',
+                                borderRadius: '10px',
+                                border: '1px solid rgba(27, 107, 69, 0.25)',
+                                fontWeight: 700,
+                                fontSize: '0.85rem',
+                                background: '#ffffff',
+                              }}
+                            >
+                              {NAMA_BULAN_ADMIN.map((bln, idx) => (
+                                <option key={bln} value={idx}>
+                                  {bln}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div>
+                            <label
+                              style={{
+                                display: 'block',
+                                fontSize: '0.78rem',
+                                fontWeight: 800,
+                                color: '#14532d',
+                                marginBottom: '4px',
+                              }}
+                            >
+                              Tahun
+                            </label>
+                            <select
+                              value={rekapKeuanganYear}
+                              onChange={(e) => setRekapKeuanganYear(Number(e.target.value))}
+                              style={{
+                                padding: '9px 12px',
+                                borderRadius: '10px',
+                                border: '1px solid rgba(27, 107, 69, 0.25)',
+                                fontWeight: 700,
+                                fontSize: '0.85rem',
+                                background: '#ffffff',
+                              }}
+                            >
+                              {[
+                                new Date().getFullYear() - 1,
+                                new Date().getFullYear(),
+                                new Date().getFullYear() + 1,
+                              ].map((yr) => (
+                                <option key={yr} value={yr}>
+                                  {yr}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          {rekapKeuanganMode === 'mingguan' && (
+                            <div>
+                              <label
+                                style={{
+                                  display: 'block',
+                                  fontSize: '0.78rem',
+                                  fontWeight: 800,
+                                  color: '#14532d',
+                                  marginBottom: '4px',
+                                }}
+                              >
+                                Pilih Minggu
+                              </label>
+                              <select
+                                value={rekapKeuanganMingguKe}
+                                onChange={(e) =>
+                                  setRekapKeuanganMingguKe(Number(e.target.value))
+                                }
+                                style={{
+                                  padding: '9px 12px',
+                                  borderRadius: '10px',
+                                  border: '1px solid rgba(27, 107, 69, 0.25)',
+                                  fontWeight: 700,
+                                  fontSize: '0.85rem',
+                                  background: '#ffffff',
+                                }}
+                              >
+                                {weekDefs.map((w) => (
+                                  <option key={w.mingguKe} value={w.mingguKe}>
+                                    {`${w.label} (${Math.min(
+                                      w.startDay,
+                                      daysInSelectedMonth
+                                    )}–${Math.max(
+                                      Math.min(w.startDay, daysInSelectedMonth),
+                                      w.endDay
+                                    )} ${monthName})`}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          )}
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                          {rekapKeuanganMode === 'bulanan' ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                exportLaporanBulananPdf({
+                                  year: rekapKeuanganYear,
+                                  monthIndex: rekapKeuanganMonth,
+                                  items: keuanganList,
+                                })
+                              }
+                              style={{
+                                padding: '10px 18px',
+                                borderRadius: '10px',
+                                border: 'none',
+                                background: 'linear-gradient(135deg, #b45309, #d97706)',
+                                color: '#ffffff',
+                                fontWeight: 800,
+                                fontSize: '0.86rem',
+                                cursor: 'pointer',
+                                boxShadow: '0 6px 16px rgba(180, 83, 9, 0.25)',
+                              }}
+                            >
+                              {`Unduh PDF Laporan Bulanan (${monthName} ${rekapKeuanganYear})`}
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                exportLaporanMingguanPdf({
+                                  startDateIso: weekStartIso,
+                                  endDateIso: weekEndIso,
+                                  items: itemsInSelectedWeek,
+                                })
+                              }
+                              style={{
+                                padding: '10px 18px',
+                                borderRadius: '10px',
+                                border: 'none',
+                                background: 'linear-gradient(135deg, #0f4a2a, #15803d)',
+                                color: '#ffffff',
+                                fontWeight: 800,
+                                fontSize: '0.86rem',
+                                cursor: 'pointer',
+                                boxShadow: '0 6px 16px rgba(21, 128, 61, 0.25)',
+                              }}
+                            >
+                              {`Unduh PDF Laporan Mingguan (${selectedWeekDef.label})`}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* KARTU RINGKASAN NOMINAL PENGELUARAN */}
+                      <div
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                          gap: '12px',
+                          marginTop: '14px',
+                        }}
+                      >
+                        <div
+                          style={{
+                            padding: '14px 16px',
+                            borderRadius: '12px',
+                            background: '#f0fdf4',
+                            border: '1px solid rgba(22, 163, 74, 0.25)',
+                          }}
+                        >
+                          <span
+                            style={{
+                              display: 'block',
+                              fontSize: '0.76rem',
+                              fontWeight: 700,
+                              color: '#166534',
+                            }}
+                          >
+                            {`Total Pengeluaran Bulan ${monthName} ${rekapKeuanganYear}`}
+                          </span>
+                          <strong
+                            style={{
+                              fontSize: '1.22rem',
+                              fontWeight: 900,
+                              color: '#0f4a2a',
+                            }}
+                          >
+                            {formatRupiah(totalBulanIni)}
+                          </strong>
+                          <span
+                            style={{
+                              display: 'block',
+                              fontSize: '0.73rem',
+                              color: '#4b5563',
+                              marginTop: '2px',
+                            }}
+                          >
+                            {`${itemsInMonth.length} catatan pengeluaran`}
+                          </span>
+                        </div>
+
+                        <div
+                          style={{
+                            padding: '14px 16px',
+                            borderRadius: '12px',
+                            background: '#fffbeb',
+                            border: '1px solid rgba(217, 119, 6, 0.28)',
+                          }}
+                        >
+                          <span
+                            style={{
+                              display: 'block',
+                              fontSize: '0.76rem',
+                              fontWeight: 700,
+                              color: '#92400e',
+                            }}
+                          >
+                            {`Total ${selectedWeekDef.label} (${weekStartDay}–${weekEndDay} ${monthName})`}
+                          </span>
+                          <strong
+                            style={{
+                              fontSize: '1.22rem',
+                              fontWeight: 900,
+                              color: '#b45309',
+                            }}
+                          >
+                            {formatRupiah(totalMingguIni)}
+                          </strong>
+                          <span
+                            style={{
+                              display: 'block',
+                              fontSize: '0.73rem',
+                              color: '#4b5563',
+                              marginTop: '2px',
+                            }}
+                          >
+                            {`${itemsInSelectedWeek.length} catatan pengeluaran`}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* TABEL REKAPITULASI MINGGUAN DALAM 1 BULAN (SELALU TAMPIL MINGGU 1-5 TERMASUK YANG MASIH KOSONG) */}
+                    {rekapKeuanganMode === 'bulanan' && (
+                      <div className={styles.panelCard}>
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            flexWrap: 'wrap',
+                            gap: '8px',
+                            marginBottom: '12px',
+                          }}
+                        >
+                          <h2 className={styles.panelTitle} style={{ marginBottom: 0 }}>
+                            {`Tabel Rekapitulasi Mingguan — ${monthName} ${rekapKeuanganYear}`}
+                          </h2>
+                          <span
+                            style={{
+                              fontSize: '0.75rem',
+                              fontWeight: 700,
+                              color: '#166534',
+                              background: '#ecfdf5',
+                              padding: '4px 10px',
+                              borderRadius: '999px',
+                            }}
+                          >
+                            Siap Diekspor ke PDF Walau Belum Akhir Bulan
+                          </span>
+                        </div>
+
+                        <div
+                          style={{
+                            overflowX: 'auto',
+                            border: '1px solid rgba(27, 107, 69, 0.2)',
+                            borderRadius: '12px',
+                          }}
+                        >
+                          <table
+                            style={{
+                              width: '100%',
+                              borderCollapse: 'collapse',
+                              fontSize: '0.82rem',
+                            }}
+                          >
+                            <thead>
+                              <tr
+                                style={{
+                                  background: '#0f4a2a',
+                                  color: '#ffffff',
+                                  textAlign: 'left',
+                                }}
+                              >
+                                <th style={{ padding: '10px 12px' }}>Minggu</th>
+                                <th style={{ padding: '10px 12px' }}>Rentang Tanggal</th>
+                                <th style={{ padding: '10px 12px' }}>Jumlah Pengeluaran</th>
+                                <th style={{ padding: '10px 12px' }}>Ringkasan Uraian</th>
+                                <th style={{ padding: '10px 12px', textAlign: 'right' }}>
+                                  Subtotal (Rp)
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {weekDefs.map((wk, idx) => {
+                                const valid = wk.startDay <= wk.endDay
+                                const wkItems = valid
+                                  ? itemsInMonth.filter((it) => {
+                                      const d = Number(it.tanggal.slice(8, 10))
+                                      return d >= wk.startDay && d <= wk.endDay
+                                    })
+                                  : []
+                                const wkSubtotal = wkItems.reduce(
+                                  (acc, it) => acc + (Number(it.nominal) || 0),
+                                  0
+                                )
+                                return (
+                                  <tr
+                                    key={wk.mingguKe}
+                                    style={{
+                                      borderBottom: '1px solid #e5e7eb',
+                                      background:
+                                        wkItems.length > 0
+                                          ? '#f0fdf4'
+                                          : idx % 2 === 0
+                                            ? '#ffffff'
+                                            : '#f9fafb',
+                                    }}
+                                  >
+                                    <td
+                                      style={{
+                                        padding: '9px 12px',
+                                        fontWeight: 800,
+                                        color: '#0f4a2a',
+                                      }}
+                                    >
+                                      {wk.label}
+                                    </td>
+                                    <td style={{ padding: '9px 12px', color: '#374151' }}>
+                                      {valid
+                                        ? `${wk.startDay} – ${wk.endDay} ${monthName} ${rekapKeuanganYear}`
+                                        : '-'}
+                                    </td>
+                                    <td
+                                      style={{
+                                        padding: '9px 12px',
+                                        fontWeight: 700,
+                                        color: wkItems.length > 0 ? '#15803d' : '#9ca3af',
+                                      }}
+                                    >
+                                      {wkItems.length > 0
+                                        ? `${wkItems.length} Transaksi`
+                                        : '0 (Kosong)'}
+                                    </td>
+                                    <td
+                                      style={{
+                                        padding: '9px 12px',
+                                        color: wkItems.length > 0 ? '#111827' : '#9ca3af',
+                                      }}
+                                    >
+                                      {wkItems.length > 0
+                                        ? wkItems.map((i) => i.uraian).join(', ')
+                                        : 'Belum ada catatan pengeluaran / Minggu belum berjalan'}
+                                    </td>
+                                    <td
+                                      style={{
+                                        padding: '9px 12px',
+                                        textAlign: 'right',
+                                        fontWeight: 800,
+                                        color: wkSubtotal > 0 ? '#111827' : '#9ca3af',
+                                      }}
+                                    >
+                                      {wkSubtotal > 0 ? formatRupiah(wkSubtotal) : '-'}
+                                    </td>
+                                  </tr>
+                                )
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* TABEL RINCIAN PENCATATAN PER PENGELUARAN (DENGAN BARIS KOSONG JIKA BELUM PENUH / BELUM AKHIR BULAN) */}
+                    <div className={styles.panelCard}>
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          flexWrap: 'wrap',
+                          gap: '8px',
+                          marginBottom: '12px',
+                        }}
+                      >
+                        <h2 className={styles.panelTitle} style={{ marginBottom: 0 }}>
+                          {rekapKeuanganMode === 'bulanan'
+                            ? `Tabel Rincian Pengeluaran Bulan ${monthName} ${rekapKeuanganYear}`
+                            : `Tabel Rincian Pengeluaran ${selectedWeekDef.label} (${weekStartDay}–${weekEndDay} ${monthName})`}
+                        </h2>
+                        <span style={{ fontSize: '0.78rem', color: '#4b5563', fontWeight: 700 }}>
+                          {`${activeItems.length} Transaksi Terisi • ${emptyRowsCount} Baris Kosong Siap Cetak`}
+                        </span>
+                      </div>
+
+                      <div
+                        style={{
+                          overflowX: 'auto',
+                          border: '1px solid rgba(27, 107, 69, 0.2)',
+                          borderRadius: '12px',
+                        }}
+                      >
+                        <table
+                          style={{
+                            width: '100%',
+                            borderCollapse: 'collapse',
+                            fontSize: '0.82rem',
+                          }}
+                        >
+                          <thead>
+                            <tr
+                              style={{
+                                background: '#0f4a2a',
+                                color: '#ffffff',
+                                textAlign: 'left',
+                              }}
+                            >
+                              <th style={{ padding: '10px 12px', width: '44px' }}>No</th>
+                              <th style={{ padding: '10px 12px', width: '120px' }}>Tanggal</th>
+                              <th style={{ padding: '10px 12px' }}>Kategori</th>
+                              <th style={{ padding: '10px 12px' }}>Uraian Pengeluaran</th>
+                              <th style={{ padding: '10px 12px' }}>PJ / Penerima</th>
+                              <th style={{ padding: '10px 12px', textAlign: 'right' }}>
+                                Nominal (Rp)
+                              </th>
+                              <th style={{ padding: '10px 12px', textAlign: 'center' }}>Aksi</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {activeItems.map((item, idx) => (
+                              <tr
+                                key={item.id}
+                                style={{
+                                  borderBottom: '1px solid #e5e7eb',
+                                  background: idx % 2 === 0 ? '#ffffff' : '#f9fafb',
+                                }}
+                              >
+                                <td
+                                  style={{
+                                    padding: '9px 12px',
+                                    fontWeight: 700,
+                                    color: '#6b7280',
+                                  }}
+                                >
+                                  {idx + 1}
+                                </td>
+                                <td
+                                  style={{
+                                    padding: '9px 12px',
+                                    fontWeight: 700,
+                                    color: '#14532d',
+                                    whiteSpace: 'nowrap',
+                                  }}
+                                >
+                                  {item.tanggal}
+                                </td>
+                                <td style={{ padding: '9px 12px', color: '#374151' }}>
+                                  {item.kategori}
+                                </td>
+                                <td
+                                  style={{
+                                    padding: '9px 12px',
+                                    fontWeight: 800,
+                                    color: '#111827',
+                                  }}
+                                >
+                                  {item.uraian}
+                                </td>
+                                <td style={{ padding: '9px 12px', color: '#374151' }}>
+                                  {item.penanggungJawab}
+                                </td>
+                                <td
+                                  style={{
+                                    padding: '9px 12px',
+                                    textAlign: 'right',
+                                    fontWeight: 800,
+                                    color: '#991b1b',
+                                    whiteSpace: 'nowrap',
+                                  }}
+                                >
+                                  {formatRupiah(item.nominal)}
+                                </td>
+                                <td
+                                  style={{
+                                    padding: '9px 12px',
+                                    textAlign: 'center',
+                                    whiteSpace: 'nowrap',
+                                  }}
+                                >
+                                  <div
+                                    style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '6px',
+                                    }}
+                                  >
+                                    <button
+                                      type="button"
+                                      onClick={() => setPreviewKeuanganItem(item)}
+                                      style={{
+                                        border: '1px solid rgba(27, 107, 69, 0.25)',
+                                        background: '#f0fdf4',
+                                        color: '#14532d',
+                                        borderRadius: '6px',
+                                        padding: '4px 9px',
+                                        fontSize: '0.73rem',
+                                        fontWeight: 800,
+                                        cursor: 'pointer',
+                                      }}
+                                    >
+                                      Preview
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className={styles.deleteBtn}
+                                      style={{ padding: '4px 9px', fontSize: '0.73rem' }}
+                                      onClick={() => handleDeleteKeuangan(item.id)}
+                                    >
+                                      Hapus
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+
+                            {/* Baris Tabel Kosong untuk periode/tanggal yang belum terisi */}
+                            {Array.from({ length: emptyRowsCount }, (_, eIdx) => {
+                              const rowNumber = activeItems.length + eIdx + 1
+                              return (
+                                <tr
+                                  key={`empty-keu-${rowNumber}`}
+                                  style={{
+                                    borderBottom: '1px solid #e5e7eb',
+                                    background: rowNumber % 2 === 0 ? '#fafafa' : '#ffffff',
+                                    color: '#9ca3af',
+                                  }}
+                                >
+                                  <td style={{ padding: '8px 12px' }}>{rowNumber}</td>
+                                  <td style={{ padding: '8px 12px' }}>-</td>
+                                  <td style={{ padding: '8px 12px' }}>-</td>
+                                  <td style={{ padding: '8px 12px', fontStyle: 'italic' }}>
+                                    (Baris tabel kosong — belum ada input pengeluaran)
+                                  </td>
+                                  <td style={{ padding: '8px 12px' }}>-</td>
+                                  <td style={{ padding: '8px 12px', textAlign: 'right' }}>-</td>
+                                  <td style={{ padding: '8px 12px', textAlign: 'center' }}>-</td>
+                                </tr>
+                              )
+                            })}
+                          </tbody>
+                          <tfoot>
+                            <tr
+                              style={{
+                                background: '#dcfce7',
+                                color: '#0f4a2a',
+                                fontWeight: 900,
+                              }}
+                            >
+                              <td colSpan={5} style={{ padding: '11px 12px' }}>
+                                {rekapKeuanganMode === 'bulanan'
+                                  ? `TOTAL PENGELUARAN BULAN ${monthName.toUpperCase()} ${rekapKeuanganYear}`
+                                  : `TOTAL PENGELUARAN ${selectedWeekDef.label.toUpperCase()}`}
+                              </td>
+                              <td
+                                style={{
+                                  padding: '11px 12px',
+                                  textAlign: 'right',
+                                  fontSize: '0.92rem',
+                                }}
+                              >
+                                {formatRupiah(
+                                  rekapKeuanganMode === 'bulanan'
+                                    ? totalBulanIni
+                                    : totalMingguIni
+                                )}
+                              </td>
+                              <td />
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+                    </div>
+                  </>
+                )
+              })()}
+
+              {/* POP-UP MODAL INPUT PENGELUARAN BARU */}
+              {showInputKeuanganModal && (
+                <div
+                  style={{
+                    position: 'fixed',
+                    inset: 0,
+                    background: 'rgba(15, 23, 42, 0.68)',
+                    backdropFilter: 'blur(4px)',
+                    zIndex: 9995,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '16px',
+                  }}
+                  onClick={() =>
+                    setUnsavedConfirmModal({
+                      contextLabel: 'Input Pencatatan Pengeluaran Masjid',
+                      onDiscard: () => {
+                        setShowInputKeuanganModal(false)
+                        setUraianPengeluaran('')
+                        setNominalPengeluaran('')
+                        setCatatanPengeluaran('')
+                      },
+                    })
+                  }
+                >
+                  <div
+                    style={{
+                      background: '#ffffff',
+                      borderRadius: '18px',
+                      width: '100%',
+                      maxWidth: '580px',
+                      maxHeight: '90vh',
+                      overflowY: 'auto',
+                      padding: '24px',
+                      boxShadow: '0 24px 60px rgba(0, 0, 0, 0.32)',
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        marginBottom: '12px',
+                      }}
+                    >
+                      <h2 className={styles.panelTitle} style={{ margin: 0 }}>
+                        Input Pencatatan Pengeluaran Masjid
+                      </h2>
+                      <button
+                        type="button"
+                        aria-label="Tutup Pop-up"
+                        onClick={() =>
+                          setUnsavedConfirmModal({
+                            contextLabel: 'Input Pencatatan Pengeluaran Masjid',
+                            onDiscard: () => {
+                              setShowInputKeuanganModal(false)
+                              setUraianPengeluaran('')
+                              setNominalPengeluaran('')
+                              setCatatanPengeluaran('')
+                            },
+                          })
+                        }
+                        style={{
+                          border: 'none',
+                          background: '#f3f4f6',
+                          borderRadius: '8px',
+                          width: '34px',
+                          height: '34px',
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        ✕
+                      </button>
+                    </div>
+
+                    <form onSubmit={handleAddKeuangan}>
+                      <div className={styles.twoCols}>
+                        <div className={styles.formGroup}>
+                          <label>Tanggal Pengeluaran</label>
+                          <input
+                            type="date"
+                            required
+                            value={tglPengeluaran}
+                            onChange={(e) => setTglPengeluaran(e.target.value)}
+                          />
+                        </div>
+                        <div className={styles.formGroup}>
+                          <label>Kategori Pengeluaran</label>
+                          <select
+                            value={kategoriPengeluaran}
+                            onChange={(e) => setKategoriPengeluaran(e.target.value)}
+                          >
+                            <option value="Operasional & Listrik/Air">
+                              Operasional &amp; Listrik/Air
+                            </option>
+                            <option value="Honorarium Khatib / Pemateri">
+                              Honorarium Khatib / Pemateri
+                            </option>
+                            <option value="Kebersihan & Perawatan Masjid">
+                              Kebersihan &amp; Perawatan Masjid
+                            </option>
+                            <option value="Sarana & Prasarana / Aset">
+                              Sarana &amp; Prasarana / Aset
+                            </option>
+                            <option value="Kegiatan Dakwah & PHBI">
+                              Kegiatan Dakwah &amp; PHBI
+                            </option>
+                            <option value="Sosial & Santunan">Sosial &amp; Santunan</option>
+                            <option value="Konsumsi Jamaah">Konsumsi Jamaah</option>
+                            <option value="Lainnya">Lainnya</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className={styles.formGroup}>
+                        <label>Uraian / Nama Pengeluaran</label>
+                        <input
+                          type="text"
+                          required
+                          value={uraianPengeluaran}
+                          onChange={(e) => setUraianPengeluaran(e.target.value)}
+                          placeholder="Contoh: Pembelian lampu LED & servis AC Ruang Sholat Utama"
+                        />
+                      </div>
+
+                      <div className={styles.twoCols}>
+                        <div className={styles.formGroup}>
+                          <label>Nominal Pengeluaran (Rp)</label>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            required
+                            value={nominalPengeluaran}
+                            onChange={(e) =>
+                              setNominalPengeluaran(e.target.value.replace(/\D/g, ''))
+                            }
+                            placeholder="Contoh: 450000"
+                          />
+                          {nominalPengeluaran && (
+                            <span
+                              className={styles.itemMeta}
+                              style={{
+                                display: 'block',
+                                marginTop: '4px',
+                                color: '#15803d',
+                                fontWeight: 800,
+                              }}
+                            >
+                              {`Format: ${formatRupiah(Number(nominalPengeluaran) || 0)}`}
+                            </span>
+                          )}
+                        </div>
+                        <div className={styles.formGroup}>
+                          <label>Metode Pembayaran</label>
+                          <select
+                            value={metodePengeluaran}
+                            onChange={(e) =>
+                              setMetodePengeluaran(
+                                e.target.value as LaporanKeuanganItem['metodePembayaran']
+                              )
+                            }
+                          >
+                            <option value="Tunai (Kas DKM)">Tunai (Kas DKM)</option>
+                            <option value="Transfer Bank">Transfer Bank</option>
+                            <option value="QRIS">QRIS</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className={styles.formGroup}>
+                        <label>Penanggung Jawab / Penerima</label>
+                        <input
+                          type="text"
+                          required
+                          value={pjPengeluaran}
+                          onChange={(e) => setPjPengeluaran(e.target.value)}
+                          placeholder="Contoh: Bendahara DKM / Bidang Sarpras"
+                        />
+                      </div>
+
+                      <div className={styles.formGroup}>
+                        <label>Catatan Tambahan (Opsional)</label>
+                        <textarea
+                          rows={2}
+                          value={catatanPengeluaran}
+                          onChange={(e) => setCatatanPengeluaran(e.target.value)}
+                          placeholder="Contoh: Nota kwitansi tersimpan di arsip sekretariat DKM"
+                        />
+                      </div>
+
+                      <button type="submit" className={styles.submitBtn}>
+                        Simpan Catatan Pengeluaran
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              )}
+
+              {/* POP-UP PREVIEW DETAIL PENGELUARAN */}
+              {previewKeuanganItem && (
+                <div
+                  style={{
+                    position: 'fixed',
+                    inset: 0,
+                    background: 'rgba(15, 23, 42, 0.68)',
+                    backdropFilter: 'blur(4px)',
+                    zIndex: 9994,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '16px',
+                  }}
+                  onClick={() => setPreviewKeuanganItem(null)}
+                >
+                  <div
+                    style={{
+                      background: '#ffffff',
+                      borderRadius: '18px',
+                      width: '100%',
+                      maxWidth: '480px',
+                      padding: '22px',
+                      boxShadow: '0 24px 60px rgba(0, 0, 0, 0.32)',
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        marginBottom: '12px',
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: '0.75rem',
+                          fontWeight: 800,
+                          padding: '4px 12px',
+                          borderRadius: '999px',
+                          background: '#fee2e2',
+                          color: '#991b1b',
+                        }}
+                      >
+                        Catatan Pengeluaran Masjid
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setPreviewKeuanganItem(null)}
+                        style={{
+                          border: 'none',
+                          background: '#f3f4f6',
+                          borderRadius: '8px',
+                          width: '32px',
+                          height: '32px',
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        ✕
+                      </button>
+                    </div>
+
+                    <h3
+                      style={{
+                        margin: '0 0 8px',
+                        fontSize: '1.12rem',
+                        fontWeight: 800,
+                        color: '#0f4a2a',
+                      }}
+                    >
+                      {previewKeuanganItem.uraian}
+                    </h3>
+
+                    <div
+                      style={{
+                        padding: '10px 14px',
+                        borderRadius: '10px',
+                        background: '#fef2f2',
+                        border: '1px solid #fecaca',
+                        color: '#991b1b',
+                        fontSize: '1.05rem',
+                        fontWeight: 900,
+                        marginBottom: '12px',
+                      }}
+                    >
+                      {`Nominal: ${formatRupiah(previewKeuanganItem.nominal)}`}
+                    </div>
+
+                    <div
+                      style={{
+                        display: 'grid',
+                        gap: '8px',
+                        fontSize: '0.86rem',
+                        color: '#1f2937',
+                        background: '#f8faf8',
+                        padding: '14px',
+                        borderRadius: '12px',
+                        border: '1px solid rgba(27, 107, 69, 0.14)',
+                      }}
+                    >
+                      <div>
+                        <strong>Tanggal Pengeluaran :</strong>{' '}
+                        {formatTanggalIndo(previewKeuanganItem.tanggal)}
+                      </div>
+                      <div>
+                        <strong>Kategori :</strong> {previewKeuanganItem.kategori}
+                      </div>
+                      <div>
+                        <strong>Penanggung Jawab / Penerima :</strong>{' '}
+                        {previewKeuanganItem.penanggungJawab}
+                      </div>
+                      <div>
+                        <strong>Metode Pembayaran :</strong>{' '}
+                        {previewKeuanganItem.metodePembayaran}
+                      </div>
+                      {previewKeuanganItem.catatan && (
+                        <div>
+                          <strong>Catatan :</strong> {previewKeuanganItem.catatan}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

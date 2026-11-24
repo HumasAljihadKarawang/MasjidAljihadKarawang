@@ -229,6 +229,18 @@ export const INITIAL_KEGIATAN_UNGGULAN: KegiatanUnggulanItem[] = []
 
 export const INITIAL_KALENDER: AgendaKalenderItem[] = []
 
+export interface LaporanKeuanganItem {
+  id: string
+  tanggal: string // YYYY-MM-DD
+  kategori: string
+  uraian: string
+  nominal: number
+  penanggungJawab: string
+  metodePembayaran: 'Tunai (Kas DKM)' | 'Transfer Bank' | 'QRIS'
+  catatan?: string
+  createdAt: string
+}
+
 const KEYS = {
   berita: 'aljihad_berita_v1',
   video: 'aljihad_video_v1',
@@ -236,6 +248,7 @@ const KEYS = {
   kalender: 'aljihad_kalender_v2',
   pengajuanKalender: 'aljihad_pengajuan_kalender_v1',
   kritik: 'aljihad_kritik_v1',
+  keuangan: 'aljihad_keuangan_v1',
 }
 
 function safeGet<T>(key: string, fallback: T): T {
@@ -294,6 +307,17 @@ export const masjidStore = {
     }
   },
   saveKritik: (list: KritikSaranItem[]) => safeSet(KEYS.kritik, list),
+
+  getKeuangan: (): LaporanKeuanganItem[] => {
+    if (typeof window === 'undefined') return []
+    try {
+      const raw = window.localStorage.getItem(KEYS.keuangan)
+      return raw ? JSON.parse(raw) : []
+    } catch {
+      return []
+    }
+  },
+  saveKeuangan: (list: LaporanKeuanganItem[]) => safeSet(KEYS.keuangan, list),
 }
 
 // Fungsi deteksi bentrok jadwal (Tanggal sama, Ruangan sama, dan rentang jam beririsan)
