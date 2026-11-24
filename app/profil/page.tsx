@@ -490,10 +490,10 @@ export default function ProfilPage() {
                       color: '#0f4a2a',
                     }}
                   >
-                    Transparansi Pengeluaran Terakhir Masjid Al-Jihad
+                    Display Pengeluaran Masjid Al-Jihad
                   </h3>
                   <span style={{ fontSize: '0.78rem', color: '#4b5563', fontWeight: 600 }}>
-                    Menampilkan rincian pengeluaran dalam rentang 1 minggu &amp; 1 bulan terakhir
+                    Transparansi rincian pengeluaran 1 minggu &amp; 1 bulan terakhir (terhubung otomatis dari BKU Admin)
                   </span>
                 </div>
 

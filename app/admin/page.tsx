@@ -203,6 +203,14 @@ export default function AdminSidebarPage() {
   const [showInputKeuanganModal, setShowInputKeuanganModal] = useState(false)
   const [previewKeuanganItem, setPreviewKeuanganItem] = useState<LaporanKeuanganItem | null>(null)
   const [excelEditMode, setExcelEditMode] = useState(false)
+  const [activeExcelEditor, setActiveExcelEditor] = useState<{
+    rowNo: number
+    side: 'masuk' | 'keluar' | 'saldo'
+    itemId?: string
+    tanggal: string
+    uraian: string
+    nominal: string
+  } | null>(null)
   const [jenisTransaksiKeu, setJenisTransaksiKeu] = useState<'Pengeluaran' | 'Pemasukan'>(
     'Pengeluaran'
   )
@@ -2967,44 +2975,85 @@ export default function AdminSidebarPage() {
     }
   }
 
-  const handleExcelUpdateKeuanganItem = (
-    id: string,
-    field: 'tanggal' | 'uraian' | 'nominal',
-    value: string
-  ) => {
-    const updated = keuanganList.map((item) => {
-      if (item.id !== id) return item
-      if (field === 'nominal') {
-        const cleanNum = Number(value.replace(/\D/g, '')) || 0
-        return { ...item, nominal: cleanNum }
-      }
-      if (field === 'tanggal') {
-        return { ...item, tanggal: value }
-      }
-      return { ...item, uraian: value }
-    })
-    setKeuanganList(updated)
-    masjidStore.saveKeuangan(updated)
-  }
-
-  const handleExcelAddQuickRow = (jenis: 'Pemasukan' | 'Pengeluaran', defaultDateIso: string) => {
-    const newItem: LaporanKeuanganItem = {
-      id: `keu-xls-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-      tanggal: defaultDateIso,
-      jenis,
-      kategori:
-        jenis === 'Pemasukan' ? 'Infaq Jumat & Koropak' : 'Operasional & Listrik/Air',
-      uraian: jenis === 'Pemasukan' ? 'Uraian Pemasukan Baru' : 'Uraian Pengeluaran Baru',
-      nominal: 0,
-      penanggungJawab: 'Dr.K.H Asep Khareul Faizin,MM',
-      metodePembayaran: 'Tunai (Kas DKM)',
-      createdAt: new Date().toISOString(),
+  const handleCommitExcelCellEditor = async (monthPrefix: string) => {
+    if (!activeExcelEditor) return
+    if (activeExcelEditor.side === 'saldo') {
+      const val = Number(activeExcelEditor.nominal.replace(/\D/g, '')) || 0
+      const nextMap = { ...saldoSebelumnyaMap, [monthPrefix]: val }
+      setSaldoSebelumnyaMap(nextMap)
+      masjidStore.saveSaldoSebelumnyaMap(nextMap)
+      setActiveExcelEditor(null)
+      return
     }
-    const updated = [...keuanganList, newItem].sort(
-      (a, b) => a.tanggal.localeCompare(b.tanggal) || a.createdAt.localeCompare(b.createdAt)
-    )
-    setKeuanganList(updated)
-    masjidStore.saveKeuangan(updated)
+
+    const jenis: 'Pemasukan' | 'Pengeluaran' =
+      activeExcelEditor.side === 'masuk' ? 'Pemasukan' : 'Pengeluaran'
+    const cleanNum = Number(activeExcelEditor.nominal.replace(/\D/g, '')) || 0
+    const cleanUraian = activeExcelEditor.uraian.trim()
+    const cleanTgl = activeExcelEditor.tanggal || `${monthPrefix}-01`
+
+    if (!cleanUraian && cleanNum === 0) {
+      if (activeExcelEditor.itemId) {
+        await handleDeleteKeuangan(activeExcelEditor.itemId)
+      }
+      setActiveExcelEditor(null)
+      return
+    }
+
+    if (activeExcelEditor.itemId) {
+      const updated = keuanganList
+        .map((item) =>
+          item.id === activeExcelEditor.itemId
+            ? {
+                ...item,
+                tanggal: cleanTgl,
+                uraian: cleanUraian || item.uraian,
+                nominal: cleanNum,
+              }
+            : item
+        )
+        .sort((a, b) => a.tanggal.localeCompare(b.tanggal) || a.createdAt.localeCompare(b.createdAt))
+      setKeuanganList(updated)
+      masjidStore.saveKeuangan(updated)
+    } else {
+      const newItem: LaporanKeuanganItem = {
+        id: `keu-xls-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        tanggal: cleanTgl,
+        jenis,
+        kategori:
+          jenis === 'Pemasukan' ? 'Infaq Jumat & Koropak' : 'Operasional & Listrik/Air',
+        uraian:
+          cleanUraian ||
+          (jenis === 'Pemasukan' ? 'Pemasukan Masjid' : 'Pengeluaran Masjid'),
+        nominal: cleanNum,
+        penanggungJawab: 'Dr.K.H Asep Khareul Faizin,MM',
+        metodePembayaran: 'Tunai (Kas DKM)',
+        createdAt: new Date().toISOString(),
+      }
+      const updated = [...keuanganList, newItem].sort(
+        (a, b) => a.tanggal.localeCompare(b.tanggal) || a.createdAt.localeCompare(b.createdAt)
+      )
+      setKeuanganList(updated)
+      masjidStore.saveKeuangan(updated)
+      if (getActiveSupabaseConfig().isConfigured) {
+        try {
+          await getSupabaseClient().from('laporan_keuangan').insert({
+            id: newItem.id,
+            tanggal: newItem.tanggal,
+            jenis: newItem.jenis,
+            kategori: newItem.kategori,
+            uraian: newItem.uraian,
+            nominal: newItem.nominal,
+            penanggung_jawab: newItem.penanggungJawab,
+            metode_pembayaran: newItem.metodePembayaran,
+            catatan: '',
+          })
+        } catch {
+          // ignore
+        }
+      }
+    }
+    setActiveExcelEditor(null)
   }
 
   const hasUnsavedAdminInput = (tab: AdminTab): boolean => {
@@ -5294,14 +5343,115 @@ export default function AdminSidebarPage() {
                       : 8
                 )
 
-                const pengeluaranOnlyList = activeItems.filter(
-                  (it) => it.jenis !== 'Pemasukan'
-                )
-
                 return (
                   <>
-                    {/* PANEL KONTROL ATAS: SATU PAKET PERMANEN (SWITCH LAPORAN BULANAN / MINGGUAN / HARIAN + PILIHAN BULAN & TAHUN) */}
+                    {/* PANEL SWITCH MENU LAPORAN: DI ATASNYA HANYA DUA PILIHAN (BULAN/TANGGAL & TAHUN), DI BAWAHNYA SWITCH LAPORAN */}
                     <div className={styles.panelCard}>
+                      {/* BARIS ATAS: DUA PILIHAN PERMANEN (BULAN/TANGGAL & TAHUN) */}
+                      <div
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 240px))',
+                          gap: '12px',
+                          paddingBottom: '14px',
+                          marginBottom: '14px',
+                          borderBottom: '1px solid rgba(27, 107, 69, 0.14)',
+                        }}
+                      >
+                        <div>
+                          <label
+                            style={{
+                              display: 'block',
+                              fontSize: '0.76rem',
+                              fontWeight: 800,
+                              color: '#14532d',
+                              marginBottom: '4px',
+                            }}
+                          >
+                            Bulan
+                          </label>
+                          <select
+                            aria-label="Pilih Bulan Permanen"
+                            value={rekapKeuanganMonth}
+                            onChange={(e) => {
+                              const nextM = Number(e.target.value)
+                              setRekapKeuanganMonth(nextM)
+                              setActiveExcelEditor(null)
+                              const nextPrefix = `${rekapKeuanganYear}-${String(
+                                nextM + 1
+                              ).padStart(2, '0')}`
+                              if (!rekapKeuanganDailyDate.startsWith(nextPrefix)) {
+                                setRekapKeuanganDailyDate(`${nextPrefix}-01`)
+                              }
+                            }}
+                            style={{
+                              width: '100%',
+                              padding: '9px 12px',
+                              borderRadius: '10px',
+                              border: '1px solid rgba(27, 107, 69, 0.28)',
+                              fontWeight: 800,
+                              fontSize: '0.85rem',
+                              background: '#f0fdf4',
+                              color: '#0f4a2a',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            {NAMA_BULAN_ADMIN.map((bln, idx) => (
+                              <option key={bln} value={idx}>
+                                {bln}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label
+                            style={{
+                              display: 'block',
+                              fontSize: '0.76rem',
+                              fontWeight: 800,
+                              color: '#14532d',
+                              marginBottom: '4px',
+                            }}
+                          >
+                            Tahun
+                          </label>
+                          <select
+                            aria-label="Pilih Tahun Permanen"
+                            value={rekapKeuanganYear}
+                            onChange={(e) => {
+                              const nextY = Number(e.target.value)
+                              setRekapKeuanganYear(nextY)
+                              setActiveExcelEditor(null)
+                              const nextPrefix = `${nextY}-${String(
+                                rekapKeuanganMonth + 1
+                              ).padStart(2, '0')}`
+                              if (!rekapKeuanganDailyDate.startsWith(nextPrefix)) {
+                                setRekapKeuanganDailyDate(`${nextPrefix}-01`)
+                              }
+                            }}
+                            style={{
+                              width: '100%',
+                              padding: '9px 12px',
+                              borderRadius: '10px',
+                              border: '1px solid rgba(27, 107, 69, 0.28)',
+                              fontWeight: 800,
+                              fontSize: '0.85rem',
+                              background: '#f0fdf4',
+                              color: '#0f4a2a',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            {[2026, 2027, 2028].map((yr) => (
+                              <option key={yr} value={yr}>
+                                {yr}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* BARIS BAWAH: SWITCH LAPORAN BULANAN / MINGGUAN / HARIAN + FILTER MINGGU/KALENDER + UNDUH */}
                       <div
                         style={{
                           display: 'flex',
@@ -5309,9 +5459,6 @@ export default function AdminSidebarPage() {
                           justifyContent: 'space-between',
                           flexWrap: 'wrap',
                           gap: '12px',
-                          paddingBottom: '14px',
-                          marginBottom: '16px',
-                          borderBottom: '1px solid rgba(27, 107, 69, 0.14)',
                         }}
                       >
                         <div
@@ -5324,7 +5471,10 @@ export default function AdminSidebarPage() {
                         >
                           <button
                             type="button"
-                            onClick={() => setRekapKeuanganMode('bulanan')}
+                            onClick={() => {
+                              setActiveExcelEditor(null)
+                              setRekapKeuanganMode('bulanan')
+                            }}
                             style={{
                               padding: '9px 16px',
                               borderRadius: '10px',
@@ -5346,7 +5496,7 @@ export default function AdminSidebarPage() {
                           <button
                             type="button"
                             onClick={() => {
-                              setExcelEditMode(false)
+                              setActiveExcelEditor(null)
                               setRekapKeuanganMode('mingguan')
                             }}
                             style={{
@@ -5370,7 +5520,7 @@ export default function AdminSidebarPage() {
                           <button
                             type="button"
                             onClick={() => {
-                              setExcelEditMode(false)
+                              setActiveExcelEditor(null)
                               setRekapKeuanganMode('harian')
                             }}
                             style={{
@@ -5391,247 +5541,69 @@ export default function AdminSidebarPage() {
                             Laporan Harian
                           </button>
 
-                          {/* PILIHAN BULAN & TAHUN PERMANEN SATU PAKET DENGAN TOMBOL SWITCH LAPORAN */}
-                          <div
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '8px',
-                              paddingLeft: '8px',
-                              borderLeft: '2px solid rgba(27, 107, 69, 0.2)',
-                            }}
-                          >
-                            <select
-                              aria-label="Pilih Bulan Permanen"
-                              value={rekapKeuanganMonth}
-                              onChange={(e) => {
-                                const nextM = Number(e.target.value)
-                                setRekapKeuanganMonth(nextM)
-                                const nextPrefix = `${rekapKeuanganYear}-${String(
-                                  nextM + 1
-                                ).padStart(2, '0')}`
-                                if (!rekapKeuanganDailyDate.startsWith(nextPrefix)) {
-                                  setRekapKeuanganDailyDate(`${nextPrefix}-01`)
-                                }
-                              }}
-                              style={{
-                                padding: '9px 12px',
-                                borderRadius: '10px',
-                                border: '1px solid rgba(27, 107, 69, 0.28)',
-                                fontWeight: 800,
-                                fontSize: '0.85rem',
-                                background: '#f0fdf4',
-                                color: '#0f4a2a',
-                                cursor: 'pointer',
-                              }}
-                            >
-                              {NAMA_BULAN_ADMIN.map((bln, idx) => (
-                                <option key={bln} value={idx}>
-                                  {bln}
-                                </option>
-                              ))}
-                            </select>
-
-                            <select
-                              aria-label="Pilih Tahun Permanen"
-                              value={rekapKeuanganYear}
-                              onChange={(e) => {
-                                const nextY = Number(e.target.value)
-                                setRekapKeuanganYear(nextY)
-                                const nextPrefix = `${nextY}-${String(
-                                  rekapKeuanganMonth + 1
-                                ).padStart(2, '0')}`
-                                if (!rekapKeuanganDailyDate.startsWith(nextPrefix)) {
-                                  setRekapKeuanganDailyDate(`${nextPrefix}-01`)
-                                }
-                              }}
-                              style={{
-                                padding: '9px 12px',
-                                borderRadius: '10px',
-                                border: '1px solid rgba(27, 107, 69, 0.28)',
-                                fontWeight: 800,
-                                fontSize: '0.85rem',
-                                background: '#f0fdf4',
-                                color: '#0f4a2a',
-                                cursor: 'pointer',
-                              }}
-                            >
-                              {[2026, 2027, 2028].map((yr) => (
-                                <option key={yr} value={yr}>
-                                  {yr}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        </div>
-
-                        {/* TOMBOL INPUT & EDIT TABEL EXCEL HANYA DI LAPORAN BULANAN */}
-                        {rekapKeuanganMode === 'bulanan' && (
-                          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                            <button
-                              type="button"
-                              onClick={() => setExcelEditMode((prev) => !prev)}
-                              style={{
-                                padding: '10px 16px',
-                                borderRadius: '10px',
-                                border: excelEditMode
-                                  ? '2px solid #b45309'
-                                  : '1px solid rgba(27, 107, 69, 0.3)',
-                                background: excelEditMode ? '#fffbeb' : '#f0fdf4',
-                                color: excelEditMode ? '#92400e' : '#0f4a2a',
-                                fontWeight: 800,
-                                fontSize: '0.84rem',
-                                cursor: 'pointer',
-                              }}
-                            >
-                              {excelEditMode
-                                ? '✓ Selesai Edit Tabel (Excel)'
-                                : '✎ Mode Input / Edit Tabel (Excel)'}
-                            </button>
-
-                            <button
-                              type="button"
-                              className={styles.submitBtn}
-                              onClick={() => setShowInputKeuanganModal(true)}
-                              style={{
-                                width: 'auto',
-                                marginTop: 0,
-                                padding: '10px 18px',
-                                fontSize: '0.84rem',
-                              }}
-                            >
-                              + Input Pengeluaran / Pemasukan
-                            </button>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* SUB-BAR KONDISIONAL: BULANAN (TANPA PILIHAN TAMBAHAN), MINGGUAN (PILIH MINGGU), HARIAN (PILIH KALENDER) + TOMBOL UNDUH */}
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'flex-end',
-                          justifyContent: 'space-between',
-                          flexWrap: 'wrap',
-                          gap: '14px',
-                          background: '#f8faf8',
-                          padding: '14px 16px',
-                          borderRadius: '14px',
-                          border: '1px solid rgba(27, 107, 69, 0.16)',
-                        }}
-                      >
-                        <div
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '12px',
-                            flexWrap: 'wrap',
-                          }}
-                        >
-                          {rekapKeuanganMode === 'bulanan' && (
-                            <span
-                              style={{
-                                fontSize: '0.85rem',
-                                fontWeight: 800,
-                                color: '#0f4a2a',
-                              }}
-                            >
-                              {`Periode Aktif: Bulan ${monthName} ${rekapKeuanganYear}`}
-                            </span>
-                          )}
-
                           {rekapKeuanganMode === 'mingguan' && (
-                            <div>
-                              <label
-                                style={{
-                                  display: 'block',
-                                  fontSize: '0.78rem',
-                                  fontWeight: 800,
-                                  color: '#14532d',
-                                  marginBottom: '4px',
-                                }}
-                              >
-                                Pilih Minggu
-                              </label>
-                              <select
-                                value={rekapKeuanganMingguKe}
-                                onChange={(e) =>
-                                  setRekapKeuanganMingguKe(Number(e.target.value))
-                                }
-                                style={{
-                                  padding: '9px 12px',
-                                  borderRadius: '10px',
-                                  border: '1px solid rgba(27, 107, 69, 0.25)',
-                                  fontWeight: 700,
-                                  fontSize: '0.85rem',
-                                  background: '#ffffff',
-                                }}
-                              >
-                                {weekDefs.map((w) => (
-                                  <option key={w.mingguKe} value={w.mingguKe}>
-                                    {`${w.label} / ${Math.min(
-                                      w.startDay,
-                                      daysInSelectedMonth
-                                    )}–${Math.max(
-                                      Math.min(w.startDay, daysInSelectedMonth),
-                                      w.endDay
-                                    )} ${monthName}`}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
+                            <select
+                              aria-label="Pilih Minggu"
+                              value={rekapKeuanganMingguKe}
+                              onChange={(e) => {
+                                setActiveExcelEditor(null)
+                                setRekapKeuanganMingguKe(Number(e.target.value))
+                              }}
+                              style={{
+                                padding: '9px 12px',
+                                borderRadius: '10px',
+                                border: '1px solid rgba(27, 107, 69, 0.25)',
+                                fontWeight: 700,
+                                fontSize: '0.85rem',
+                                background: '#ffffff',
+                              }}
+                            >
+                              {weekDefs.map((w) => (
+                                <option key={w.mingguKe} value={w.mingguKe}>
+                                  {`${w.label} / ${Math.min(
+                                    w.startDay,
+                                    daysInSelectedMonth
+                                  )}–${Math.max(
+                                    Math.min(w.startDay, daysInSelectedMonth),
+                                    w.endDay
+                                  )} ${monthName}`}
+                                </option>
+                              ))}
+                            </select>
                           )}
 
                           {rekapKeuanganMode === 'harian' && (
-                            <div>
-                              <label
-                                style={{
-                                  display: 'block',
-                                  fontSize: '0.78rem',
-                                  fontWeight: 800,
-                                  color: '#14532d',
-                                  marginBottom: '4px',
-                                }}
-                              >
-                                Pilih Kalender Harian
-                              </label>
-                              <input
-                                type="date"
-                                value={rekapKeuanganDailyDate}
-                                onChange={(e) => {
-                                  const val = e.target.value
-                                  setRekapKeuanganDailyDate(val)
-                                  const parts = val.split('-')
-                                  if (parts.length === 3) {
-                                    const y = Number(parts[0])
-                                    const m = Number(parts[1]) - 1
-                                    if (!Number.isNaN(y)) setRekapKeuanganYear(y)
-                                    if (!Number.isNaN(m) && m >= 0 && m <= 11) {
-                                      setRekapKeuanganMonth(m)
-                                    }
+                            <input
+                              type="date"
+                              aria-label="Pilih Kalender Harian"
+                              value={rekapKeuanganDailyDate}
+                              onChange={(e) => {
+                                const val = e.target.value
+                                setActiveExcelEditor(null)
+                                setRekapKeuanganDailyDate(val)
+                                const parts = val.split('-')
+                                if (parts.length === 3) {
+                                  const y = Number(parts[0])
+                                  const m = Number(parts[1]) - 1
+                                  if (!Number.isNaN(y)) setRekapKeuanganYear(y)
+                                  if (!Number.isNaN(m) && m >= 0 && m <= 11) {
+                                    setRekapKeuanganMonth(m)
                                   }
-                                }}
-                                style={{
-                                  padding: '8px 12px',
-                                  borderRadius: '10px',
-                                  border: '1px solid rgba(27, 107, 69, 0.25)',
-                                  fontWeight: 700,
-                                  fontSize: '0.85rem',
-                                  background: '#ffffff',
-                                }}
-                              />
-                            </div>
+                                }
+                              }}
+                              style={{
+                                padding: '8px 12px',
+                                borderRadius: '10px',
+                                border: '1px solid rgba(27, 107, 69, 0.25)',
+                                fontWeight: 700,
+                                fontSize: '0.85rem',
+                                background: '#ffffff',
+                              }}
+                            />
                           )}
                         </div>
 
-                        <div
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '10px',
-                            flexWrap: 'wrap',
-                          }}
-                        >
+                        <div>
                           {rekapKeuanganMode === 'bulanan' ? (
                             <button
                               type="button"
@@ -5797,7 +5769,7 @@ export default function AdminSidebarPage() {
                               color: '#92400e',
                             }}
                           >
-                            Saldo Akhir Periode Ini
+                            Saldo Kas Periode Ini
                           </span>
                           <strong
                             style={{
@@ -5841,7 +5813,71 @@ export default function AdminSidebarPage() {
                       </div>
                     </div>
 
-                    {/* TEMPLATE BKU KEUANGAN MASJID AL-JIHAD KARAWANG (PREVIEW BERSIH TANPA TANDA SILANG & MODE EDIT TABEL EXCEL) */}
+                    {/* BARIS TOMBOL INPUT DI ATAS PREVIEW SURAT BKU */}
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: '10px',
+                        padding: '12px 16px',
+                        borderRadius: '14px',
+                        background: excelEditMode ? '#fffbeb' : '#ffffff',
+                        border: excelEditMode
+                          ? '1.5px solid #f59e0b'
+                          : '1px solid rgba(27, 107, 69, 0.18)',
+                        boxShadow: '0 4px 14px rgba(15, 23, 42, 0.04)',
+                      }}
+                    >
+                      <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#1f2937' }}>
+                        {excelEditMode
+                          ? '✎ Mode Edit Tabel Aktif: Klik baris/sel mana saja pada tabel di bawah (Pemasukan atau Pengeluaran, baik terisi maupun kosong) untuk memunculkan menu input/edit.'
+                          : 'Preview Surat Laporan BKU Masjid Al-Jihad Karawang'}
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveExcelEditor(null)
+                            setExcelEditMode((prev) => !prev)
+                          }}
+                          style={{
+                            padding: '9px 15px',
+                            borderRadius: '10px',
+                            border: excelEditMode
+                              ? '2px solid #b45309'
+                              : '1px solid rgba(27, 107, 69, 0.3)',
+                            background: excelEditMode ? '#fef3c7' : '#f0fdf4',
+                            color: excelEditMode ? '#92400e' : '#0f4a2a',
+                            fontWeight: 800,
+                            fontSize: '0.83rem',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {excelEditMode
+                            ? '✓ Selesai Mode Edit Tabel'
+                            : '✎ Mode Edit Tabel (Excel)'}
+                        </button>
+
+                        <button
+                          type="button"
+                          className={styles.submitBtn}
+                          onClick={() => setShowInputKeuanganModal(true)}
+                          style={{
+                            width: 'auto',
+                            marginTop: 0,
+                            padding: '9px 16px',
+                            fontSize: '0.83rem',
+                          }}
+                        >
+                          + Input Pengeluaran / Pemasukan
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* TEMPLATE BKU KEUANGAN MASJID AL-JIHAD KARAWANG (PREVIEW SURAT + KLIK SEL UNTUK INPUT/EDIT SAAT MODE EXCEL) */}
                     <div
                       className={styles.panelCard}
                       style={{
@@ -5850,69 +5886,6 @@ export default function AdminSidebarPage() {
                         border: '1px solid rgba(15, 74, 42, 0.22)',
                       }}
                     >
-                      {excelEditMode && rekapKeuanganMode === 'bulanan' && (
-                        <div
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            flexWrap: 'wrap',
-                            gap: '10px',
-                            padding: '10px 14px',
-                            marginBottom: '16px',
-                            borderRadius: '10px',
-                            background: '#fffbeb',
-                            border: '1px solid #f59e0b',
-                            color: '#92400e',
-                            fontSize: '0.8rem',
-                            fontWeight: 700,
-                          }}
-                        >
-                          <span>
-                            ✎ Mode Tabel Excel Aktif: Klik langsung pada sel tanggal, uraian,
-                            jumlah, atau Saldo Sebelumnya untuk mengubah data secara manual.
-                          </span>
-                          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleExcelAddQuickRow('Pemasukan', `${monthPrefix}-01`)
-                              }
-                              style={{
-                                padding: '5px 10px',
-                                borderRadius: '7px',
-                                border: '1px solid #15803d',
-                                background: '#ecfdf5',
-                                color: '#14532d',
-                                fontWeight: 800,
-                                fontSize: '0.75rem',
-                                cursor: 'pointer',
-                              }}
-                            >
-                              + Baris Pemasukan Excel
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleExcelAddQuickRow('Pengeluaran', `${monthPrefix}-01`)
-                              }
-                              style={{
-                                padding: '5px 10px',
-                                borderRadius: '7px',
-                                border: '1px solid #dc2626',
-                                background: '#fef2f2',
-                                color: '#991b1b',
-                                fontWeight: 800,
-                                fontSize: '0.75rem',
-                                cursor: 'pointer',
-                              }}
-                            >
-                              + Baris Pengeluaran Excel
-                            </button>
-                          </div>
-                        </div>
-                      )}
-
                       {/* KOP SURAT RESMI DKM MASJID RAYA AL-JIHAD KARAWANG */}
                       <div
                         style={{
@@ -6132,323 +6105,541 @@ export default function AdminSidebarPage() {
                             </tr>
                           </thead>
                           <tbody>
-                            {bkuPairedRows.map((row, idx) => (
-                              <tr
-                                key={row.rowNo}
-                                style={{
-                                  borderBottom: '1px solid #4b5563',
-                                  background: idx % 2 === 0 ? '#ffffff' : '#f9fbf9',
-                                  height: '29px',
-                                }}
-                              >
-                                <td
+                            {bkuPairedRows.map((row, idx) => {
+                              const defaultCellDate =
+                                rekapKeuanganMode === 'harian'
+                                  ? rekapKeuanganDailyDate
+                                  : rekapKeuanganMode === 'mingguan'
+                                    ? weekStartIso
+                                    : `${monthPrefix}-01`
+
+                              const isEditingMasuk =
+                                excelEditMode &&
+                                activeExcelEditor?.rowNo === row.rowNo &&
+                                activeExcelEditor?.side === 'masuk'
+
+                              const isEditingKeluar =
+                                excelEditMode &&
+                                activeExcelEditor?.rowNo === row.rowNo &&
+                                activeExcelEditor?.side === 'keluar'
+
+                              const openMasukEditor = () => {
+                                if (!excelEditMode || isEditingMasuk) return
+                                setActiveExcelEditor({
+                                  rowNo: row.rowNo,
+                                  side: 'masuk',
+                                  itemId: row.itemMasuk?.id,
+                                  tanggal: row.itemMasuk?.tanggal || defaultCellDate,
+                                  uraian: row.itemMasuk?.uraian || '',
+                                  nominal: row.itemMasuk ? String(row.itemMasuk.nominal) : '',
+                                })
+                              }
+
+                              const openKeluarEditor = () => {
+                                if (!excelEditMode || isEditingKeluar) return
+                                setActiveExcelEditor({
+                                  rowNo: row.rowNo,
+                                  side: 'keluar',
+                                  itemId: row.itemKeluar?.id,
+                                  tanggal: row.itemKeluar?.tanggal || defaultCellDate,
+                                  uraian: row.itemKeluar?.uraian || '',
+                                  nominal: row.itemKeluar ? String(row.itemKeluar.nominal) : '',
+                                })
+                              }
+
+                              return (
+                                <tr
+                                  key={row.rowNo}
                                   style={{
-                                    padding: '5px 6px',
-                                    textAlign: 'center',
-                                    color: '#6b7280',
-                                    fontWeight: 700,
-                                    borderRight: '1px solid #4b5563',
+                                    borderBottom: '1px solid #4b5563',
+                                    background: idx % 2 === 0 ? '#ffffff' : '#f9fbf9',
+                                    height: '29px',
                                   }}
                                 >
-                                  {row.rowNo}
-                                </td>
-                                <td
-                                  style={{
-                                    padding: '5px 8px',
-                                    textAlign: 'center',
-                                    fontWeight: 700,
-                                    color: '#111827',
-                                    borderRight: '1px solid #4b5563',
-                                    whiteSpace: 'nowrap',
-                                  }}
-                                >
-                                  {excelEditMode && row.itemMasuk ? (
-                                    <input
-                                      type="date"
-                                      value={row.itemMasuk.tanggal}
-                                      onChange={(e) =>
-                                        row.itemMasuk &&
-                                        handleExcelUpdateKeuanganItem(
-                                          row.itemMasuk.id,
-                                          'tanggal',
-                                          e.target.value
-                                        )
-                                      }
+                                  <td
+                                    style={{
+                                      padding: '5px 6px',
+                                      textAlign: 'center',
+                                      color: '#6b7280',
+                                      fontWeight: 700,
+                                      borderRight: '1px solid #4b5563',
+                                    }}
+                                  >
+                                    {row.rowNo}
+                                  </td>
+
+                                  {/* SISI KIRI: PEMASUKAN */}
+                                  {isEditingMasuk && activeExcelEditor ? (
+                                    <td
+                                      colSpan={3}
                                       style={{
-                                        width: '115px',
-                                        padding: '2px 4px',
-                                        fontSize: '0.74rem',
-                                        border: '1px solid #15803d',
-                                        borderRadius: '4px',
+                                        padding: '6px 8px',
+                                        background: '#ecfdf5',
+                                        borderRight: '2px solid #111827',
                                       }}
-                                    />
-                                  ) : (
-                                    row.tglMasuk
-                                  )}
-                                </td>
-                                <td
-                                  style={{
-                                    padding: '5px 10px',
-                                    color: '#111827',
-                                    borderRight: '1px solid #4b5563',
-                                  }}
-                                >
-                                  {row.itemMasuk ? (
-                                    excelEditMode ? (
+                                    >
                                       <div
                                         style={{
                                           display: 'flex',
                                           alignItems: 'center',
-                                          gap: '4px',
+                                          gap: '6px',
+                                          flexWrap: 'wrap',
                                         }}
                                       >
                                         <input
-                                          type="text"
-                                          value={row.itemMasuk.uraian}
+                                          type="date"
+                                          value={activeExcelEditor.tanggal}
                                           onChange={(e) =>
-                                            row.itemMasuk &&
-                                            handleExcelUpdateKeuanganItem(
-                                              row.itemMasuk.id,
-                                              'uraian',
-                                              e.target.value
-                                            )
+                                            setActiveExcelEditor({
+                                              ...activeExcelEditor,
+                                              tanggal: e.target.value,
+                                            })
                                           }
                                           style={{
-                                            width: '100%',
-                                            padding: '3px 6px',
+                                            width: '122px',
+                                            padding: '4px 6px',
+                                            fontSize: '0.76rem',
+                                            border: '1px solid #15803d',
+                                            borderRadius: '6px',
+                                            background: '#ffffff',
+                                          }}
+                                        />
+                                        <input
+                                          type="text"
+                                          autoFocus
+                                          placeholder="Ketik uraian pemasukan..."
+                                          value={activeExcelEditor.uraian}
+                                          onChange={(e) =>
+                                            setActiveExcelEditor({
+                                              ...activeExcelEditor,
+                                              uraian: e.target.value,
+                                            })
+                                          }
+                                          onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                              e.preventDefault()
+                                              handleCommitExcelCellEditor(monthPrefix)
+                                            } else if (e.key === 'Escape') {
+                                              setActiveExcelEditor(null)
+                                            }
+                                          }}
+                                          style={{
+                                            flex: 1,
+                                            minWidth: '140px',
+                                            padding: '4px 8px',
                                             fontSize: '0.78rem',
                                             border: '1px solid #15803d',
-                                            borderRadius: '4px',
+                                            borderRadius: '6px',
+                                            background: '#ffffff',
+                                          }}
+                                        />
+                                        <input
+                                          type="text"
+                                          inputMode="numeric"
+                                          placeholder="Nominal Rp"
+                                          value={activeExcelEditor.nominal}
+                                          onChange={(e) =>
+                                            setActiveExcelEditor({
+                                              ...activeExcelEditor,
+                                              nominal: e.target.value.replace(/\D/g, ''),
+                                            })
+                                          }
+                                          onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                              e.preventDefault()
+                                              handleCommitExcelCellEditor(monthPrefix)
+                                            } else if (e.key === 'Escape') {
+                                              setActiveExcelEditor(null)
+                                            }
+                                          }}
+                                          style={{
+                                            width: '115px',
+                                            padding: '4px 8px',
+                                            fontSize: '0.78rem',
+                                            fontWeight: 700,
+                                            textAlign: 'right',
+                                            border: '1px solid #15803d',
+                                            borderRadius: '6px',
+                                            background: '#ffffff',
                                           }}
                                         />
                                         <button
                                           type="button"
-                                          title="Hapus baris"
-                                          onClick={() =>
-                                            row.itemMasuk &&
-                                            handleDeleteKeuangan(row.itemMasuk.id)
-                                          }
+                                          onClick={() => handleCommitExcelCellEditor(monthPrefix)}
                                           style={{
-                                            border: '1px solid #fecaca',
-                                            background: '#fef2f2',
-                                            color: '#dc2626',
-                                            borderRadius: '4px',
-                                            fontSize: '0.7rem',
+                                            border: 'none',
+                                            background: '#15803d',
+                                            color: '#ffffff',
+                                            borderRadius: '6px',
+                                            padding: '4px 9px',
+                                            fontSize: '0.74rem',
                                             fontWeight: 800,
                                             cursor: 'pointer',
-                                            padding: '2px 6px',
                                           }}
                                         >
-                                          Hapus
+                                          ✓ Simpan
+                                        </button>
+                                        {activeExcelEditor.itemId && (
+                                          <button
+                                            type="button"
+                                            onClick={async () => {
+                                              if (activeExcelEditor.itemId) {
+                                                await handleDeleteKeuangan(
+                                                  activeExcelEditor.itemId
+                                                )
+                                              }
+                                              setActiveExcelEditor(null)
+                                            }}
+                                            style={{
+                                              border: '1px solid #fecaca',
+                                              background: '#fef2f2',
+                                              color: '#dc2626',
+                                              borderRadius: '6px',
+                                              padding: '4px 8px',
+                                              fontSize: '0.74rem',
+                                              fontWeight: 800,
+                                              cursor: 'pointer',
+                                            }}
+                                          >
+                                            Hapus
+                                          </button>
+                                        )}
+                                        <button
+                                          type="button"
+                                          onClick={() => setActiveExcelEditor(null)}
+                                          style={{
+                                            border: '1px solid #d1d5db',
+                                            background: '#ffffff',
+                                            color: '#374151',
+                                            borderRadius: '6px',
+                                            padding: '4px 8px',
+                                            fontSize: '0.74rem',
+                                            fontWeight: 700,
+                                            cursor: 'pointer',
+                                          }}
+                                        >
+                                          Batal
                                         </button>
                                       </div>
-                                    ) : (
-                                      <span
-                                        onClick={() =>
-                                          row.itemMasuk && setPreviewKeuanganItem(row.itemMasuk)
+                                    </td>
+                                  ) : (
+                                    <>
+                                      <td
+                                        onClick={openMasukEditor}
+                                        title={
+                                          excelEditMode
+                                            ? 'Klik untuk input / edit Pemasukan di baris ini'
+                                            : undefined
                                         }
-                                        style={{ cursor: 'pointer', fontWeight: 600 }}
-                                        title="Klik untuk preview rincian"
+                                        style={{
+                                          padding: '5px 8px',
+                                          textAlign: 'center',
+                                          fontWeight: 700,
+                                          color: '#111827',
+                                          borderRight: '1px solid #4b5563',
+                                          whiteSpace: 'nowrap',
+                                          cursor: excelEditMode ? 'cell' : 'default',
+                                        }}
+                                      >
+                                        {row.tglMasuk}
+                                      </td>
+                                      <td
+                                        onClick={() => {
+                                          if (excelEditMode) {
+                                            openMasukEditor()
+                                          } else if (row.itemMasuk) {
+                                            setPreviewKeuanganItem(row.itemMasuk)
+                                          }
+                                        }}
+                                        title={
+                                          excelEditMode
+                                            ? 'Klik untuk input / edit Pemasukan di baris ini'
+                                            : row.itemMasuk
+                                              ? 'Klik untuk preview rincian'
+                                              : undefined
+                                        }
+                                        style={{
+                                          padding: '5px 10px',
+                                          color: row.uraianMasuk ? '#111827' : '#9ca3af',
+                                          borderRight: '1px solid #4b5563',
+                                          cursor: excelEditMode
+                                            ? 'cell'
+                                            : row.itemMasuk
+                                              ? 'pointer'
+                                              : 'default',
+                                          fontWeight: row.uraianMasuk ? 600 : 400,
+                                        }}
                                       >
                                         {row.uraianMasuk}
-                                      </span>
-                                    )
-                                  ) : null}
-                                </td>
-                                <td
-                                  style={{
-                                    padding: '5px 10px',
-                                    borderRight: '2px solid #111827',
-                                    whiteSpace: 'nowrap',
-                                  }}
-                                >
-                                  {row.itemMasuk && excelEditMode ? (
-                                    <input
-                                      type="text"
-                                      inputMode="numeric"
-                                      value={String(row.itemMasuk.nominal)}
-                                      onChange={(e) =>
-                                        row.itemMasuk &&
-                                        handleExcelUpdateKeuanganItem(
-                                          row.itemMasuk.id,
-                                          'nominal',
-                                          e.target.value
-                                        )
-                                      }
+                                      </td>
+                                      <td
+                                        onClick={openMasukEditor}
+                                        title={
+                                          excelEditMode
+                                            ? 'Klik untuk input / edit Pemasukan di baris ini'
+                                            : undefined
+                                        }
+                                        style={{
+                                          padding: '5px 10px',
+                                          borderRight: '2px solid #111827',
+                                          whiteSpace: 'nowrap',
+                                          cursor: excelEditMode ? 'cell' : 'default',
+                                        }}
+                                      >
+                                        {row.jumlahMasuk !== null ? (
+                                          <div
+                                            style={{
+                                              display: 'flex',
+                                              alignItems: 'center',
+                                              justifyContent: 'space-between',
+                                              fontWeight: 700,
+                                              color: '#111827',
+                                            }}
+                                          >
+                                            <span>Rp</span>
+                                            <span>{formatAngkaTitik(row.jumlahMasuk)}</span>
+                                          </div>
+                                        ) : null}
+                                      </td>
+                                    </>
+                                  )}
+
+                                  {/* SISI KANAN: PENGELUARAN */}
+                                  {isEditingKeluar && activeExcelEditor ? (
+                                    <td
+                                      colSpan={3}
                                       style={{
-                                        width: '100%',
-                                        padding: '3px 6px',
-                                        fontSize: '0.78rem',
-                                        fontWeight: 700,
-                                        textAlign: 'right',
-                                        border: '1px solid #15803d',
-                                        borderRadius: '4px',
-                                      }}
-                                    />
-                                  ) : row.jumlahMasuk !== null ? (
-                                    <div
-                                      style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'space-between',
-                                        fontWeight: 700,
-                                        color: '#111827',
+                                        padding: '6px 8px',
+                                        background: '#fef2f2',
                                       }}
                                     >
-                                      <span>Rp</span>
-                                      <span>{formatAngkaTitik(row.jumlahMasuk)}</span>
-                                    </div>
-                                  ) : null}
-                                </td>
-                                <td
-                                  style={{
-                                    padding: '5px 8px',
-                                    textAlign: 'center',
-                                    fontWeight: 700,
-                                    color: '#111827',
-                                    borderRight: '1px solid #4b5563',
-                                    whiteSpace: 'nowrap',
-                                  }}
-                                >
-                                  {excelEditMode && row.itemKeluar ? (
-                                    <input
-                                      type="date"
-                                      value={row.itemKeluar.tanggal}
-                                      onChange={(e) =>
-                                        row.itemKeluar &&
-                                        handleExcelUpdateKeuanganItem(
-                                          row.itemKeluar.id,
-                                          'tanggal',
-                                          e.target.value
-                                        )
-                                      }
-                                      style={{
-                                        width: '115px',
-                                        padding: '2px 4px',
-                                        fontSize: '0.74rem',
-                                        border: '1px solid #dc2626',
-                                        borderRadius: '4px',
-                                      }}
-                                    />
-                                  ) : (
-                                    row.tglKeluar
-                                  )}
-                                </td>
-                                <td
-                                  style={{
-                                    padding: '5px 10px',
-                                    color: '#111827',
-                                    borderRight: '1px solid #4b5563',
-                                  }}
-                                >
-                                  {row.itemKeluar ? (
-                                    excelEditMode ? (
                                       <div
                                         style={{
                                           display: 'flex',
                                           alignItems: 'center',
-                                          gap: '4px',
+                                          gap: '6px',
+                                          flexWrap: 'wrap',
                                         }}
                                       >
                                         <input
-                                          type="text"
-                                          value={row.itemKeluar.uraian}
+                                          type="date"
+                                          value={activeExcelEditor.tanggal}
                                           onChange={(e) =>
-                                            row.itemKeluar &&
-                                            handleExcelUpdateKeuanganItem(
-                                              row.itemKeluar.id,
-                                              'uraian',
-                                              e.target.value
-                                            )
+                                            setActiveExcelEditor({
+                                              ...activeExcelEditor,
+                                              tanggal: e.target.value,
+                                            })
                                           }
                                           style={{
-                                            width: '100%',
-                                            padding: '3px 6px',
+                                            width: '122px',
+                                            padding: '4px 6px',
+                                            fontSize: '0.76rem',
+                                            border: '1px solid #dc2626',
+                                            borderRadius: '6px',
+                                            background: '#ffffff',
+                                          }}
+                                        />
+                                        <input
+                                          type="text"
+                                          autoFocus
+                                          placeholder="Ketik uraian pengeluaran..."
+                                          value={activeExcelEditor.uraian}
+                                          onChange={(e) =>
+                                            setActiveExcelEditor({
+                                              ...activeExcelEditor,
+                                              uraian: e.target.value,
+                                            })
+                                          }
+                                          onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                              e.preventDefault()
+                                              handleCommitExcelCellEditor(monthPrefix)
+                                            } else if (e.key === 'Escape') {
+                                              setActiveExcelEditor(null)
+                                            }
+                                          }}
+                                          style={{
+                                            flex: 1,
+                                            minWidth: '140px',
+                                            padding: '4px 8px',
                                             fontSize: '0.78rem',
                                             border: '1px solid #dc2626',
-                                            borderRadius: '4px',
+                                            borderRadius: '6px',
+                                            background: '#ffffff',
+                                          }}
+                                        />
+                                        <input
+                                          type="text"
+                                          inputMode="numeric"
+                                          placeholder="Nominal Rp"
+                                          value={activeExcelEditor.nominal}
+                                          onChange={(e) =>
+                                            setActiveExcelEditor({
+                                              ...activeExcelEditor,
+                                              nominal: e.target.value.replace(/\D/g, ''),
+                                            })
+                                          }
+                                          onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                              e.preventDefault()
+                                              handleCommitExcelCellEditor(monthPrefix)
+                                            } else if (e.key === 'Escape') {
+                                              setActiveExcelEditor(null)
+                                            }
+                                          }}
+                                          style={{
+                                            width: '115px',
+                                            padding: '4px 8px',
+                                            fontSize: '0.78rem',
+                                            fontWeight: 700,
+                                            textAlign: 'right',
+                                            border: '1px solid #dc2626',
+                                            borderRadius: '6px',
+                                            background: '#ffffff',
                                           }}
                                         />
                                         <button
                                           type="button"
-                                          title="Hapus baris"
-                                          onClick={() =>
-                                            row.itemKeluar &&
-                                            handleDeleteKeuangan(row.itemKeluar.id)
-                                          }
+                                          onClick={() => handleCommitExcelCellEditor(monthPrefix)}
                                           style={{
-                                            border: '1px solid #fecaca',
-                                            background: '#fef2f2',
-                                            color: '#dc2626',
-                                            borderRadius: '4px',
-                                            fontSize: '0.7rem',
+                                            border: 'none',
+                                            background: '#dc2626',
+                                            color: '#ffffff',
+                                            borderRadius: '6px',
+                                            padding: '4px 9px',
+                                            fontSize: '0.74rem',
                                             fontWeight: 800,
                                             cursor: 'pointer',
-                                            padding: '2px 6px',
                                           }}
                                         >
-                                          Hapus
+                                          ✓ Simpan
+                                        </button>
+                                        {activeExcelEditor.itemId && (
+                                          <button
+                                            type="button"
+                                            onClick={async () => {
+                                              if (activeExcelEditor.itemId) {
+                                                await handleDeleteKeuangan(
+                                                  activeExcelEditor.itemId
+                                                )
+                                              }
+                                              setActiveExcelEditor(null)
+                                            }}
+                                            style={{
+                                              border: '1px solid #fecaca',
+                                              background: '#ffffff',
+                                              color: '#dc2626',
+                                              borderRadius: '6px',
+                                              padding: '4px 8px',
+                                              fontSize: '0.74rem',
+                                              fontWeight: 800,
+                                              cursor: 'pointer',
+                                            }}
+                                          >
+                                            Hapus
+                                          </button>
+                                        )}
+                                        <button
+                                          type="button"
+                                          onClick={() => setActiveExcelEditor(null)}
+                                          style={{
+                                            border: '1px solid #d1d5db',
+                                            background: '#ffffff',
+                                            color: '#374151',
+                                            borderRadius: '6px',
+                                            padding: '4px 8px',
+                                            fontSize: '0.74rem',
+                                            fontWeight: 700,
+                                            cursor: 'pointer',
+                                          }}
+                                        >
+                                          Batal
                                         </button>
                                       </div>
-                                    ) : (
-                                      <span
-                                        onClick={() =>
-                                          row.itemKeluar && setPreviewKeuanganItem(row.itemKeluar)
+                                    </td>
+                                  ) : (
+                                    <>
+                                      <td
+                                        onClick={openKeluarEditor}
+                                        title={
+                                          excelEditMode
+                                            ? 'Klik untuk input / edit Pengeluaran di baris ini'
+                                            : undefined
                                         }
-                                        style={{ cursor: 'pointer', fontWeight: 600 }}
-                                        title="Klik untuk preview rincian"
+                                        style={{
+                                          padding: '5px 8px',
+                                          textAlign: 'center',
+                                          fontWeight: 700,
+                                          color: '#111827',
+                                          borderRight: '1px solid #4b5563',
+                                          whiteSpace: 'nowrap',
+                                          cursor: excelEditMode ? 'cell' : 'default',
+                                        }}
+                                      >
+                                        {row.tglKeluar}
+                                      </td>
+                                      <td
+                                        onClick={() => {
+                                          if (excelEditMode) {
+                                            openKeluarEditor()
+                                          } else if (row.itemKeluar) {
+                                            setPreviewKeuanganItem(row.itemKeluar)
+                                          }
+                                        }}
+                                        title={
+                                          excelEditMode
+                                            ? 'Klik untuk input / edit Pengeluaran di baris ini'
+                                            : row.itemKeluar
+                                              ? 'Klik untuk preview rincian'
+                                              : undefined
+                                        }
+                                        style={{
+                                          padding: '5px 10px',
+                                          color: row.uraianKeluar ? '#111827' : '#9ca3af',
+                                          borderRight: '1px solid #4b5563',
+                                          cursor: excelEditMode
+                                            ? 'cell'
+                                            : row.itemKeluar
+                                              ? 'pointer'
+                                              : 'default',
+                                          fontWeight: row.uraianKeluar ? 600 : 400,
+                                        }}
                                       >
                                         {row.uraianKeluar}
-                                      </span>
-                                    )
-                                  ) : null}
-                                </td>
-                                <td
-                                  style={{
-                                    padding: '5px 10px',
-                                    whiteSpace: 'nowrap',
-                                  }}
-                                >
-                                  {row.itemKeluar && excelEditMode ? (
-                                    <input
-                                      type="text"
-                                      inputMode="numeric"
-                                      value={String(row.itemKeluar.nominal)}
-                                      onChange={(e) =>
-                                        row.itemKeluar &&
-                                        handleExcelUpdateKeuanganItem(
-                                          row.itemKeluar.id,
-                                          'nominal',
-                                          e.target.value
-                                        )
-                                      }
-                                      style={{
-                                        width: '100%',
-                                        padding: '3px 6px',
-                                        fontSize: '0.78rem',
-                                        fontWeight: 700,
-                                        textAlign: 'right',
-                                        border: '1px solid #dc2626',
-                                        borderRadius: '4px',
-                                      }}
-                                    />
-                                  ) : row.jumlahKeluar !== null ? (
-                                    <div
-                                      style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'space-between',
-                                        fontWeight: 700,
-                                        color: '#111827',
-                                      }}
-                                    >
-                                      <span>Rp</span>
-                                      <span>{formatAngkaTitik(row.jumlahKeluar)}</span>
-                                    </div>
-                                  ) : null}
-                                </td>
-                              </tr>
-                            ))}
+                                      </td>
+                                      <td
+                                        onClick={openKeluarEditor}
+                                        title={
+                                          excelEditMode
+                                            ? 'Klik untuk input / edit Pengeluaran di baris ini'
+                                            : undefined
+                                        }
+                                        style={{
+                                          padding: '5px 10px',
+                                          whiteSpace: 'nowrap',
+                                          cursor: excelEditMode ? 'cell' : 'default',
+                                        }}
+                                      >
+                                        {row.jumlahKeluar !== null ? (
+                                          <div
+                                            style={{
+                                              display: 'flex',
+                                              alignItems: 'center',
+                                              justifyContent: 'space-between',
+                                              fontWeight: 700,
+                                              color: '#111827',
+                                            }}
+                                          >
+                                            <span>Rp</span>
+                                            <span>{formatAngkaTitik(row.jumlahKeluar)}</span>
+                                          </div>
+                                        ) : null}
+                                      </td>
+                                    </>
+                                  )}
+                                </tr>
+                              )
+                            })}
                           </tbody>
                           <tfoot>
                             {/* BARIS JUMLAH PEMASUKAN & PENGELUARAN */}
@@ -6554,7 +6745,7 @@ export default function AdminSidebarPage() {
                               </td>
                             </tr>
 
-                            {/* BARIS SALDO SEBELUMNYA (DIHAPUS UNTUK HARIAN) */}
+                            {/* BARIS SALDO SEBELUMNYA (DIHAPUS UNTUK HARIAN; KLIK SEL UNTUK EDIT DI MODE EXCEL) */}
                             {rekapKeuanganMode !== 'harian' && (
                               <tr style={{ fontWeight: 900, background: '#ffffff' }}>
                                 <td colSpan={2} />
@@ -6577,38 +6768,90 @@ export default function AdminSidebarPage() {
                                   }}
                                 />
                                 <td
+                                  onClick={() => {
+                                    if (
+                                      excelEditMode &&
+                                      rekapKeuanganMode === 'bulanan' &&
+                                      activeExcelEditor?.side !== 'saldo'
+                                    ) {
+                                      setActiveExcelEditor({
+                                        rowNo: -1,
+                                        side: 'saldo',
+                                        tanggal: `${monthPrefix}-01`,
+                                        uraian: '',
+                                        nominal: String(activeSaldoSebelumnya),
+                                      })
+                                    }
+                                  }}
+                                  title={
+                                    excelEditMode && rekapKeuanganMode === 'bulanan'
+                                      ? 'Klik untuk menyesuaikan Saldo Bulan Sebelumnya'
+                                      : undefined
+                                  }
                                   style={{
                                     padding: '7px 10px',
                                     borderBottom: '1px solid #111827',
                                     color: '#111827',
+                                    cursor:
+                                      excelEditMode && rekapKeuanganMode === 'bulanan'
+                                        ? 'cell'
+                                        : 'default',
                                   }}
                                 >
-                                  {excelEditMode && rekapKeuanganMode === 'bulanan' ? (
-                                    <input
-                                      type="text"
-                                      inputMode="numeric"
-                                      value={String(activeSaldoSebelumnya)}
-                                      onChange={(e) => {
-                                        const val =
-                                          Number(e.target.value.replace(/\D/g, '')) || 0
-                                        const nextMap = {
-                                          ...saldoSebelumnyaMap,
-                                          [monthPrefix]: val,
+                                  {excelEditMode &&
+                                  rekapKeuanganMode === 'bulanan' &&
+                                  activeExcelEditor?.side === 'saldo' ? (
+                                    <div style={{ display: 'flex', gap: '4px' }}>
+                                      <input
+                                        type="text"
+                                        inputMode="numeric"
+                                        autoFocus
+                                        value={activeExcelEditor.nominal}
+                                        onChange={(e) =>
+                                          setActiveExcelEditor({
+                                            ...activeExcelEditor,
+                                            nominal: e.target.value.replace(/\D/g, ''),
+                                          })
                                         }
-                                        setSaldoSebelumnyaMap(nextMap)
-                                        masjidStore.saveSaldoSebelumnyaMap(nextMap)
-                                      }}
-                                      style={{
-                                        width: '100%',
-                                        padding: '3px 6px',
-                                        fontSize: '0.78rem',
-                                        fontWeight: 800,
-                                        textAlign: 'right',
-                                        border: '1px solid #f59e0b',
-                                        borderRadius: '4px',
-                                        background: '#fffbeb',
-                                      }}
-                                    />
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Enter') {
+                                            e.preventDefault()
+                                            handleCommitExcelCellEditor(monthPrefix)
+                                          } else if (e.key === 'Escape') {
+                                            setActiveExcelEditor(null)
+                                          }
+                                        }}
+                                        style={{
+                                          width: '100%',
+                                          padding: '3px 6px',
+                                          fontSize: '0.78rem',
+                                          fontWeight: 800,
+                                          textAlign: 'right',
+                                          border: '1px solid #f59e0b',
+                                          borderRadius: '4px',
+                                          background: '#fffbeb',
+                                        }}
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          handleCommitExcelCellEditor(monthPrefix)
+                                        }}
+                                        style={{
+                                          border: 'none',
+                                          background: '#15803d',
+                                          color: '#ffffff',
+                                          borderRadius: '4px',
+                                          padding: '2px 7px',
+                                          fontSize: '0.72rem',
+                                          fontWeight: 800,
+                                          cursor: 'pointer',
+                                        }}
+                                      >
+                                        ✓
+                                      </button>
+                                    </div>
                                   ) : (
                                     <div
                                       style={{ display: 'flex', justifyContent: 'space-between' }}
@@ -6735,136 +6978,6 @@ export default function AdminSidebarPage() {
                           </div>
                         </div>
                       </div>
-                    </div>
-
-                    {/* DISPLAY PENGELUARAN MASJID (BULANAN / MINGGUAN / HARIAN) */}
-                    <div className={styles.panelCard}>
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          flexWrap: 'wrap',
-                          gap: '8px',
-                          marginBottom: '12px',
-                        }}
-                      >
-                        <h2 className={styles.panelTitle} style={{ marginBottom: 0 }}>
-                          {rekapKeuanganMode === 'bulanan'
-                            ? `Display Pengeluaran Bulan ${monthName} ${rekapKeuanganYear}`
-                            : rekapKeuanganMode === 'mingguan'
-                              ? `Display Pengeluaran ${selectedWeekDef.label} / ${weekStartDay}–${weekEndDay} ${monthName} ${rekapKeuanganYear}`
-                              : `Display Pengeluaran Harian / ${formatTanggalIndo(
-                                  rekapKeuanganDailyDate
-                                )}`}
-                        </h2>
-                        <span
-                          style={{
-                            fontSize: '0.78rem',
-                            fontWeight: 800,
-                            color: '#991b1b',
-                            background: '#fef2f2',
-                            padding: '4px 12px',
-                            borderRadius: '999px',
-                            border: '1px solid #fecaca',
-                          }}
-                        >
-                          {`${pengeluaranOnlyList.length} Pengeluaran • Total ${formatRupiah(
-                            totalPengeluaran
-                          )}`}
-                        </span>
-                      </div>
-
-                      {pengeluaranOnlyList.length === 0 ? (
-                        <div
-                          style={{
-                            padding: '22px',
-                            textAlign: 'center',
-                            background: '#f8faf8',
-                            borderRadius: '12px',
-                            border: '1px dashed rgba(27, 107, 69, 0.25)',
-                            color: '#4a6355',
-                            fontSize: '0.86rem',
-                            fontWeight: 600,
-                          }}
-                        >
-                          Belum ada catatan pengeluaran pada periode ini.
-                        </div>
-                      ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                          {pengeluaranOnlyList.map((item) => (
-                            <div
-                              key={item.id}
-                              onClick={() => setPreviewKeuanganItem(item)}
-                              style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
-                                flexWrap: 'wrap',
-                                gap: '10px',
-                                padding: '10px 14px',
-                                borderRadius: '10px',
-                                border: '1px solid rgba(27, 107, 69, 0.14)',
-                                borderLeft: '4px solid #dc2626',
-                                background: '#ffffff',
-                                cursor: 'pointer',
-                              }}
-                            >
-                              <div
-                                style={{
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '10px',
-                                  flexWrap: 'wrap',
-                                }}
-                              >
-                                <span
-                                  style={{
-                                    fontSize: '0.73rem',
-                                    fontWeight: 800,
-                                    padding: '3px 9px',
-                                    borderRadius: '7px',
-                                    background: '#fef2f2',
-                                    color: '#991b1b',
-                                  }}
-                                >
-                                  {formatTanggalSlash(item.tanggal)}
-                                </span>
-                                <span
-                                  style={{
-                                    fontSize: '0.88rem',
-                                    fontWeight: 800,
-                                    color: '#111827',
-                                  }}
-                                >
-                                  {item.uraian}
-                                </span>
-                                <span
-                                  style={{
-                                    fontSize: '0.72rem',
-                                    fontWeight: 700,
-                                    color: '#4b5563',
-                                    background: '#f3f4f6',
-                                    padding: '2px 8px',
-                                    borderRadius: '999px',
-                                  }}
-                                >
-                                  {item.kategori}
-                                </span>
-                              </div>
-                              <strong
-                                style={{
-                                  fontSize: '0.9rem',
-                                  fontWeight: 900,
-                                  color: '#991b1b',
-                                }}
-                              >
-                                {formatRupiah(item.nominal)}
-                              </strong>
-                            </div>
-                          ))}
-                        </div>
-                      )}
                     </div>
                   </>
                 )
