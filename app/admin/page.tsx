@@ -204,7 +204,13 @@ export default function AdminSidebarPage() {
   const [showInputKeuanganModal, setShowInputKeuanganModal] = useState(false)
   const [previewKeuanganItem, setPreviewKeuanganItem] = useState<LaporanKeuanganItem | null>(null)
   const [excelEditMode, setExcelEditMode] = useState(false)
-  const [showExcelTutorialModal, setShowExcelTutorialModal] = useState(false)
+  const [excelTutorialStep, setExcelTutorialStep] = useState<number | null>(null)
+  const [excelTourRect, setExcelTourRect] = useState<{
+    top: number
+    left: number
+    width: number
+    height: number
+  } | null>(null)
   const [activeExcelEditor, setActiveExcelEditor] = useState<{
     rowNo: number
     side: 'masuk' | 'keluar' | 'saldo'
@@ -432,6 +438,50 @@ export default function AdminSidebarPage() {
       img.onerror = () => resolve(null)
       img.src = srcUrl
     })
+
+  // Sinkronkan posisi spotlight tutorial interaktif step-by-step (ala game) untuk Mode Edit Tabel (Excel)
+  useEffect(() => {
+    if (excelTutorialStep === null) {
+      setExcelTourRect(null)
+      return
+    }
+    const tourTargets = ['toolbar', 'pemasukan-cell', 'pengeluaran-cell', 'saldo-cell']
+    const selector = `[data-excel-tour="${tourTargets[excelTutorialStep] || 'toolbar'}"]`
+
+    const updateRect = () => {
+      const el = document.querySelector(selector) as HTMLElement | null
+      if (!el) {
+        setExcelTourRect(null)
+        return
+      }
+      const r = el.getBoundingClientRect()
+      setExcelTourRect({
+        top: r.top,
+        left: r.left,
+        width: r.width,
+        height: r.height,
+      })
+    }
+
+    const scrollTimer = window.setTimeout(() => {
+      const el = document.querySelector(selector) as HTMLElement | null
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }
+      updateRect()
+    }, 60)
+
+    const settleTimer = window.setTimeout(updateRect, 340)
+    window.addEventListener('resize', updateRect)
+    window.addEventListener('scroll', updateRect, true)
+
+    return () => {
+      window.clearTimeout(scrollTimer)
+      window.clearTimeout(settleTimer)
+      window.removeEventListener('resize', updateRect)
+      window.removeEventListener('scroll', updateRect, true)
+    }
+  }, [excelTutorialStep, rekapKeuanganMode, rekapKeuanganMonth, rekapKeuanganYear])
 
   // Preload modul AI saat membuka tab Studio Poster agar saat upload langsung responsif
   const aiModulePromiseRef = useRef<Promise<unknown> | null>(null)
@@ -5887,6 +5937,7 @@ export default function AdminSidebarPage() {
 
                     {/* BARIS TOMBOL INPUT DI ATAS PREVIEW SURAT BKU */}
                     <div
+                      data-excel-tour="toolbar"
                       style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -5918,9 +5969,10 @@ export default function AdminSidebarPage() {
                                 setRekapKeuanganMode('bulanan')
                               }
                               setExcelEditMode(true)
-                              setShowExcelTutorialModal(true)
+                              setExcelTutorialStep(0)
                             } else {
                               setExcelEditMode(false)
+                              setExcelTutorialStep(null)
                             }
                           }}
                           style={{
@@ -5940,6 +5992,25 @@ export default function AdminSidebarPage() {
                             ? '✓ Selesai Mode Edit Tabel'
                             : '✎ Mode Edit Tabel (Excel)'}
                         </button>
+
+                        {isExcelTableActive && (
+                          <button
+                            type="button"
+                            onClick={() => setExcelTutorialStep(0)}
+                            style={{
+                              padding: '9px 12px',
+                              borderRadius: '10px',
+                              border: '1px solid rgba(27, 107, 69, 0.3)',
+                              background: '#ffffff',
+                              color: '#0f4a2a',
+                              fontWeight: 800,
+                              fontSize: '0.82rem',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            ? Panduan
+                          </button>
+                        )}
 
                         <button
                           type="button"
@@ -6424,6 +6495,7 @@ export default function AdminSidebarPage() {
                                         {row.tglMasuk}
                                       </td>
                                       <td
+                                        data-excel-tour={idx === 0 ? 'pemasukan-cell' : undefined}
                                         onClick={() => {
                                           if (isExcelTableActive) {
                                             openMasukEditor()
@@ -6659,6 +6731,7 @@ export default function AdminSidebarPage() {
                                         {row.tglKeluar}
                                       </td>
                                       <td
+                                        data-excel-tour={idx === 0 ? 'pengeluaran-cell' : undefined}
                                         onClick={() => {
                                           if (isExcelTableActive) {
                                             openKeluarEditor()
@@ -6848,6 +6921,7 @@ export default function AdminSidebarPage() {
                                   }}
                                 />
                                 <td
+                                  data-excel-tour="saldo-cell"
                                   onClick={() => {
                                     if (
                                       excelEditMode &&
@@ -7085,132 +7159,268 @@ export default function AdminSidebarPage() {
                 )
               })()}
 
-              {/* POP-UP TUTORIAL MODE EDIT TABEL (EXCEL) */}
-              {showExcelTutorialModal && (
-                <div
-                  style={{
-                    position: 'fixed',
-                    inset: 0,
-                    background: 'rgba(15, 23, 42, 0.68)',
-                    backdropFilter: 'blur(4px)',
-                    zIndex: 9996,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: '16px',
-                  }}
-                  onClick={() => setShowExcelTutorialModal(false)}
-                >
-                  <div
-                    style={{
-                      background: '#ffffff',
-                      borderRadius: '18px',
-                      width: '100%',
-                      maxWidth: '500px',
-                      padding: '24px',
-                      boxShadow: '0 24px 60px rgba(0, 0, 0, 0.32)',
-                      border: '1px solid rgba(27, 107, 69, 0.22)',
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                  >
+              {/* TUTORIAL INTERAKTIF STEP-BY-STEP ALA GAME (SPOTLIGHT + BUBBLE CHAT) UNTUK MODE EDIT TABEL EXCEL */}
+              {excelTutorialStep !== null &&
+                (() => {
+                  const tourSteps = [
+                    {
+                      badge: 'Langkah 1 dari 4',
+                      title: 'Mode Edit Tabel (Excel) Aktif!',
+                      desc: 'Mode ini khusus bekerja di Tabel Laporan Bulanan. Semua perubahan otomatis menyinkronkan Laporan Mingguan, Laporan Harian, dan Display My.DKM.',
+                    },
+                    {
+                      badge: 'Langkah 2 dari 4',
+                      title: 'Klik Sel Pemasukan Mana Saja',
+                      desc: 'Klik sel atau baris di kolom Pemasukan (termasuk baris yang masih kosong) untuk membuka form cepat, lalu isi Tanggal, Uraian, dan Nominal.',
+                    },
+                    {
+                      badge: 'Langkah 3 dari 4',
+                      title: 'Klik Sel Pengeluaran & Simpan Cepat',
+                      desc: 'Sama seperti Pemasukan, klik baris mana saja di kolom Pengeluaran untuk edit atau tambah data baru. Tekan ✓ Simpan (atau Enter) untuk menyimpan!',
+                    },
+                    {
+                      badge: 'Langkah 4 dari 4',
+                      title: 'Sesuaikan Saldo Bulan Sebelumnya',
+                      desc: 'Klik angka Saldo Bulan Sebelumnya di bagian bawah tabel jika perlu penyesuaian saldo awal. Saldo Akhir & Total Kas Realtime akan langsung dihitung ulang!',
+                    },
+                  ]
+                  const currentStep = tourSteps[excelTutorialStep] || tourSteps[0]
+                  const isLastStep = excelTutorialStep >= tourSteps.length - 1
+                  const vw = typeof window !== 'undefined' ? window.innerWidth : 1200
+                  const vh = typeof window !== 'undefined' ? window.innerHeight : 800
+                  const bubbleW = Math.min(360, vw - 28)
+
+                  const hasRect = Boolean(excelTourRect && excelTourRect.width > 0)
+                  const showAbove = hasRect && excelTourRect!.top > vh * 0.56
+                  const bubbleTop = hasRect
+                    ? showAbove
+                      ? Math.max(16, excelTourRect!.top - 228)
+                      : Math.min(vh - 235, excelTourRect!.top + excelTourRect!.height + 16)
+                    : Math.max(24, vh / 2 - 110)
+                  const rawLeft = hasRect
+                    ? excelTourRect!.left + excelTourRect!.width / 2 - bubbleW / 2
+                    : vw / 2 - bubbleW / 2
+                  const bubbleLeft = Math.max(14, Math.min(vw - bubbleW - 14, rawLeft))
+                  const arrowOffsetLeft = hasRect
+                    ? Math.max(
+                        24,
+                        Math.min(
+                          bubbleW - 36,
+                          excelTourRect!.left + excelTourRect!.width / 2 - bubbleLeft - 8
+                        )
+                      )
+                    : bubbleW / 2 - 8
+
+                  return (
                     <div
                       style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        marginBottom: '12px',
+                        position: 'fixed',
+                        inset: 0,
+                        zIndex: 9998,
                       }}
+                      onClick={() => setExcelTutorialStep(null)}
                     >
-                      <h3
-                        style={{
-                          margin: 0,
-                          fontSize: '1.08rem',
-                          fontWeight: 900,
-                          color: '#0f4a2a',
-                        }}
-                      >
-                        Panduan Mode Edit Tabel (Excel)
-                      </h3>
-                      <button
-                        type="button"
-                        aria-label="Tutup Panduan"
-                        onClick={() => setShowExcelTutorialModal(false)}
-                        style={{
-                          border: 'none',
-                          background: '#f3f4f6',
-                          borderRadius: '8px',
-                          width: '32px',
-                          height: '32px',
-                          fontWeight: 800,
-                          cursor: 'pointer',
-                        }}
-                      >
-                        ✕
-                      </button>
-                    </div>
+                      {/* Area Spotlight yang Menyorot Elemen Target */}
+                      {hasRect && excelTourRect ? (
+                        <div
+                          style={{
+                            position: 'fixed',
+                            top: Math.max(4, excelTourRect.top - 5),
+                            left: Math.max(4, excelTourRect.left - 5),
+                            width: excelTourRect.width + 10,
+                            height: excelTourRect.height + 10,
+                            borderRadius: '12px',
+                            boxShadow:
+                              '0 0 0 9999px rgba(15, 23, 42, 0.74), 0 0 0 3px #4ade80, 0 0 26px rgba(74, 222, 128, 0.7)',
+                            pointerEvents: 'none',
+                            transition: 'all 0.28s cubic-bezier(0.22, 1, 0.36, 1)',
+                          }}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            position: 'fixed',
+                            inset: 0,
+                            background: 'rgba(15, 23, 42, 0.74)',
+                            pointerEvents: 'none',
+                          }}
+                        />
+                      )}
 
-                    <div
-                      style={{
-                        display: 'grid',
-                        gap: '10px',
-                        fontSize: '0.86rem',
-                        color: '#1f2937',
-                        lineHeight: 1.5,
-                      }}
-                    >
+                      {/* Bubble Chat Panduan Interaktif */}
                       <div
+                        onClick={(e) => e.stopPropagation()}
                         style={{
-                          padding: '10px 12px',
-                          borderRadius: '10px',
-                          background: '#f0fdf4',
-                          border: '1px solid rgba(22, 163, 74, 0.25)',
+                          position: 'fixed',
+                          top: `${bubbleTop}px`,
+                          left: `${bubbleLeft}px`,
+                          width: `${bubbleW}px`,
+                          background: '#ffffff',
+                          borderRadius: '18px',
+                          padding: '18px 18px 16px',
+                          boxShadow: '0 22px 55px rgba(0, 0, 0, 0.38)',
+                          border: '2px solid #15803d',
+                          transition: 'all 0.28s cubic-bezier(0.22, 1, 0.36, 1)',
+                          zIndex: 9999,
                         }}
                       >
-                        <strong>1. Khusus Tabel Laporan Bulanan:</strong> Perubahan langsung
-                        diterapkan ke BKU Bulanan. Data pada <strong>Laporan Mingguan</strong>,{' '}
-                        <strong>Laporan Harian</strong>, dan <strong>Display My.DKM</strong> akan
-                        otomatis menyesuaikan.
-                      </div>
-                      <div
-                        style={{
-                          padding: '10px 12px',
-                          borderRadius: '10px',
-                          background: '#f8fafc',
-                          border: '1px solid #e2e8f0',
-                        }}
-                      >
-                        <strong>2. Klik Sel / Baris Mana Saja:</strong> Klik kolom{' '}
-                        <strong>Pemasukan</strong>, kolom <strong>Pengeluaran</strong>, baris
-                        kosong untuk menambah data baru, atau nominal{' '}
-                        <strong>Saldo Bulan Sebelumnya</strong> untuk menyesuaikannya.
-                      </div>
-                      <div
-                        style={{
-                          padding: '10px 12px',
-                          borderRadius: '10px',
-                          background: '#f8fafc',
-                          border: '1px solid #e2e8f0',
-                        }}
-                      >
-                        <strong>3. Simpan Cepat:</strong> Isi <em>Tanggal</em>, <em>Uraian</em>,
-                        dan <em>Nominal</em> pada menu edit yang muncul di sel tersebut, lalu klik{' '}
-                        <strong>✓ Simpan</strong> (atau tekan tombol <strong>Enter</strong>).
-                        Klik <strong>Batal</strong> / tekan <strong>Esc</strong> untuk menutup
-                        sel tanpa menyimpan.
+                        {/* Ekor Panah Bubble Chat ke Elemen Target */}
+                        {hasRect && (
+                          <div
+                            style={{
+                              position: 'absolute',
+                              left: `${arrowOffsetLeft}px`,
+                              ...(showAbove ? { bottom: '-10px' } : { top: '-10px' }),
+                              width: '16px',
+                              height: '16px',
+                              background: '#ffffff',
+                              borderLeft: showAbove ? 'none' : '2px solid #15803d',
+                              borderTop: showAbove ? 'none' : '2px solid #15803d',
+                              borderRight: showAbove ? '2px solid #15803d' : 'none',
+                              borderBottom: showAbove ? '2px solid #15803d' : 'none',
+                              transform: 'rotate(45deg)',
+                            }}
+                          />
+                        )}
+
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            marginBottom: '8px',
+                          }}
+                        >
+                          <span
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              padding: '4px 10px',
+                              borderRadius: '999px',
+                              background: '#dcfce7',
+                              color: '#0f4a2a',
+                              fontSize: '0.73rem',
+                              fontWeight: 900,
+                            }}
+                          >
+                            {`🎮 ${currentStep.badge}`}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setExcelTutorialStep(null)}
+                            style={{
+                              border: 'none',
+                              background: 'transparent',
+                              color: '#6b7280',
+                              fontSize: '0.76rem',
+                              fontWeight: 800,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            Lewati ✕
+                          </button>
+                        </div>
+
+                        <h4
+                          style={{
+                            margin: '0 0 6px',
+                            fontSize: '0.98rem',
+                            fontWeight: 900,
+                            color: '#0f4a2a',
+                          }}
+                        >
+                          {currentStep.title}
+                        </h4>
+                        <p
+                          style={{
+                            margin: '0 0 14px',
+                            fontSize: '0.82rem',
+                            color: '#374151',
+                            lineHeight: 1.5,
+                          }}
+                        >
+                          {currentStep.desc}
+                        </p>
+
+                        {/* Indikator Titik + Tombol Navigasi Step */}
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: '8px',
+                          }}
+                        >
+                          <div style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
+                            {tourSteps.map((_, sIdx) => (
+                              <span
+                                key={sIdx}
+                                style={{
+                                  width: sIdx === excelTutorialStep ? '18px' : '7px',
+                                  height: '7px',
+                                  borderRadius: '999px',
+                                  background:
+                                    sIdx === excelTutorialStep ? '#15803d' : '#d1d5db',
+                                  transition: 'all 0.2s ease',
+                                }}
+                              />
+                            ))}
+                          </div>
+
+                          <div style={{ display: 'flex', gap: '6px' }}>
+                            {excelTutorialStep > 0 && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setExcelTutorialStep((prev) =>
+                                    prev !== null && prev > 0 ? prev - 1 : 0
+                                  )
+                                }
+                                style={{
+                                  padding: '7px 11px',
+                                  borderRadius: '8px',
+                                  border: '1px solid #d1d5db',
+                                  background: '#f9fafb',
+                                  color: '#374151',
+                                  fontSize: '0.78rem',
+                                  fontWeight: 800,
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                ← Kembali
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (isLastStep) {
+                                  setExcelTutorialStep(null)
+                                } else {
+                                  setExcelTutorialStep((prev) =>
+                                    prev !== null ? prev + 1 : 1
+                                  )
+                                }
+                              }}
+                              style={{
+                                padding: '7px 14px',
+                                borderRadius: '8px',
+                                border: 'none',
+                                background: 'linear-gradient(135deg, #0f4a2a, #15803d)',
+                                color: '#ffffff',
+                                fontSize: '0.78rem',
+                                fontWeight: 800,
+                                cursor: 'pointer',
+                              }}
+                            >
+                              {isLastStep ? '✓ Mulai Edit!' : 'Lanjut →'}
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     </div>
-
-                    <button
-                      type="button"
-                      onClick={() => setShowExcelTutorialModal(false)}
-                      className={styles.submitBtn}
-                      style={{ marginTop: '16px', width: '100%' }}
-                    >
-                      Mengerti, Mulai Edit Tabel
-                    </button>
-                  </div>
-                </div>
-              )}
+                  )
+                })()}
 
               {/* POP-UP MODAL INPUT PENGELUARAN / PEMASUKAN BKU */}
               {showInputKeuanganModal && (
