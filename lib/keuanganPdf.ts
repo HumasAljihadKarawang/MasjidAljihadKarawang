@@ -309,16 +309,16 @@ function drawKopBkuA4(
   const textCenterX = logoImg ? width / 2 + 44 : width / 2
   ctx.textAlign = 'center'
 
-  ctx.fillStyle = '#0f4a2a'
+  ctx.fillStyle = '#000000'
   ctx.font = 'bold 21px Arial, sans-serif'
   ctx.fillText('DEWAN KEMAKMURAN MASJID (DKM)', textCenterX, 54)
 
-  ctx.fillStyle = '#111827'
+  ctx.fillStyle = '#000000'
   ctx.font = 'bold 25px Arial, sans-serif'
   ctx.fillText('MASJID AL-JIHAD ISLAMIC CENTER KARAWANG', textCenterX, 89)
 
-  ctx.fillStyle = '#374151'
-  ctx.font = '15px Arial, sans-serif'
+  ctx.fillStyle = '#000000'
+  ctx.font = 'bold 14.5px Arial, sans-serif'
   ctx.fillText(
     'Jl. Jend. Ahmad Yani (Islamic Center), Kabupaten Karawang, Jawa Barat • Telp/WA: 0851-1155-6563',
     textCenterX,
@@ -429,7 +429,7 @@ function drawBkuTableHeader(
   ]
 
   let cx = marginX
-  ctx.fillStyle = '#0f4a2a'
+  ctx.fillStyle = '#000000'
   ctx.font = 'bold 14px Arial, sans-serif'
   colDefs.forEach((c, idx) => {
     if (idx > 0) {
@@ -453,10 +453,11 @@ function drawNominalCell(
   cellY: number,
   cellW: number,
   nominal: number | null,
-  isBold = false
+  isBold = true
 ) {
   if (nominal === null || nominal === undefined) return
-  ctx.font = isBold ? 'bold 14px Arial, sans-serif' : '14px Arial, sans-serif'
+  ctx.fillStyle = '#000000'
+  ctx.font = isBold ? 'bold 14px Arial, sans-serif' : 'bold 13.5px Arial, sans-serif'
   ctx.textAlign = 'left'
   ctx.fillText('Rp', cellX + 8, cellY + 20)
   ctx.textAlign = 'right'
@@ -601,17 +602,17 @@ async function renderAndDownloadBkuPdf(params: {
         ctx.stroke()
       }
 
-      // Isi teks tiap sel
+      // Isi teks tiap sel (bold & hitam pada seluruh output PDF)
       let cx = marginX
-      ctx.fillStyle = '#6b7280'
-      ctx.font = '13px Arial, sans-serif'
+      ctx.fillStyle = '#000000'
+      ctx.font = 'bold 13px Arial, sans-serif'
       ctx.textAlign = 'center'
       ctx.fillText(String(row.rowNo), cx + cols.no / 2, y + 20)
       cx += cols.no
 
       // Tanggal Pemasukan
-      ctx.fillStyle = '#111827'
-      ctx.font = '13.5px Arial, sans-serif'
+      ctx.fillStyle = '#000000'
+      ctx.font = 'bold 13.5px Arial, sans-serif'
       if (row.tglMasuk) {
         ctx.fillText(row.tglMasuk, cx + cols.tglMasuk / 2, y + 20)
       }
@@ -629,10 +630,12 @@ async function renderAndDownloadBkuPdf(params: {
       cx += cols.uraianMasuk
 
       // Jumlah Pemasukan
-      drawNominalCell(ctx, cx, y, cols.jmlMasuk, row.jumlahMasuk, false)
+      drawNominalCell(ctx, cx, y, cols.jmlMasuk, row.jumlahMasuk, true)
       cx += cols.jmlMasuk
 
       // Tanggal Pengeluaran
+      ctx.fillStyle = '#000000'
+      ctx.font = 'bold 13.5px Arial, sans-serif'
       ctx.textAlign = 'center'
       if (row.tglKeluar) {
         ctx.fillText(row.tglKeluar, cx + cols.tglKeluar / 2, y + 20)
@@ -651,7 +654,7 @@ async function renderAndDownloadBkuPdf(params: {
       cx += cols.uraianKeluar
 
       // Jumlah Pengeluaran
-      drawNominalCell(ctx, cx, y, cols.jmlKeluar, row.jumlahKeluar, false)
+      drawNominalCell(ctx, cx, y, cols.jmlKeluar, row.jumlahKeluar, true)
 
       y += rowH
     })
@@ -691,7 +694,7 @@ async function renderAndDownloadBkuPdf(params: {
         ctx.stroke()
       }
 
-      ctx.fillStyle = '#0f4a2a'
+      ctx.fillStyle = '#000000'
       ctx.font = 'bold 15px Arial, sans-serif'
       ctx.textAlign = 'left'
       ctx.fillText('JUMLAH', labelStartX, y + 22)
@@ -754,7 +757,7 @@ async function renderAndDownloadBkuPdf(params: {
           ctx.stroke()
         }
 
-        ctx.fillStyle = fr.highlight ? '#0f4a2a' : '#111827'
+        ctx.fillStyle = '#000000'
         ctx.font = fr.highlight ? 'bold 15.5px Arial, sans-serif' : 'bold 14.5px Arial, sans-serif'
         ctx.textAlign = 'left'
         ctx.fillText(fr.label, labelStartX, fy + 22)
@@ -782,8 +785,8 @@ async function renderAndDownloadBkuPdf(params: {
         const rightSigX = W - marginX - 230
 
         ctx.textAlign = 'center'
-        ctx.fillStyle = '#374151'
-        ctx.font = '15px Arial, sans-serif'
+        ctx.fillStyle = '#000000'
+        ctx.font = 'bold 15px Arial, sans-serif'
         ctx.fillText(`Karawang, ${formatTanggalIndo(todayIso)}`, rightSigX, sigY + 4)
 
         ctx.fillStyle = '#111827'
@@ -874,8 +877,8 @@ async function renderAndDownloadBkuPdf(params: {
     }
 
     // Nomor halaman di pojok kanan bawah kertas A4
-    ctx.fillStyle = '#6b7280'
-    ctx.font = '13px Arial, sans-serif'
+    ctx.fillStyle = '#000000'
+    ctx.font = 'bold 13px Arial, sans-serif'
     ctx.textAlign = 'right'
     ctx.fillText(
       `Halaman ${pageIdx + 1} dari ${rowChunks.length} • Ukuran Kertas A4`,
