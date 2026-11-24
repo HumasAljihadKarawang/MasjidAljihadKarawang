@@ -287,15 +287,15 @@ function drawKopBkuA4(
   ctx.fillStyle = '#d4a843'
   ctx.fillRect(0, 14, width, 4)
 
-  // Logo Masjid di sisi kiri KOP (jika tersedia)
+  // Logo Masjid di sisi kiri KOP (proporsional pas dengan tinggi kop)
   if (logoImg) {
-    const targetH = 88
+    const targetH = 108
     const ratio = (logoImg.width || 1) / (logoImg.height || 1)
-    const targetW = Math.min(130, targetH * ratio)
-    ctx.drawImage(logoImg, marginX + 10, 34, targetW, targetH)
+    const targetW = Math.min(155, targetH * ratio)
+    ctx.drawImage(logoImg, marginX + 6, 26, targetW, targetH)
   }
 
-  const textCenterX = logoImg ? width / 2 + 28 : width / 2
+  const textCenterX = logoImg ? width / 2 + 34 : width / 2
   ctx.textAlign = 'center'
 
   ctx.fillStyle = '#0f4a2a'
@@ -318,19 +318,19 @@ function drawKopBkuA4(
   ctx.strokeStyle = '#0f4a2a'
   ctx.lineWidth = 3
   ctx.beginPath()
-  ctx.moveTo(marginX, 134)
-  ctx.lineTo(width - marginX, 134)
+  ctx.moveTo(marginX, 140)
+  ctx.lineTo(width - marginX, 140)
   ctx.stroke()
 
   ctx.strokeStyle = '#d4a843'
   ctx.lineWidth = 1.4
   ctx.beginPath()
-  ctx.moveTo(marginX, 139)
-  ctx.lineTo(width - marginX, 139)
+  ctx.moveTo(marginX, 145)
+  ctx.lineTo(width - marginX, 145)
   ctx.stroke()
 
   ctx.textAlign = 'left'
-  return 154
+  return 160
 }
 
 /**
@@ -783,14 +783,17 @@ async function renderAndDownloadBkuPdf(params: {
         ctx.fillText('Dibuat Oleh,', rightSigX, sigY + 24)
         ctx.fillText('Bendahara', rightSigX, sigY + 46)
 
-        // Gambar tanda tangan asli Ketua DKM (fallback goresan jika gambar gagal dimuat)
+        // Gambar tanda tangan asli Ketua DKM (proporsional + multiply agar menyatu seperti tinta asli)
         if (ttdDkmImg) {
-          const maxW = 180
-          const maxH = 82
+          const maxW = 230
+          const maxH = 96
           const scale = Math.min(maxW / ttdDkmImg.width, maxH / ttdDkmImg.height)
           const drawW = ttdDkmImg.width * scale
           const drawH = ttdDkmImg.height * scale
-          ctx.drawImage(ttdDkmImg, leftSigX - drawW / 2, sigY + 52, drawW, drawH)
+          ctx.save()
+          ctx.globalCompositeOperation = 'multiply'
+          ctx.drawImage(ttdDkmImg, leftSigX - drawW / 2, sigY + 46, drawW, drawH)
+          ctx.restore()
         } else {
           ctx.save()
           ctx.strokeStyle = '#1e293b'
@@ -809,12 +812,15 @@ async function renderAndDownloadBkuPdf(params: {
 
         // Gambar tanda tangan asli Bendahara (Dr.K.H Asep Khareul Faizin,MM)
         if (ttdBendaharaImg) {
-          const maxW = 180
-          const maxH = 82
+          const maxW = 140
+          const maxH = 96
           const scale = Math.min(maxW / ttdBendaharaImg.width, maxH / ttdBendaharaImg.height)
           const drawW = ttdBendaharaImg.width * scale
           const drawH = ttdBendaharaImg.height * scale
-          ctx.drawImage(ttdBendaharaImg, rightSigX - drawW / 2, sigY + 52, drawW, drawH)
+          ctx.save()
+          ctx.globalCompositeOperation = 'multiply'
+          ctx.drawImage(ttdBendaharaImg, rightSigX - drawW / 2, sigY + 46, drawW, drawH)
+          ctx.restore()
         } else {
           ctx.save()
           ctx.strokeStyle = '#0f172a'
@@ -832,16 +838,16 @@ async function renderAndDownloadBkuPdf(params: {
 
         ctx.fillStyle = '#111827'
         ctx.font = 'bold 15px Arial, sans-serif'
-        ctx.fillText('Drs.H.Acep Kusnadi,M.Pd.C.Med', leftSigX, sigY + 136)
-        ctx.fillText('Dr.K.H Asep Khareul Faizin,MM', rightSigX, sigY + 136)
+        ctx.fillText('Drs.H.Acep Kusnadi,M.Pd.C.Med', leftSigX, sigY + 146)
+        ctx.fillText('Dr.K.H Asep Khareul Faizin,MM', rightSigX, sigY + 146)
 
         ctx.strokeStyle = '#374151'
         ctx.lineWidth = 1.2
         ctx.beginPath()
-        ctx.moveTo(leftSigX - 125, sigY + 142)
-        ctx.lineTo(leftSigX + 125, sigY + 142)
-        ctx.moveTo(rightSigX - 125, sigY + 142)
-        ctx.lineTo(rightSigX + 125, sigY + 142)
+        ctx.moveTo(leftSigX - 125, sigY + 152)
+        ctx.lineTo(leftSigX + 125, sigY + 152)
+        ctx.moveTo(rightSigX - 125, sigY + 152)
+        ctx.lineTo(rightSigX + 125, sigY + 152)
         ctx.stroke()
         ctx.textAlign = 'left'
       }

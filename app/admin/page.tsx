@@ -6060,7 +6060,7 @@ export default function AdminSidebarPage() {
                           src={logoMasjidWarna}
                           alt="Logo Masjid Al-Jihad"
                           style={{
-                            width: '74px',
+                            width: '108px',
                             height: 'auto',
                             objectFit: 'contain',
                           }}
@@ -7089,7 +7089,7 @@ export default function AdminSidebarPage() {
                             style={{
                               position: 'relative',
                               marginTop: '-6px',
-                              marginBottom: '-14px',
+                              marginBottom: '-18px',
                               zIndex: 2,
                               pointerEvents: 'none',
                             }}
@@ -7100,11 +7100,12 @@ export default function AdminSidebarPage() {
                               width={ttdDkm.width}
                               height={ttdDkm.height}
                               style={{
-                                width: '165px',
-                                height: '64px',
+                                width: '195px',
+                                height: '78px',
                                 margin: '0 auto',
                                 objectFit: 'contain',
                                 display: 'block',
+                                mixBlendMode: 'multiply',
                               }}
                             />
                           </div>
@@ -7129,8 +7130,8 @@ export default function AdminSidebarPage() {
                           <div
                             style={{
                               position: 'relative',
-                              marginTop: '-6px',
-                              marginBottom: '-14px',
+                              marginTop: '-8px',
+                              marginBottom: '-16px',
                               zIndex: 2,
                               pointerEvents: 'none',
                             }}
@@ -7141,11 +7142,12 @@ export default function AdminSidebarPage() {
                               width={ttdBendahara.width}
                               height={ttdBendahara.height}
                               style={{
-                                width: '165px',
-                                height: '64px',
+                                width: '120px',
+                                height: '82px',
                                 margin: '0 auto',
                                 objectFit: 'contain',
                                 display: 'block',
+                                mixBlendMode: 'multiply',
                               }}
                             />
                           </div>
