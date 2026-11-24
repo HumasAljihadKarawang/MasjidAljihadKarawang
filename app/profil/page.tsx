@@ -1,11 +1,17 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Image from 'next/image'
 import Navbar from '@/components/Navbar/Navbar'
 import Footer from '@/components/Footer/Footer'
 import { SLIDE_PROFIL, FAKTA_MENARIK } from '@/components/Sejarah/SejarahSection'
-import { ASET_MASJID_LIST } from '@/lib/masjidStore'
+import {
+  ASET_MASJID_LIST,
+  masjidStore,
+  computeTotalKasMasjidRealtime,
+  type LaporanKeuanganItem,
+} from '@/lib/masjidStore'
+import { formatRupiah, formatTanggalSlash } from '@/lib/keuanganPdf'
 import styles from './profil.module.css'
 
 const FASILITAS = [
@@ -47,6 +53,21 @@ const JEJAK_SEJARAH_LENGKAP = [
 export default function ProfilPage() {
   const [slideIdx, setSlideIdx] = useState(0)
   const [factIdx, setFactIdx] = useState(0)
+  const [keuanganList, setKeuanganList] = useState<LaporanKeuanganItem[]>([])
+  const [saldoMap, setSaldoMap] = useState<Record<string, number>>({})
+  const [transparansiFilter, setTransparansiFilter] = useState<'1_minggu' | '1_bulan'>('1_bulan')
+  const [transparansiPage, setTransparansiPage] = useState(1)
+
+  const syncKeuanganProfil = useCallback(() => {
+    setKeuanganList(masjidStore.getKeuangan())
+    setSaldoMap(masjidStore.getSaldoSebelumnyaMap())
+  }, [])
+
+  useEffect(() => {
+    syncKeuanganProfil()
+    window.addEventListener('aljihad-store-updated', syncKeuanganProfil)
+    return () => window.removeEventListener('aljihad-store-updated', syncKeuanganProfil)
+  }, [syncKeuanganProfil])
 
   useEffect(() => {
     const t1 = setInterval(() => setSlideIdx((p) => (p + 1) % SLIDE_PROFIL.length), 6500)
@@ -56,6 +77,42 @@ export default function ProfilPage() {
       clearInterval(t2)
     }
   }, [])
+
+  const totalKasRealtime = computeTotalKasMasjidRealtime(keuanganList, saldoMap)
+
+  // Ambil daftar pengeluaran terakhir (1 minggu terakhir & 1 bulan terakhir)
+  const allPengeluaranSorted = [...keuanganList]
+    .filter((it) => it.jenis !== 'Pemasukan')
+    .sort((a, b) => b.tanggal.localeCompare(a.tanggal) || b.createdAt.localeCompare(a.createdAt))
+
+  const latestAnchorTs =
+    allPengeluaranSorted.length > 0
+      ? new Date(allPengeluaranSorted[0].tanggal + 'T23:59:59').getTime()
+      : Date.now()
+
+  const oneWeekCutoffTs = latestAnchorTs - 7 * 24 * 60 * 60 * 1000
+  const oneMonthCutoffTs = latestAnchorTs - 31 * 24 * 60 * 60 * 1000
+
+  const pengeluaran1Minggu = allPengeluaranSorted.filter(
+    (it) => new Date(it.tanggal + 'T12:00:00').getTime() >= oneWeekCutoffTs
+  )
+  const pengeluaran1Bulan = allPengeluaranSorted.filter(
+    (it) => new Date(it.tanggal + 'T12:00:00').getTime() >= oneMonthCutoffTs
+  )
+
+  const activePengeluaranTransparansi =
+    transparansiFilter === '1_minggu' ? pengeluaran1Minggu : pengeluaran1Bulan
+
+  const ITEMS_PER_PAGE = 8
+  const totalPagesTransparansi = Math.max(
+    1,
+    Math.ceil(activePengeluaranTransparansi.length / ITEMS_PER_PAGE)
+  )
+  const currentSafePage = Math.min(transparansiPage, totalPagesTransparansi)
+  const paginatedPengeluaran = activePengeluaranTransparansi.slice(
+    (currentSafePage - 1) * ITEMS_PER_PAGE,
+    currentSafePage * ITEMS_PER_PAGE
+  )
 
   return (
     <>
@@ -281,21 +338,408 @@ export default function ProfilPage() {
             </div>
           </div>
         </section>
-        {/* Daftar Aset Masjid */}
+        {/* My.DKM: Daftar Aset Masjid & Transparansi Keuangan / Pengeluaran Terakhir */}
         <section id="aset-masjid" className={`section ${styles.fasilitasSection}`}>
           <div className="container">
             <div className="section-header center">
-              <span className="section-badge">Inventaris DKM</span>
+              <span className="section-badge">Portal My.DKM Al-Jihad</span>
               <h2 className="section-title">
-                Daftar <span>Aset Masjid</span>
+                Inventaris Aset &amp; <span>Transparansi Kas Masjid</span>
               </h2>
               <p className="section-subtitle">
-                Daftar perlengkapan &amp; aset Masjid Al-Jihad yang dapat diajukan peminjamannya
+                Informasi terbuka daftar perlengkapan aset Masjid Al-Jihad serta laporan pengeluaran
+                terakhir dan total kas masjid secara realtime
               </p>
             </div>
+
+            {/* BARIS HALAMAN TRANSPARANSI KEUANGAN & TOTAL KAS MASJID REALTIME */}
             <div
               style={{
-                maxWidth: '860px',
+                maxWidth: '940px',
+                margin: '0 auto 32px',
+                background: '#ffffff',
+                borderRadius: '18px',
+                padding: '24px',
+                border: '1px solid rgba(27, 107, 69, 0.18)',
+                boxShadow: '0 12px 32px rgba(15, 23, 42, 0.06)',
+              }}
+            >
+              {/* Banner Total Kas Masjid Realtime */}
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))',
+                  gap: '14px',
+                  marginBottom: '20px',
+                }}
+              >
+                <div
+                  style={{
+                    padding: '16px 18px',
+                    borderRadius: '14px',
+                    background: 'linear-gradient(135deg, #0f4a2a, #15803d)',
+                    color: '#ffffff',
+                    boxShadow: '0 8px 22px rgba(15, 74, 42, 0.22)',
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '7px',
+                      fontSize: '0.76rem',
+                      fontWeight: 800,
+                      letterSpacing: '0.04em',
+                      opacity: 0.92,
+                      marginBottom: '4px',
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: '8px',
+                        height: '8px',
+                        borderRadius: '999px',
+                        background: '#4ade80',
+                        display: 'inline-block',
+                      }}
+                    />
+                    TOTAL KAS MASJID REALTIME
+                  </div>
+                  <div style={{ fontSize: '1.42rem', fontWeight: 900 }}>
+                    {formatRupiah(totalKasRealtime)}
+                  </div>
+                  <div style={{ fontSize: '0.73rem', opacity: 0.85, marginTop: '3px' }}>
+                    Otomatis menyesuaikan dari saldo awal &amp; mutasi BKU DKM
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    padding: '16px 18px',
+                    borderRadius: '14px',
+                    background: '#fef2f2',
+                    border: '1px solid #fecaca',
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: '0.76rem',
+                      fontWeight: 800,
+                      color: '#991b1b',
+                      marginBottom: '4px',
+                    }}
+                  >
+                    PENGELUARAN 1 MINGGU TERAKHIR
+                  </div>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#b91c1c' }}>
+                    {formatRupiah(
+                      pengeluaran1Minggu.reduce((acc, i) => acc + (Number(i.nominal) || 0), 0)
+                    )}
+                  </div>
+                  <div style={{ fontSize: '0.74rem', color: '#6b7280', marginTop: '3px' }}>
+                    {`${pengeluaran1Minggu.length} transaksi tercatat`}
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    padding: '16px 18px',
+                    borderRadius: '14px',
+                    background: '#fffbeb',
+                    border: '1px solid #fde68a',
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: '0.76rem',
+                      fontWeight: 800,
+                      color: '#92400e',
+                      marginBottom: '4px',
+                    }}
+                  >
+                    PENGELUARAN 1 BULAN TERAKHIR
+                  </div>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#b45309' }}>
+                    {formatRupiah(
+                      pengeluaran1Bulan.reduce((acc, i) => acc + (Number(i.nominal) || 0), 0)
+                    )}
+                  </div>
+                  <div style={{ fontSize: '0.74rem', color: '#6b7280', marginTop: '3px' }}>
+                    {`${pengeluaran1Bulan.length} transaksi tercatat`}
+                  </div>
+                </div>
+              </div>
+
+              {/* Header Filter 1 Minggu Terakhir vs 1 Bulan Terakhir */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: '10px',
+                  marginBottom: '14px',
+                }}
+              >
+                <div>
+                  <h3
+                    style={{
+                      margin: 0,
+                      fontSize: '1.08rem',
+                      fontWeight: 800,
+                      color: '#0f4a2a',
+                    }}
+                  >
+                    Transparansi Pengeluaran Terakhir Masjid Al-Jihad
+                  </h3>
+                  <span style={{ fontSize: '0.78rem', color: '#4b5563', fontWeight: 600 }}>
+                    Menampilkan rincian pengeluaran dalam rentang 1 minggu &amp; 1 bulan terakhir
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTransparansiFilter('1_minggu')
+                      setTransparansiPage(1)
+                    }}
+                    style={{
+                      padding: '8px 14px',
+                      borderRadius: '9px',
+                      border:
+                        transparansiFilter === '1_minggu'
+                          ? '1px solid #0f4a2a'
+                          : '1px solid rgba(27, 107, 69, 0.25)',
+                      background: transparansiFilter === '1_minggu' ? '#0f4a2a' : '#f0fdf4',
+                      color: transparansiFilter === '1_minggu' ? '#ffffff' : '#14532d',
+                      fontWeight: 800,
+                      fontSize: '0.8rem',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {`1 Minggu Terakhir (${pengeluaran1Minggu.length})`}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTransparansiFilter('1_bulan')
+                      setTransparansiPage(1)
+                    }}
+                    style={{
+                      padding: '8px 14px',
+                      borderRadius: '9px',
+                      border:
+                        transparansiFilter === '1_bulan'
+                          ? '1px solid #0f4a2a'
+                          : '1px solid rgba(27, 107, 69, 0.25)',
+                      background: transparansiFilter === '1_bulan' ? '#0f4a2a' : '#f0fdf4',
+                      color: transparansiFilter === '1_bulan' ? '#ffffff' : '#14532d',
+                      fontWeight: 800,
+                      fontSize: '0.8rem',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {`1 Bulan Terakhir (${pengeluaran1Bulan.length})`}
+                  </button>
+                </div>
+              </div>
+
+              {/* Tabel Pengeluaran Terakhir dengan Baris Halaman (Pagination) */}
+              <div
+                style={{
+                  overflowX: 'auto',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(27, 107, 69, 0.18)',
+                }}
+              >
+                <table
+                  style={{
+                    width: '100%',
+                    borderCollapse: 'collapse',
+                    fontSize: '0.85rem',
+                  }}
+                >
+                  <thead>
+                    <tr
+                      style={{
+                        background: '#0f4a2a',
+                        color: '#ffffff',
+                        textAlign: 'left',
+                      }}
+                    >
+                      <th style={{ padding: '10px 12px', width: '50px' }}>No</th>
+                      <th style={{ padding: '10px 12px', width: '115px' }}>Tanggal</th>
+                      <th style={{ padding: '10px 12px' }}>Uraian Pengeluaran</th>
+                      <th style={{ padding: '10px 12px' }}>Kategori</th>
+                      <th style={{ padding: '10px 12px', textAlign: 'right' }}>Jumlah (Rp)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedPengeluaran.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={5}
+                          style={{
+                            padding: '22px',
+                            textAlign: 'center',
+                            color: '#6b7280',
+                            fontWeight: 600,
+                          }}
+                        >
+                          Belum ada data pengeluaran pada rentang waktu ini.
+                        </td>
+                      </tr>
+                    ) : (
+                      paginatedPengeluaran.map((item, idx) => {
+                        const rowNo = (currentSafePage - 1) * ITEMS_PER_PAGE + idx + 1
+                        return (
+                          <tr
+                            key={item.id}
+                            style={{
+                              borderBottom: '1px solid #e5e7eb',
+                              background: idx % 2 === 0 ? '#ffffff' : '#f8faf8',
+                            }}
+                          >
+                            <td
+                              style={{
+                                padding: '9px 12px',
+                                fontWeight: 700,
+                                color: '#6b7280',
+                              }}
+                            >
+                              {rowNo}
+                            </td>
+                            <td
+                              style={{
+                                padding: '9px 12px',
+                                fontWeight: 700,
+                                color: '#14532d',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {formatTanggalSlash(item.tanggal)}
+                            </td>
+                            <td
+                              style={{
+                                padding: '9px 12px',
+                                fontWeight: 800,
+                                color: '#111827',
+                              }}
+                            >
+                              {item.uraian}
+                            </td>
+                            <td style={{ padding: '9px 12px', color: '#374151' }}>
+                              {item.kategori}
+                            </td>
+                            <td
+                              style={{
+                                padding: '9px 12px',
+                                textAlign: 'right',
+                                fontWeight: 800,
+                                color: '#991b1b',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {formatRupiah(item.nominal)}
+                            </td>
+                          </tr>
+                        )
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Baris Halaman (Pagination Controls) */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: '10px',
+                  marginTop: '14px',
+                }}
+              >
+                <span style={{ fontSize: '0.78rem', color: '#4b5563', fontWeight: 700 }}>
+                  {`Menampilkan halaman ${currentSafePage} dari ${totalPagesTransparansi} (${activePengeluaranTransparansi.length} catatan pengeluaran)`}
+                </span>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <button
+                    type="button"
+                    disabled={currentSafePage <= 1}
+                    onClick={() => setTransparansiPage((p) => Math.max(1, p - 1))}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: '8px',
+                      border: '1px solid rgba(27, 107, 69, 0.25)',
+                      background: '#ffffff',
+                      color: '#0f4a2a',
+                      fontWeight: 800,
+                      fontSize: '0.78rem',
+                      cursor: currentSafePage > 1 ? 'pointer' : 'not-allowed',
+                      opacity: currentSafePage > 1 ? 1 : 0.45,
+                    }}
+                  >
+                    ‹ Sebelumnya
+                  </button>
+
+                  {Array.from({ length: totalPagesTransparansi }, (_, i) => i + 1).map(
+                    (pgNum) => (
+                      <button
+                        key={pgNum}
+                        type="button"
+                        onClick={() => setTransparansiPage(pgNum)}
+                        style={{
+                          width: '32px',
+                          height: '32px',
+                          borderRadius: '8px',
+                          border:
+                            pgNum === currentSafePage
+                              ? '1px solid #0f4a2a'
+                              : '1px solid rgba(27, 107, 69, 0.22)',
+                          background: pgNum === currentSafePage ? '#0f4a2a' : '#f0fdf4',
+                          color: pgNum === currentSafePage ? '#ffffff' : '#14532d',
+                          fontWeight: 800,
+                          fontSize: '0.78rem',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {pgNum}
+                      </button>
+                    )
+                  )}
+
+                  <button
+                    type="button"
+                    disabled={currentSafePage >= totalPagesTransparansi}
+                    onClick={() =>
+                      setTransparansiPage((p) => Math.min(totalPagesTransparansi, p + 1))
+                    }
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: '8px',
+                      border: '1px solid rgba(27, 107, 69, 0.25)',
+                      background: '#ffffff',
+                      color: '#0f4a2a',
+                      fontWeight: 800,
+                      fontSize: '0.78rem',
+                      cursor:
+                        currentSafePage < totalPagesTransparansi ? 'pointer' : 'not-allowed',
+                      opacity: currentSafePage < totalPagesTransparansi ? 1 : 0.45,
+                    }}
+                  >
+                    Berikutnya ›
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div
+              style={{
+                maxWidth: '940px',
                 margin: '0 auto',
                 background: '#ffffff',
                 borderRadius: '18px',
@@ -304,6 +748,16 @@ export default function ProfilPage() {
                 boxShadow: '0 10px 28px rgba(15, 23, 42, 0.05)',
               }}
             >
+              <h3
+                style={{
+                  margin: '0 0 12px',
+                  fontSize: '1.05rem',
+                  fontWeight: 800,
+                  color: '#0f4a2a',
+                }}
+              >
+                Daftar Inventaris Aset Masjid Al-Jihad
+              </h3>
               <div style={{ maxHeight: '420px', overflowY: 'auto', borderRadius: '10px' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
                   <thead>

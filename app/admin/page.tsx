@@ -18,6 +18,8 @@ import {
   masjidStore,
   findScheduleConflicts,
   ASET_MASJID_LIST,
+  computeRunningSaldoBefore,
+  computeTotalKasMasjidRealtime,
   type BeritaItem,
   type VideoKegiatanItem,
   type KegiatanUnggulanItem,
@@ -29,10 +31,12 @@ import {
 import {
   exportLaporanMingguanPdf,
   exportLaporanBulananPdf,
+  exportLaporanHarianPdf,
   buildBkuPairedRows,
   formatRupiah,
   formatAngkaTitik,
   formatTanggalIndo,
+  formatTanggalSlash,
 } from '@/lib/keuanganPdf'
 import { getPrayerTimesByLocation, DEFAULT_LOCATION } from '@/lib/prayerTimes'
 import type { User } from '@supabase/supabase-js'
@@ -195,9 +199,10 @@ export default function AdminSidebarPage() {
   const [kritikList, setKritikList] = useState<KritikSaranItem[]>([])
   const [keuanganList, setKeuanganList] = useState<LaporanKeuanganItem[]>([])
 
-  // State Pencatatan & Rekap Laporan Keuangan Masjid (Input per Pengeluaran/Pemasukan + PDF BKU A4 Mingguan/Bulanan)
+  // State Pencatatan & Rekap Laporan Keuangan Masjid (Input per Pengeluaran/Pemasukan + PDF BKU A4 Bulanan/Mingguan/Harian + Edit Tabel Excel)
   const [showInputKeuanganModal, setShowInputKeuanganModal] = useState(false)
   const [previewKeuanganItem, setPreviewKeuanganItem] = useState<LaporanKeuanganItem | null>(null)
+  const [excelEditMode, setExcelEditMode] = useState(false)
   const [jenisTransaksiKeu, setJenisTransaksiKeu] = useState<'Pengeluaran' | 'Pemasukan'>(
     'Pengeluaran'
   )
@@ -205,15 +210,18 @@ export default function AdminSidebarPage() {
   const [kategoriPengeluaran, setKategoriPengeluaran] = useState('Operasional & Listrik/Air')
   const [uraianPengeluaran, setUraianPengeluaran] = useState('')
   const [nominalPengeluaran, setNominalPengeluaran] = useState('')
-  const [pjPengeluaran, setPjPengeluaran] = useState('Bendahara DKM Al-Jihad')
+  const [pjPengeluaran, setPjPengeluaran] = useState('Dr.K.H Asep Khareul Faizin,MM')
   const [metodePengeluaran, setMetodePengeluaran] = useState<
     'Tunai (Kas DKM)' | 'Transfer Bank' | 'QRIS'
   >('Tunai (Kas DKM)')
   const [catatanPengeluaran, setCatatanPengeluaran] = useState('')
-  const [rekapKeuanganMode, setRekapKeuanganMode] = useState<'bulanan' | 'mingguan'>('bulanan')
+  const [rekapKeuanganMode, setRekapKeuanganMode] = useState<'bulanan' | 'mingguan' | 'harian'>(
+    'bulanan'
+  )
   const [rekapKeuanganYear, setRekapKeuanganYear] = useState<number>(2026)
   const [rekapKeuanganMonth, setRekapKeuanganMonth] = useState<number>(9) // Oktober 2026 (0-indexed = 9)
   const [rekapKeuanganMingguKe, setRekapKeuanganMingguKe] = useState<number>(1)
+  const [rekapKeuanganDailyDate, setRekapKeuanganDailyDate] = useState<string>('2026-10-30')
   const [saldoSebelumnyaMap, setSaldoSebelumnyaMap] = useState<Record<string, number>>(() =>
     masjidStore.getSaldoSebelumnyaMap()
   )
@@ -2959,6 +2967,46 @@ export default function AdminSidebarPage() {
     }
   }
 
+  const handleExcelUpdateKeuanganItem = (
+    id: string,
+    field: 'tanggal' | 'uraian' | 'nominal',
+    value: string
+  ) => {
+    const updated = keuanganList.map((item) => {
+      if (item.id !== id) return item
+      if (field === 'nominal') {
+        const cleanNum = Number(value.replace(/\D/g, '')) || 0
+        return { ...item, nominal: cleanNum }
+      }
+      if (field === 'tanggal') {
+        return { ...item, tanggal: value }
+      }
+      return { ...item, uraian: value }
+    })
+    setKeuanganList(updated)
+    masjidStore.saveKeuangan(updated)
+  }
+
+  const handleExcelAddQuickRow = (jenis: 'Pemasukan' | 'Pengeluaran', defaultDateIso: string) => {
+    const newItem: LaporanKeuanganItem = {
+      id: `keu-xls-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      tanggal: defaultDateIso,
+      jenis,
+      kategori:
+        jenis === 'Pemasukan' ? 'Infaq Jumat & Koropak' : 'Operasional & Listrik/Air',
+      uraian: jenis === 'Pemasukan' ? 'Uraian Pemasukan Baru' : 'Uraian Pengeluaran Baru',
+      nominal: 0,
+      penanggungJawab: 'Dr.K.H Asep Khareul Faizin,MM',
+      metodePembayaran: 'Tunai (Kas DKM)',
+      createdAt: new Date().toISOString(),
+    }
+    const updated = [...keuanganList, newItem].sort(
+      (a, b) => a.tanggal.localeCompare(b.tanggal) || a.createdAt.localeCompare(b.createdAt)
+    )
+    setKeuanganList(updated)
+    masjidStore.saveKeuangan(updated)
+  }
+
   const hasUnsavedAdminInput = (tab: AdminTab): boolean => {
     if (tab === 'kegiatan_custom') {
       return Boolean(namaKegiatanBaru.trim() || deskripsiKegiatanBaru.trim())
@@ -5144,7 +5192,7 @@ export default function AdminSidebarPage() {
               )}
             </div>
 
-            {/* MENU TAMBAHAN: PENCATATAN & REKAP LAPORAN BKU KEUANGAN MASJID (INPUT PER PENGELUARAN/PEMASUKAN + PDF BKU A4 MINGGUAN & BULANAN) */}
+            {/* MENU TAMBAHAN: PENCATATAN & REKAP LAPORAN BKU KEUANGAN MASJID (LAPORAN BULANAN, MINGGUAN, HARIAN + MODE TABEL EXCEL + DISPLAY PENGELUARAN) */}
             <div
               style={{
                 display: activeTab === 'keuangan' ? 'flex' : 'none',
@@ -5198,8 +5246,16 @@ export default function AdminSidebarPage() {
                   return dayNum >= weekStartDay && dayNum <= weekEndDay
                 })
 
+                const itemsInSelectedDay = [...keuanganList]
+                  .filter((it) => it.tanggal === rekapKeuanganDailyDate)
+                  .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+
                 const activeItems =
-                  rekapKeuanganMode === 'bulanan' ? itemsInMonth : itemsInSelectedWeek
+                  rekapKeuanganMode === 'bulanan'
+                    ? itemsInMonth
+                    : rekapKeuanganMode === 'mingguan'
+                      ? itemsInSelectedWeek
+                      : itemsInSelectedDay
 
                 const totalPemasukan = activeItems
                   .filter((it) => it.jenis === 'Pemasukan')
@@ -5208,17 +5264,43 @@ export default function AdminSidebarPage() {
                   .filter((it) => it.jenis !== 'Pemasukan')
                   .reduce((acc, it) => acc + (Number(it.nominal) || 0), 0)
                 const selisihPeriode = totalPemasukan - totalPengeluaran
-                const activeSaldoSebelumnya = Number(saldoSebelumnyaMap[monthPrefix] ?? 0)
-                const saldoAkhirBulan = activeSaldoSebelumnya + selisihPeriode
+
+                // Saldo awal otomatis menyesuaikan dari data awal + transaksi sebelum periode terpilih
+                const cutoffIso =
+                  rekapKeuanganMode === 'bulanan'
+                    ? `${monthPrefix}-01`
+                    : rekapKeuanganMode === 'mingguan'
+                      ? weekStartIso
+                      : rekapKeuanganDailyDate
+
+                const activeSaldoSebelumnya = computeRunningSaldoBefore(
+                  keuanganList,
+                  cutoffIso,
+                  saldoSebelumnyaMap,
+                  rekapKeuanganMode === 'bulanan' ? monthPrefix : undefined
+                )
+                const saldoAkhirPeriode = activeSaldoSebelumnya + selisihPeriode
+                const totalKasRealtime = computeTotalKasMasjidRealtime(
+                  keuanganList,
+                  saldoSebelumnyaMap
+                )
 
                 const bkuPairedRows = buildBkuPairedRows(
                   activeItems,
-                  rekapKeuanganMode === 'bulanan' ? 16 : 10
+                  rekapKeuanganMode === 'bulanan'
+                    ? 16
+                    : rekapKeuanganMode === 'mingguan'
+                      ? 12
+                      : 8
+                )
+
+                const pengeluaranOnlyList = activeItems.filter(
+                  (it) => it.jenis !== 'Pemasukan'
                 )
 
                 return (
                   <>
-                    {/* PANEL KONTROL ATAS: PILIH REKAP BKU BULANAN / MINGGUAN + INPUT & UNDUH PDF A4 */}
+                    {/* PANEL KONTROL ATAS: TAB LAPORAN BULANAN / MINGGUAN / HARIAN + TOMBOL INPUT & MODE EXCEL DI BULANAN */}
                     <div className={styles.panelCard}>
                       <div
                         style={{
@@ -5258,12 +5340,15 @@ export default function AdminSidebarPage() {
                               cursor: 'pointer',
                             }}
                           >
-                            Laporan BKU Bulanan (A4)
+                            Laporan Bulanan
                           </button>
 
                           <button
                             type="button"
-                            onClick={() => setRekapKeuanganMode('mingguan')}
+                            onClick={() => {
+                              setExcelEditMode(false)
+                              setRekapKeuanganMode('mingguan')
+                            }}
                             style={{
                               padding: '9px 16px',
                               borderRadius: '10px',
@@ -5279,50 +5364,76 @@ export default function AdminSidebarPage() {
                               cursor: 'pointer',
                             }}
                           >
-                            Laporan BKU Mingguan (A4)
+                            Laporan Mingguan
                           </button>
-                        </div>
 
-                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                          <button
-                            type="button"
-                            className={styles.submitBtn}
-                            onClick={() => {
-                              setJenisTransaksiKeu('Pengeluaran')
-                              setShowInputKeuanganModal(true)
-                            }}
-                            style={{
-                              width: 'auto',
-                              marginTop: 0,
-                              padding: '10px 16px',
-                              fontSize: '0.84rem',
-                            }}
-                          >
-                            + Input Pengeluaran
-                          </button>
                           <button
                             type="button"
                             onClick={() => {
-                              setJenisTransaksiKeu('Pemasukan')
-                              setShowInputKeuanganModal(true)
+                              setExcelEditMode(false)
+                              setRekapKeuanganMode('harian')
                             }}
                             style={{
-                              padding: '10px 16px',
+                              padding: '9px 16px',
                               borderRadius: '10px',
-                              border: '1px solid #15803d',
-                              background: '#ecfdf5',
-                              color: '#0f4a2a',
+                              border:
+                                rekapKeuanganMode === 'harian'
+                                  ? '1px solid #0f4a2a'
+                                  : '1px solid rgba(27, 107, 69, 0.22)',
+                              background:
+                                rekapKeuanganMode === 'harian' ? '#0f4a2a' : '#ffffff',
+                              color: rekapKeuanganMode === 'harian' ? '#ffffff' : '#14532d',
                               fontWeight: 800,
-                              fontSize: '0.84rem',
+                              fontSize: '0.86rem',
                               cursor: 'pointer',
                             }}
                           >
-                            + Input Pemasukan
+                            Laporan Harian
                           </button>
                         </div>
+
+                        {/* TOMBOL INPUT & EDIT TABEL EXCEL HANYA DI LAPORAN BULANAN */}
+                        {rekapKeuanganMode === 'bulanan' && (
+                          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                            <button
+                              type="button"
+                              onClick={() => setExcelEditMode((prev) => !prev)}
+                              style={{
+                                padding: '10px 16px',
+                                borderRadius: '10px',
+                                border: excelEditMode
+                                  ? '2px solid #b45309'
+                                  : '1px solid rgba(27, 107, 69, 0.3)',
+                                background: excelEditMode ? '#fffbeb' : '#f0fdf4',
+                                color: excelEditMode ? '#92400e' : '#0f4a2a',
+                                fontWeight: 800,
+                                fontSize: '0.84rem',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              {excelEditMode
+                                ? '✓ Selesai Edit Tabel (Excel)'
+                                : '✎ Mode Input / Edit Tabel (Excel)'}
+                            </button>
+
+                            <button
+                              type="button"
+                              className={styles.submitBtn}
+                              onClick={() => setShowInputKeuanganModal(true)}
+                              style={{
+                                width: 'auto',
+                                marginTop: 0,
+                                padding: '10px 18px',
+                                fontSize: '0.84rem',
+                              }}
+                            >
+                              + Input Pengeluaran / Pemasukan
+                            </button>
+                          </div>
+                        )}
                       </div>
 
-                      {/* FILTER PERIODE BULAN / TAHUN / SALDO SEBELUMNYA / MINGGU + TOMBOL EKSPOR PDF A4 */}
+                      {/* FILTER PERIODE BULAN / TAHUN (MULAI 2026) / MINGGU / TANGGAL HARIAN + TOMBOL UNDUH BKU */}
                       <div
                         style={{
                           display: 'flex',
@@ -5344,71 +5455,77 @@ export default function AdminSidebarPage() {
                             flexWrap: 'wrap',
                           }}
                         >
-                          <div>
-                            <label
-                              style={{
-                                display: 'block',
-                                fontSize: '0.78rem',
-                                fontWeight: 800,
-                                color: '#14532d',
-                                marginBottom: '4px',
-                              }}
-                            >
-                              Pilih Bulan BKU
-                            </label>
-                            <select
-                              value={rekapKeuanganMonth}
-                              onChange={(e) => setRekapKeuanganMonth(Number(e.target.value))}
-                              style={{
-                                padding: '9px 12px',
-                                borderRadius: '10px',
-                                border: '1px solid rgba(27, 107, 69, 0.25)',
-                                fontWeight: 700,
-                                fontSize: '0.85rem',
-                                background: '#ffffff',
-                              }}
-                            >
-                              {NAMA_BULAN_ADMIN.map((bln, idx) => (
-                                <option key={bln} value={idx}>
-                                  {bln}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
+                          {rekapKeuanganMode !== 'harian' ? (
+                            <>
+                              <div>
+                                <label
+                                  style={{
+                                    display: 'block',
+                                    fontSize: '0.78rem',
+                                    fontWeight: 800,
+                                    color: '#14532d',
+                                    marginBottom: '4px',
+                                  }}
+                                >
+                                  Pilih Bulan
+                                </label>
+                                <select
+                                  value={rekapKeuanganMonth}
+                                  onChange={(e) =>
+                                    setRekapKeuanganMonth(Number(e.target.value))
+                                  }
+                                  style={{
+                                    padding: '9px 12px',
+                                    borderRadius: '10px',
+                                    border: '1px solid rgba(27, 107, 69, 0.25)',
+                                    fontWeight: 700,
+                                    fontSize: '0.85rem',
+                                    background: '#ffffff',
+                                  }}
+                                >
+                                  {NAMA_BULAN_ADMIN.map((bln, idx) => (
+                                    <option key={bln} value={idx}>
+                                      {bln}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
 
-                          <div>
-                            <label
-                              style={{
-                                display: 'block',
-                                fontSize: '0.78rem',
-                                fontWeight: 800,
-                                color: '#14532d',
-                                marginBottom: '4px',
-                              }}
-                            >
-                              Tahun
-                            </label>
-                            <select
-                              value={rekapKeuanganYear}
-                              onChange={(e) => setRekapKeuanganYear(Number(e.target.value))}
-                              style={{
-                                padding: '9px 12px',
-                                borderRadius: '10px',
-                                border: '1px solid rgba(27, 107, 69, 0.25)',
-                                fontWeight: 700,
-                                fontSize: '0.85rem',
-                                background: '#ffffff',
-                              }}
-                            >
-                              {[2025, 2026, 2027].map((yr) => (
-                                <option key={yr} value={yr}>
-                                  {yr}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-
-                          {rekapKeuanganMode === 'bulanan' && (
+                              <div>
+                                <label
+                                  style={{
+                                    display: 'block',
+                                    fontSize: '0.78rem',
+                                    fontWeight: 800,
+                                    color: '#14532d',
+                                    marginBottom: '4px',
+                                  }}
+                                >
+                                  Tahun
+                                </label>
+                                <select
+                                  value={rekapKeuanganYear}
+                                  onChange={(e) =>
+                                    setRekapKeuanganYear(Number(e.target.value))
+                                  }
+                                  style={{
+                                    padding: '9px 12px',
+                                    borderRadius: '10px',
+                                    border: '1px solid rgba(27, 107, 69, 0.25)',
+                                    fontWeight: 700,
+                                    fontSize: '0.85rem',
+                                    background: '#ffffff',
+                                  }}
+                                >
+                                  {[2026, 2027, 2028].map((yr) => (
+                                    <option key={yr} value={yr}>
+                                      {yr}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                            </>
+                          ) : (
                             <div>
                               <label
                                 style={{
@@ -5419,26 +5536,19 @@ export default function AdminSidebarPage() {
                                   marginBottom: '4px',
                                 }}
                               >
-                                {`Saldo Bulan ${prevMonthName} (Rp)`}
+                                Pilih Tanggal Laporan Harian
                               </label>
                               <input
-                                type="text"
-                                inputMode="numeric"
-                                value={String(activeSaldoSebelumnya)}
-                                onChange={(e) => {
-                                  const val = Number(e.target.value.replace(/\D/g, '')) || 0
-                                  const nextMap = { ...saldoSebelumnyaMap, [monthPrefix]: val }
-                                  setSaldoSebelumnyaMap(nextMap)
-                                  masjidStore.saveSaldoSebelumnyaMap(nextMap)
-                                }}
+                                type="date"
+                                value={rekapKeuanganDailyDate}
+                                onChange={(e) => setRekapKeuanganDailyDate(e.target.value)}
                                 style={{
-                                  padding: '9px 12px',
+                                  padding: '8px 12px',
                                   borderRadius: '10px',
                                   border: '1px solid rgba(27, 107, 69, 0.25)',
-                                  fontWeight: 800,
+                                  fontWeight: 700,
                                   fontSize: '0.85rem',
                                   background: '#ffffff',
-                                  width: '165px',
                                 }}
                               />
                             </div>
@@ -5473,13 +5583,13 @@ export default function AdminSidebarPage() {
                               >
                                 {weekDefs.map((w) => (
                                   <option key={w.mingguKe} value={w.mingguKe}>
-                                    {`${w.label} (${Math.min(
+                                    {`${w.label} / ${Math.min(
                                       w.startDay,
                                       daysInSelectedMonth
                                     )}–${Math.max(
                                       Math.min(w.startDay, daysInSelectedMonth),
                                       w.endDay
-                                    )} ${monthName})`}
+                                    )} ${monthName}`}
                                   </option>
                                 ))}
                               </select>
@@ -5519,17 +5629,18 @@ export default function AdminSidebarPage() {
                                 boxShadow: '0 6px 16px rgba(180, 83, 9, 0.25)',
                               }}
                             >
-                              {`Unduh PDF BKU Bulanan A4 (${monthName} ${rekapKeuanganYear})`}
+                              {`Unduh BKU Laporan Bulan ${monthName}, ${rekapKeuanganYear}`}
                             </button>
-                          ) : (
+                          ) : rekapKeuanganMode === 'mingguan' ? (
                             <button
                               type="button"
                               onClick={() =>
                                 exportLaporanMingguanPdf({
                                   startDateIso: weekStartIso,
                                   endDateIso: weekEndIso,
-                                  mingguLabel: `${selectedWeekDef.label.toUpperCase()} BULAN ${monthName.toUpperCase()} ${rekapKeuanganYear}`,
+                                  mingguLabel: `${selectedWeekDef.label.toUpperCase()} / ${monthName.toUpperCase()} ${rekapKeuanganYear}`,
                                   items: itemsInSelectedWeek,
+                                  saldoAwalMinggu: activeSaldoSebelumnya,
                                   logoSrc: logoMasjidWarna.src,
                                 })
                               }
@@ -5545,13 +5656,38 @@ export default function AdminSidebarPage() {
                                 boxShadow: '0 6px 16px rgba(21, 128, 61, 0.25)',
                               }}
                             >
-                              {`Unduh PDF BKU Mingguan A4 (${selectedWeekDef.label})`}
+                              {`Unduh BKU Laporan Mingguan / ${selectedWeekDef.label}, ${monthName} ${rekapKeuanganYear}`}
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                exportLaporanHarianPdf({
+                                  dateIso: rekapKeuanganDailyDate,
+                                  items: keuanganList,
+                                  saldoAwalHari: activeSaldoSebelumnya,
+                                  logoSrc: logoMasjidWarna.src,
+                                })
+                              }
+                              style={{
+                                padding: '10px 18px',
+                                borderRadius: '10px',
+                                border: 'none',
+                                background: 'linear-gradient(135deg, #0f4a2a, #15803d)',
+                                color: '#ffffff',
+                                fontWeight: 800,
+                                fontSize: '0.86rem',
+                                cursor: 'pointer',
+                                boxShadow: '0 6px 16px rgba(21, 128, 61, 0.25)',
+                              }}
+                            >
+                              {`Unduh BKU Laporan Harian / ${rekapKeuanganDailyDate}`}
                             </button>
                           )}
                         </div>
                       </div>
 
-                      {/* 4 KARTU RINGKASAN BKU */}
+                      {/* 4 KARTU RINGKASAN REALTIME */}
                       <div
                         style={{
                           display: 'grid',
@@ -5576,7 +5712,7 @@ export default function AdminSidebarPage() {
                               color: '#166534',
                             }}
                           >
-                            Total Pemasukan
+                            Total Pemasukan Periode Ini
                           </span>
                           <strong
                             style={{
@@ -5605,7 +5741,7 @@ export default function AdminSidebarPage() {
                               color: '#991b1b',
                             }}
                           >
-                            Total Pengeluaran
+                            Total Pengeluaran Periode Ini
                           </span>
                           <strong
                             style={{
@@ -5634,9 +5770,7 @@ export default function AdminSidebarPage() {
                               color: '#92400e',
                             }}
                           >
-                            {rekapKeuanganMode === 'bulanan'
-                              ? `Total Bulan ${monthName}`
-                              : `Total ${selectedWeekDef.label}`}
+                            Saldo Akhir Periode Ini
                           </span>
                           <strong
                             style={{
@@ -5645,44 +5779,42 @@ export default function AdminSidebarPage() {
                               color: '#b45309',
                             }}
                           >
-                            {formatRupiah(selisihPeriode)}
+                            {formatRupiah(saldoAkhirPeriode)}
                           </strong>
                         </div>
 
-                        {rekapKeuanganMode === 'bulanan' && (
-                          <div
+                        <div
+                          style={{
+                            padding: '13px 15px',
+                            borderRadius: '12px',
+                            background: '#ecfdf5',
+                            border: '1.5px solid #15803d',
+                          }}
+                        >
+                          <span
                             style={{
-                              padding: '13px 15px',
-                              borderRadius: '12px',
-                              background: '#ecfdf5',
-                              border: '1.5px solid #15803d',
+                              display: 'block',
+                              fontSize: '0.75rem',
+                              fontWeight: 800,
+                              color: '#0f4a2a',
                             }}
                           >
-                            <span
-                              style={{
-                                display: 'block',
-                                fontSize: '0.75rem',
-                                fontWeight: 800,
-                                color: '#0f4a2a',
-                              }}
-                            >
-                              {`Saldo Akhir (+ Saldo ${prevMonthName})`}
-                            </span>
-                            <strong
-                              style={{
-                                fontSize: '1.18rem',
-                                fontWeight: 900,
-                                color: '#064e3b',
-                              }}
-                            >
-                              {formatRupiah(saldoAkhirBulan)}
-                            </strong>
-                          </div>
-                        )}
+                            Total Kas Masjid Realtime
+                          </span>
+                          <strong
+                            style={{
+                              fontSize: '1.18rem',
+                              fontWeight: 900,
+                              color: '#064e3b',
+                            }}
+                          >
+                            {formatRupiah(totalKasRealtime)}
+                          </strong>
+                        </div>
                       </div>
                     </div>
 
-                    {/* TEMPLATE BKU KEUANGAN MASJID AL-JIHAD KARAWANG (DENGAN KOP RESMI + FORMAT TABEL BKU) */}
+                    {/* TEMPLATE BKU KEUANGAN MASJID AL-JIHAD KARAWANG (PREVIEW BERSIH TANPA TANDA SILANG & MODE EDIT TABEL EXCEL) */}
                     <div
                       className={styles.panelCard}
                       style={{
@@ -5691,6 +5823,69 @@ export default function AdminSidebarPage() {
                         border: '1px solid rgba(15, 74, 42, 0.22)',
                       }}
                     >
+                      {excelEditMode && rekapKeuanganMode === 'bulanan' && (
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            flexWrap: 'wrap',
+                            gap: '10px',
+                            padding: '10px 14px',
+                            marginBottom: '16px',
+                            borderRadius: '10px',
+                            background: '#fffbeb',
+                            border: '1px solid #f59e0b',
+                            color: '#92400e',
+                            fontSize: '0.8rem',
+                            fontWeight: 700,
+                          }}
+                        >
+                          <span>
+                            ✎ Mode Tabel Excel Aktif: Klik langsung pada sel tanggal, uraian,
+                            jumlah, atau Saldo Sebelumnya untuk mengubah data secara manual.
+                          </span>
+                          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleExcelAddQuickRow('Pemasukan', `${monthPrefix}-01`)
+                              }
+                              style={{
+                                padding: '5px 10px',
+                                borderRadius: '7px',
+                                border: '1px solid #15803d',
+                                background: '#ecfdf5',
+                                color: '#14532d',
+                                fontWeight: 800,
+                                fontSize: '0.75rem',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              + Baris Pemasukan Excel
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleExcelAddQuickRow('Pengeluaran', `${monthPrefix}-01`)
+                              }
+                              style={{
+                                padding: '5px 10px',
+                                borderRadius: '7px',
+                                border: '1px solid #dc2626',
+                                background: '#fef2f2',
+                                color: '#991b1b',
+                                fontWeight: 800,
+                                fontSize: '0.75rem',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              + Baris Pengeluaran Excel
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
                       {/* KOP SURAT RESMI DKM MASJID RAYA AL-JIHAD KARAWANG */}
                       <div
                         style={{
@@ -5785,7 +5980,11 @@ export default function AdminSidebarPage() {
                           >
                             {rekapKeuanganMode === 'bulanan'
                               ? `BULAN ${monthName.toUpperCase()} ${rekapKeuanganYear}`
-                              : `${selectedWeekDef.label.toUpperCase()} (${weekStartDay}–${weekEndDay} ${monthName.toUpperCase()} ${rekapKeuanganYear})`}
+                              : rekapKeuanganMode === 'mingguan'
+                                ? `${selectedWeekDef.label.toUpperCase()} / ${weekStartDay}–${weekEndDay} ${monthName.toUpperCase()} ${rekapKeuanganYear}`
+                                : `LAPORAN HARIAN / ${formatTanggalIndo(
+                                    rekapKeuanganDailyDate
+                                  ).toUpperCase()}`}
                           </div>
                         </div>
 
@@ -5936,7 +6135,29 @@ export default function AdminSidebarPage() {
                                     whiteSpace: 'nowrap',
                                   }}
                                 >
-                                  {row.tglMasuk}
+                                  {excelEditMode && row.itemMasuk ? (
+                                    <input
+                                      type="date"
+                                      value={row.itemMasuk.tanggal}
+                                      onChange={(e) =>
+                                        row.itemMasuk &&
+                                        handleExcelUpdateKeuanganItem(
+                                          row.itemMasuk.id,
+                                          'tanggal',
+                                          e.target.value
+                                        )
+                                      }
+                                      style={{
+                                        width: '115px',
+                                        padding: '2px 4px',
+                                        fontSize: '0.74rem',
+                                        border: '1px solid #15803d',
+                                        borderRadius: '4px',
+                                      }}
+                                    />
+                                  ) : (
+                                    row.tglMasuk
+                                  )}
                                 </td>
                                 <td
                                   style={{
@@ -5946,14 +6167,55 @@ export default function AdminSidebarPage() {
                                   }}
                                 >
                                   {row.itemMasuk ? (
-                                    <div
-                                      style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'space-between',
-                                        gap: '6px',
-                                      }}
-                                    >
+                                    excelEditMode ? (
+                                      <div
+                                        style={{
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          gap: '4px',
+                                        }}
+                                      >
+                                        <input
+                                          type="text"
+                                          value={row.itemMasuk.uraian}
+                                          onChange={(e) =>
+                                            row.itemMasuk &&
+                                            handleExcelUpdateKeuanganItem(
+                                              row.itemMasuk.id,
+                                              'uraian',
+                                              e.target.value
+                                            )
+                                          }
+                                          style={{
+                                            width: '100%',
+                                            padding: '3px 6px',
+                                            fontSize: '0.78rem',
+                                            border: '1px solid #15803d',
+                                            borderRadius: '4px',
+                                          }}
+                                        />
+                                        <button
+                                          type="button"
+                                          title="Hapus baris"
+                                          onClick={() =>
+                                            row.itemMasuk &&
+                                            handleDeleteKeuangan(row.itemMasuk.id)
+                                          }
+                                          style={{
+                                            border: '1px solid #fecaca',
+                                            background: '#fef2f2',
+                                            color: '#dc2626',
+                                            borderRadius: '4px',
+                                            fontSize: '0.7rem',
+                                            fontWeight: 800,
+                                            cursor: 'pointer',
+                                            padding: '2px 6px',
+                                          }}
+                                        >
+                                          Hapus
+                                        </button>
+                                      </div>
+                                    ) : (
                                       <span
                                         onClick={() =>
                                           row.itemMasuk && setPreviewKeuanganItem(row.itemMasuk)
@@ -5963,26 +6225,7 @@ export default function AdminSidebarPage() {
                                       >
                                         {row.uraianMasuk}
                                       </span>
-                                      <button
-                                        type="button"
-                                        title="Hapus baris pemasukan ini"
-                                        onClick={() =>
-                                          row.itemMasuk &&
-                                          handleDeleteKeuangan(row.itemMasuk.id)
-                                        }
-                                        style={{
-                                          border: 'none',
-                                          background: 'transparent',
-                                          color: '#dc2626',
-                                          fontSize: '0.72rem',
-                                          fontWeight: 800,
-                                          cursor: 'pointer',
-                                          padding: '0 3px',
-                                        }}
-                                      >
-                                        ✕
-                                      </button>
-                                    </div>
+                                    )
                                   ) : null}
                                 </td>
                                 <td
@@ -5992,7 +6235,30 @@ export default function AdminSidebarPage() {
                                     whiteSpace: 'nowrap',
                                   }}
                                 >
-                                  {row.jumlahMasuk !== null && (
+                                  {row.itemMasuk && excelEditMode ? (
+                                    <input
+                                      type="text"
+                                      inputMode="numeric"
+                                      value={String(row.itemMasuk.nominal)}
+                                      onChange={(e) =>
+                                        row.itemMasuk &&
+                                        handleExcelUpdateKeuanganItem(
+                                          row.itemMasuk.id,
+                                          'nominal',
+                                          e.target.value
+                                        )
+                                      }
+                                      style={{
+                                        width: '100%',
+                                        padding: '3px 6px',
+                                        fontSize: '0.78rem',
+                                        fontWeight: 700,
+                                        textAlign: 'right',
+                                        border: '1px solid #15803d',
+                                        borderRadius: '4px',
+                                      }}
+                                    />
+                                  ) : row.jumlahMasuk !== null ? (
                                     <div
                                       style={{
                                         display: 'flex',
@@ -6005,7 +6271,7 @@ export default function AdminSidebarPage() {
                                       <span>Rp</span>
                                       <span>{formatAngkaTitik(row.jumlahMasuk)}</span>
                                     </div>
-                                  )}
+                                  ) : null}
                                 </td>
                                 <td
                                   style={{
@@ -6017,7 +6283,29 @@ export default function AdminSidebarPage() {
                                     whiteSpace: 'nowrap',
                                   }}
                                 >
-                                  {row.tglKeluar}
+                                  {excelEditMode && row.itemKeluar ? (
+                                    <input
+                                      type="date"
+                                      value={row.itemKeluar.tanggal}
+                                      onChange={(e) =>
+                                        row.itemKeluar &&
+                                        handleExcelUpdateKeuanganItem(
+                                          row.itemKeluar.id,
+                                          'tanggal',
+                                          e.target.value
+                                        )
+                                      }
+                                      style={{
+                                        width: '115px',
+                                        padding: '2px 4px',
+                                        fontSize: '0.74rem',
+                                        border: '1px solid #dc2626',
+                                        borderRadius: '4px',
+                                      }}
+                                    />
+                                  ) : (
+                                    row.tglKeluar
+                                  )}
                                 </td>
                                 <td
                                   style={{
@@ -6027,14 +6315,55 @@ export default function AdminSidebarPage() {
                                   }}
                                 >
                                   {row.itemKeluar ? (
-                                    <div
-                                      style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'space-between',
-                                        gap: '6px',
-                                      }}
-                                    >
+                                    excelEditMode ? (
+                                      <div
+                                        style={{
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          gap: '4px',
+                                        }}
+                                      >
+                                        <input
+                                          type="text"
+                                          value={row.itemKeluar.uraian}
+                                          onChange={(e) =>
+                                            row.itemKeluar &&
+                                            handleExcelUpdateKeuanganItem(
+                                              row.itemKeluar.id,
+                                              'uraian',
+                                              e.target.value
+                                            )
+                                          }
+                                          style={{
+                                            width: '100%',
+                                            padding: '3px 6px',
+                                            fontSize: '0.78rem',
+                                            border: '1px solid #dc2626',
+                                            borderRadius: '4px',
+                                          }}
+                                        />
+                                        <button
+                                          type="button"
+                                          title="Hapus baris"
+                                          onClick={() =>
+                                            row.itemKeluar &&
+                                            handleDeleteKeuangan(row.itemKeluar.id)
+                                          }
+                                          style={{
+                                            border: '1px solid #fecaca',
+                                            background: '#fef2f2',
+                                            color: '#dc2626',
+                                            borderRadius: '4px',
+                                            fontSize: '0.7rem',
+                                            fontWeight: 800,
+                                            cursor: 'pointer',
+                                            padding: '2px 6px',
+                                          }}
+                                        >
+                                          Hapus
+                                        </button>
+                                      </div>
+                                    ) : (
                                       <span
                                         onClick={() =>
                                           row.itemKeluar && setPreviewKeuanganItem(row.itemKeluar)
@@ -6044,26 +6373,7 @@ export default function AdminSidebarPage() {
                                       >
                                         {row.uraianKeluar}
                                       </span>
-                                      <button
-                                        type="button"
-                                        title="Hapus baris pengeluaran ini"
-                                        onClick={() =>
-                                          row.itemKeluar &&
-                                          handleDeleteKeuangan(row.itemKeluar.id)
-                                        }
-                                        style={{
-                                          border: 'none',
-                                          background: 'transparent',
-                                          color: '#dc2626',
-                                          fontSize: '0.72rem',
-                                          fontWeight: 800,
-                                          cursor: 'pointer',
-                                          padding: '0 3px',
-                                        }}
-                                      >
-                                        ✕
-                                      </button>
-                                    </div>
+                                    )
                                   ) : null}
                                 </td>
                                 <td
@@ -6072,7 +6382,30 @@ export default function AdminSidebarPage() {
                                     whiteSpace: 'nowrap',
                                   }}
                                 >
-                                  {row.jumlahKeluar !== null && (
+                                  {row.itemKeluar && excelEditMode ? (
+                                    <input
+                                      type="text"
+                                      inputMode="numeric"
+                                      value={String(row.itemKeluar.nominal)}
+                                      onChange={(e) =>
+                                        row.itemKeluar &&
+                                        handleExcelUpdateKeuanganItem(
+                                          row.itemKeluar.id,
+                                          'nominal',
+                                          e.target.value
+                                        )
+                                      }
+                                      style={{
+                                        width: '100%',
+                                        padding: '3px 6px',
+                                        fontSize: '0.78rem',
+                                        fontWeight: 700,
+                                        textAlign: 'right',
+                                        border: '1px solid #dc2626',
+                                        borderRadius: '4px',
+                                      }}
+                                    />
+                                  ) : row.jumlahKeluar !== null ? (
                                     <div
                                       style={{
                                         display: 'flex',
@@ -6085,7 +6418,7 @@ export default function AdminSidebarPage() {
                                       <span>Rp</span>
                                       <span>{formatAngkaTitik(row.jumlahKeluar)}</span>
                                     </div>
-                                  )}
+                                  ) : null}
                                 </td>
                               </tr>
                             ))}
@@ -6151,7 +6484,7 @@ export default function AdminSidebarPage() {
                               </td>
                             </tr>
 
-                            {/* BARIS TOTAL BULAN */}
+                            {/* BARIS TOTAL PERIODE */}
                             <tr style={{ fontWeight: 900, background: '#ffffff' }}>
                               <td colSpan={2} />
                               <td
@@ -6164,7 +6497,11 @@ export default function AdminSidebarPage() {
                               >
                                 {rekapKeuanganMode === 'bulanan'
                                   ? `TOTAL BULAN ${monthName.toUpperCase()}`
-                                  : `TOTAL ${selectedWeekDef.label.toUpperCase()}`}
+                                  : rekapKeuanganMode === 'mingguan'
+                                    ? `TOTAL ${selectedWeekDef.label.toUpperCase()}`
+                                    : `TOTAL HARIAN / ${formatTanggalSlash(
+                                        rekapKeuanganDailyDate
+                                      )}`}
                               </td>
                               <td
                                 colSpan={2}
@@ -6186,82 +6523,311 @@ export default function AdminSidebarPage() {
                               </td>
                             </tr>
 
-                            {rekapKeuanganMode === 'bulanan' && (
-                              <>
-                                {/* BARIS SALDO BULAN SEBELUMNYA */}
-                                <tr style={{ fontWeight: 900, background: '#ffffff' }}>
-                                  <td colSpan={2} />
-                                  <td
-                                    colSpan={2}
-                                    style={{
-                                      padding: '7px 10px',
-                                      borderRight: '2px solid #111827',
-                                      color: '#111827',
+                            {/* BARIS SALDO SEBELUMNYA (OTOMATIS DARI DATA AWAL, BISA DISESUAIKAN DI MODE TABEL EXCEL) */}
+                            <tr style={{ fontWeight: 900, background: '#ffffff' }}>
+                              <td colSpan={2} />
+                              <td
+                                colSpan={2}
+                                style={{
+                                  padding: '7px 10px',
+                                  borderRight: '2px solid #111827',
+                                  color: '#111827',
+                                }}
+                              >
+                                {rekapKeuanganMode === 'bulanan'
+                                  ? `SALDO BULAN ${prevMonthName.toUpperCase()}`
+                                  : rekapKeuanganMode === 'mingguan'
+                                    ? 'SALDO AWAL MINGGU'
+                                    : 'SALDO AWAL HARI'}
+                              </td>
+                              <td
+                                colSpan={2}
+                                style={{
+                                  borderRight: '1px solid #374151',
+                                }}
+                              />
+                              <td
+                                style={{
+                                  padding: '7px 10px',
+                                  borderBottom: '1px solid #111827',
+                                  color: '#111827',
+                                }}
+                              >
+                                {excelEditMode && rekapKeuanganMode === 'bulanan' ? (
+                                  <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={String(activeSaldoSebelumnya)}
+                                    onChange={(e) => {
+                                      const val =
+                                        Number(e.target.value.replace(/\D/g, '')) || 0
+                                      const nextMap = {
+                                        ...saldoSebelumnyaMap,
+                                        [monthPrefix]: val,
+                                      }
+                                      setSaldoSebelumnyaMap(nextMap)
+                                      masjidStore.saveSaldoSebelumnyaMap(nextMap)
                                     }}
-                                  >
-                                    {`SALDO BULAN ${prevMonthName.toUpperCase()}`}
-                                  </td>
-                                  <td
-                                    colSpan={2}
                                     style={{
-                                      borderRight: '1px solid #374151',
+                                      width: '100%',
+                                      padding: '3px 6px',
+                                      fontSize: '0.78rem',
+                                      fontWeight: 800,
+                                      textAlign: 'right',
+                                      border: '1px solid #f59e0b',
+                                      borderRadius: '4px',
+                                      background: '#fffbeb',
                                     }}
                                   />
-                                  <td
-                                    style={{
-                                      padding: '7px 10px',
-                                      borderBottom: '1px solid #111827',
-                                      color: '#111827',
-                                    }}
+                                ) : (
+                                  <div
+                                    style={{ display: 'flex', justifyContent: 'space-between' }}
                                   >
-                                    <div
-                                      style={{ display: 'flex', justifyContent: 'space-between' }}
-                                    >
-                                      <span>Rp</span>
-                                      <span>{formatAngkaTitik(activeSaldoSebelumnya)}</span>
-                                    </div>
-                                  </td>
-                                </tr>
+                                    <span>Rp</span>
+                                    <span>{formatAngkaTitik(activeSaldoSebelumnya)}</span>
+                                  </div>
+                                )}
+                              </td>
+                            </tr>
 
-                                {/* BARIS SALDO AKHIR */}
-                                <tr style={{ fontWeight: 900, background: '#ffffff' }}>
-                                  <td colSpan={2} />
-                                  <td
-                                    colSpan={2}
-                                    style={{
-                                      padding: '8px 10px',
-                                      borderRight: '2px solid #111827',
-                                      color: '#0f4a2a',
-                                    }}
-                                  >
-                                    SALDO AKHIR
-                                  </td>
-                                  <td
-                                    colSpan={2}
-                                    style={{
-                                      borderRight: '1px solid #374151',
-                                    }}
-                                  />
-                                  <td
-                                    style={{
-                                      padding: '8px 10px',
-                                      background: '#dcfce7',
-                                      color: '#0f4a2a',
-                                    }}
-                                  >
-                                    <div
-                                      style={{ display: 'flex', justifyContent: 'space-between' }}
-                                    >
-                                      <span>Rp</span>
-                                      <span>{formatAngkaTitik(saldoAkhirBulan)}</span>
-                                    </div>
-                                  </td>
-                                </tr>
-                              </>
-                            )}
+                            {/* BARIS SALDO AKHIR */}
+                            <tr style={{ fontWeight: 900, background: '#ffffff' }}>
+                              <td colSpan={2} />
+                              <td
+                                colSpan={2}
+                                style={{
+                                  padding: '8px 10px',
+                                  borderRight: '2px solid #111827',
+                                  color: '#0f4a2a',
+                                }}
+                              >
+                                SALDO AKHIR
+                              </td>
+                              <td
+                                colSpan={2}
+                                style={{
+                                  borderRight: '1px solid #374151',
+                                }}
+                              />
+                              <td
+                                style={{
+                                  padding: '8px 10px',
+                                  background: '#dcfce7',
+                                  color: '#0f4a2a',
+                                }}
+                              >
+                                <div
+                                  style={{ display: 'flex', justifyContent: 'space-between' }}
+                                >
+                                  <span>Rp</span>
+                                  <span>{formatAngkaTitik(saldoAkhirPeriode)}</span>
+                                </div>
+                              </td>
+                            </tr>
                           </tfoot>
                         </table>
                       </div>
+
+                      {/* BLOK TANDA TANGAN RESMI KETUA DKM & BENDAHARA PADA PREVIEW BKU */}
+                      <div
+                        style={{
+                          marginTop: '24px',
+                          display: 'grid',
+                          gridTemplateColumns: '1fr 1fr',
+                          gap: '20px',
+                          textAlign: 'center',
+                          fontSize: '0.84rem',
+                          color: '#111827',
+                        }}
+                      >
+                        <div>
+                          <div style={{ fontWeight: 700 }}>Mengetahui,</div>
+                          <div style={{ fontWeight: 800, marginBottom: '6px' }}>Ketua DKM</div>
+                          <svg
+                            width="150"
+                            height="56"
+                            viewBox="0 0 180 65"
+                            style={{ display: 'block', margin: '0 auto' }}
+                          >
+                            <path
+                              d="M 25 52 Q 45 8 58 50 Q 70 22 82 48 Q 96 18 110 46 Q 134 38 162 34"
+                              fill="none"
+                              stroke="#1e293b"
+                              strokeWidth="2.2"
+                              strokeLinecap="round"
+                            />
+                          </svg>
+                          <div
+                            style={{
+                              fontWeight: 800,
+                              textDecoration: 'underline',
+                              marginTop: '2px',
+                            }}
+                          >
+                            Drs.H.Acep Kusnadi,M.Pd.C.Med
+                          </div>
+                        </div>
+
+                        <div>
+                          <div style={{ fontWeight: 700 }}>
+                            {`Karawang, ${formatTanggalIndo(todayIsoAdmin)}`}
+                          </div>
+                          <div style={{ fontWeight: 800, marginBottom: '6px' }}>Bendahara</div>
+                          <svg
+                            width="150"
+                            height="56"
+                            viewBox="0 0 180 65"
+                            style={{ display: 'block', margin: '0 auto' }}
+                          >
+                            <path
+                              d="M 55 38 Q 72 4 82 62 Q 74 26 104 34 Q 128 40 158 36"
+                              fill="none"
+                              stroke="#0f172a"
+                              strokeWidth="3"
+                              strokeLinecap="round"
+                            />
+                          </svg>
+                          <div
+                            style={{
+                              fontWeight: 800,
+                              textDecoration: 'underline',
+                              marginTop: '2px',
+                            }}
+                          >
+                            Dr.K.H Asep Khareul Faizin,MM
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* DISPLAY PENGELUARAN MASJID (BULANAN / MINGGUAN / HARIAN) */}
+                    <div className={styles.panelCard}>
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          flexWrap: 'wrap',
+                          gap: '8px',
+                          marginBottom: '12px',
+                        }}
+                      >
+                        <h2 className={styles.panelTitle} style={{ marginBottom: 0 }}>
+                          {rekapKeuanganMode === 'bulanan'
+                            ? `Display Pengeluaran Bulan ${monthName} ${rekapKeuanganYear}`
+                            : rekapKeuanganMode === 'mingguan'
+                              ? `Display Pengeluaran ${selectedWeekDef.label} / ${weekStartDay}–${weekEndDay} ${monthName} ${rekapKeuanganYear}`
+                              : `Display Pengeluaran Harian / ${formatTanggalIndo(
+                                  rekapKeuanganDailyDate
+                                )}`}
+                        </h2>
+                        <span
+                          style={{
+                            fontSize: '0.78rem',
+                            fontWeight: 800,
+                            color: '#991b1b',
+                            background: '#fef2f2',
+                            padding: '4px 12px',
+                            borderRadius: '999px',
+                            border: '1px solid #fecaca',
+                          }}
+                        >
+                          {`${pengeluaranOnlyList.length} Pengeluaran • Total ${formatRupiah(
+                            totalPengeluaran
+                          )}`}
+                        </span>
+                      </div>
+
+                      {pengeluaranOnlyList.length === 0 ? (
+                        <div
+                          style={{
+                            padding: '22px',
+                            textAlign: 'center',
+                            background: '#f8faf8',
+                            borderRadius: '12px',
+                            border: '1px dashed rgba(27, 107, 69, 0.25)',
+                            color: '#4a6355',
+                            fontSize: '0.86rem',
+                            fontWeight: 600,
+                          }}
+                        >
+                          Belum ada catatan pengeluaran pada periode ini.
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          {pengeluaranOnlyList.map((item) => (
+                            <div
+                              key={item.id}
+                              onClick={() => setPreviewKeuanganItem(item)}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                flexWrap: 'wrap',
+                                gap: '10px',
+                                padding: '10px 14px',
+                                borderRadius: '10px',
+                                border: '1px solid rgba(27, 107, 69, 0.14)',
+                                borderLeft: '4px solid #dc2626',
+                                background: '#ffffff',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              <div
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '10px',
+                                  flexWrap: 'wrap',
+                                }}
+                              >
+                                <span
+                                  style={{
+                                    fontSize: '0.73rem',
+                                    fontWeight: 800,
+                                    padding: '3px 9px',
+                                    borderRadius: '7px',
+                                    background: '#fef2f2',
+                                    color: '#991b1b',
+                                  }}
+                                >
+                                  {formatTanggalSlash(item.tanggal)}
+                                </span>
+                                <span
+                                  style={{
+                                    fontSize: '0.88rem',
+                                    fontWeight: 800,
+                                    color: '#111827',
+                                  }}
+                                >
+                                  {item.uraian}
+                                </span>
+                                <span
+                                  style={{
+                                    fontSize: '0.72rem',
+                                    fontWeight: 700,
+                                    color: '#4b5563',
+                                    background: '#f3f4f6',
+                                    padding: '2px 8px',
+                                    borderRadius: '999px',
+                                  }}
+                                >
+                                  {item.kategori}
+                                </span>
+                              </div>
+                              <strong
+                                style={{
+                                  fontSize: '0.9rem',
+                                  fontWeight: 900,
+                                  color: '#991b1b',
+                                }}
+                              >
+                                {formatRupiah(item.nominal)}
+                              </strong>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </>
                 )

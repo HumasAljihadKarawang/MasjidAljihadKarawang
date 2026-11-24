@@ -744,38 +744,68 @@ async function renderAndDownloadBkuPdf(params: {
       ctx.lineWidth = 2.4
       ctx.strokeRect(marginX, tableStartY, tableW, y - tableStartY)
 
-      // Tanda tangan Ketua DKM & Bendahara DKM jika ruang cukup di halaman terakhir
-      if (y + 180 < H - 30) {
+      // Tanda tangan Ketua DKM & Bendahara DKM di halaman terakhir (lengkap dengan tanda tangan & nama pejabat DKM)
+      if (y + 185 < H - 25) {
         const now = new Date()
         const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(
           2,
           '0'
         )}-${String(now.getDate()).padStart(2, '0')}`
-        const sigY = y + 36
+        const sigY = y + 32
 
         ctx.fillStyle = '#374151'
         ctx.font = '15px Arial, sans-serif'
         ctx.textAlign = 'right'
         ctx.fillText(`Karawang, ${formatTanggalIndo(todayIso)}`, W - marginX - 10, sigY)
 
-        const leftSigX = marginX + 210
-        const rightSigX = W - marginX - 210
+        const leftSigX = marginX + 215
+        const rightSigX = W - marginX - 215
         ctx.textAlign = 'center'
         ctx.fillStyle = '#111827'
         ctx.font = 'bold 16px Arial, sans-serif'
-        ctx.fillText('Mengetahui,', leftSigX, sigY + 26)
-        ctx.fillText('Ketua DKM Masjid Al-Jihad', leftSigX, sigY + 48)
+        ctx.fillText('Mengetahui,', leftSigX, sigY + 24)
+        ctx.fillText('Ketua DKM', leftSigX, sigY + 46)
 
-        ctx.fillText('Dibuat Oleh,', rightSigX, sigY + 26)
-        ctx.fillText('Bendahara DKM Masjid Al-Jihad', rightSigX, sigY + 48)
+        ctx.fillText('Dibuat Oleh,', rightSigX, sigY + 24)
+        ctx.fillText('Bendahara', rightSigX, sigY + 46)
+
+        // Goresan tanda tangan Ketua DKM
+        ctx.save()
+        ctx.strokeStyle = '#1e293b'
+        ctx.lineWidth = 2.2
+        ctx.lineCap = 'round'
+        ctx.lineJoin = 'round'
+        ctx.beginPath()
+        ctx.moveTo(leftSigX - 58, sigY + 108)
+        ctx.quadraticCurveTo(leftSigX - 38, sigY + 55, leftSigX - 24, sigY + 106)
+        ctx.quadraticCurveTo(leftSigX - 12, sigY + 78, leftSigX - 2, sigY + 104)
+        ctx.quadraticCurveTo(leftSigX + 10, sigY + 72, leftSigX + 22, sigY + 102)
+        ctx.quadraticCurveTo(leftSigX + 44, sigY + 95, leftSigX + 76, sigY + 90)
+        ctx.stroke()
+
+        // Goresan tanda tangan Bendahara (Dr.K.H Asep Khareul Faizin,MM)
+        ctx.strokeStyle = '#0f172a'
+        ctx.lineWidth = 3.2
+        ctx.beginPath()
+        ctx.moveTo(rightSigX - 32, sigY + 94)
+        ctx.quadraticCurveTo(rightSigX - 16, sigY + 42, rightSigX - 6, sigY + 126)
+        ctx.quadraticCurveTo(rightSigX - 14, sigY + 76, rightSigX + 14, sigY + 86)
+        ctx.quadraticCurveTo(rightSigX + 38, sigY + 92, rightSigX + 72, sigY + 88)
+        ctx.stroke()
+        ctx.restore()
+
+        ctx.fillStyle = '#111827'
+        ctx.font = 'bold 15px Arial, sans-serif'
+        ctx.fillText('Drs.H.Acep Kusnadi,M.Pd.C.Med', leftSigX, sigY + 136)
+        ctx.fillText('Dr.K.H Asep Khareul Faizin,MM', rightSigX, sigY + 136)
 
         ctx.strokeStyle = '#374151'
-        ctx.lineWidth = 1.4
+        ctx.lineWidth = 1.2
         ctx.beginPath()
-        ctx.moveTo(leftSigX - 110, sigY + 132)
-        ctx.lineTo(leftSigX + 110, sigY + 132)
-        ctx.moveTo(rightSigX - 110, sigY + 132)
-        ctx.lineTo(rightSigX + 110, sigY + 132)
+        ctx.moveTo(leftSigX - 125, sigY + 142)
+        ctx.lineTo(leftSigX + 125, sigY + 142)
+        ctx.moveTo(rightSigX - 125, sigY + 142)
+        ctx.lineTo(rightSigX + 125, sigY + 142)
         ctx.stroke()
         ctx.textAlign = 'left'
       }
@@ -806,7 +836,7 @@ async function renderAndDownloadBkuPdf(params: {
 }
 
 /**
- * Ekspor PDF Laporan BKU Mingguan Masjid Al-Jihad Karawang (Kertas A4 + KOP Resmi)
+ * Ekspor PDF Laporan BKU Mingguan Masjid Al-Jihad Karawang (Kertas A4 + KOP Resmi + Tanda Tangan Bendahara)
  */
 export async function exportLaporanMingguanPdf(options: {
   startDateIso: string
@@ -814,13 +844,14 @@ export async function exportLaporanMingguanPdf(options: {
   mingguLabel?: string
   bulanLabel?: string
   items: LaporanKeuanganItem[]
+  saldoAwalMinggu?: number
   logoSrc?: string
 }) {
   const periodeTitle = options.mingguLabel
-    ? `${options.mingguLabel} (${formatTanggalSlash(options.startDateIso)} - ${formatTanggalSlash(
+    ? `${options.mingguLabel} / ${formatTanggalSlash(options.startDateIso)} - ${formatTanggalSlash(
         options.endDateIso
-      )})`
-    : `PERIODE ${formatTanggalSlash(options.startDateIso)} S/D ${formatTanggalSlash(
+      )}`
+    : `MINGGU / ${formatTanggalSlash(options.startDateIso)} - ${formatTanggalSlash(
         options.endDateIso
       )}`
 
@@ -831,6 +862,32 @@ export async function exportLaporanMingguanPdf(options: {
     items: options.items,
     minRows: 14,
     labelTotalPeriode: `TOTAL ${options.mingguLabel || 'MINGGU INI'}`,
+    labelSaldoSebelumnya: 'SALDO AWAL MINGGU',
+    saldoSebelumnya: options.saldoAwalMinggu ?? 0,
+    logoSrc: options.logoSrc,
+  })
+}
+
+/**
+ * Ekspor PDF Laporan BKU Harian Masjid Al-Jihad Karawang (Kertas A4 + KOP Resmi + Tanda Tangan Bendahara)
+ */
+export async function exportLaporanHarianPdf(options: {
+  dateIso: string
+  items: LaporanKeuanganItem[]
+  saldoAwalHari?: number
+  logoSrc?: string
+}) {
+  const dayItems = options.items.filter((it) => it.tanggal === options.dateIso)
+
+  await renderAndDownloadBkuPdf({
+    filename: `Laporan-BKU-Harian-Al-Jihad-${options.dateIso}.pdf`,
+    judulLine1: 'LAPORAN BKU KEUANGAN AL JIHAD KARAWANG',
+    judulLine2: `LAPORAN HARIAN / ${formatTanggalIndo(options.dateIso).toUpperCase()}`,
+    items: dayItems,
+    minRows: 12,
+    labelTotalPeriode: `TOTAL HARIAN / ${formatTanggalSlash(options.dateIso)}`,
+    labelSaldoSebelumnya: 'SALDO AWAL HARI',
+    saldoSebelumnya: options.saldoAwalHari ?? 0,
     logoSrc: options.logoSrc,
   })
 }

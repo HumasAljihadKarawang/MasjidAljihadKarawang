@@ -1264,11 +1264,289 @@ export const INITIAL_KEUANGAN: LaporanKeuanganItem[] = [
     metodePembayaran: 'QRIS',
     createdAt: '2026-10-31T20:00:00.000Z',
   },
+
+  // === DATA LAPORAN MINGGUAN DKM AL-JIHAD TGL 6 NOVEMBER 2026 (MINGGU KE-1 NOVEMBER 2026) ===
+  // Penerimaan: Rp 8.299.885 | Pengeluaran: Rp 2.320.000
+  {
+    id: 'bku-nov-in-01',
+    tanggal: '2026-11-06',
+    jenis: 'Pemasukan',
+    kategori: 'Infaq Jumat & Koropak',
+    uraian: "a. Infaq Keropak Jum'at lalu",
+    nominal: 1440500,
+    penanggungJawab: 'Dr.K.H Asep Khareul Faizin,MM',
+    metodePembayaran: 'Tunai (Kas DKM)',
+    createdAt: '2026-11-06T13:00:00.000Z',
+  },
+  {
+    id: 'bku-nov-in-02',
+    tanggal: '2026-11-06',
+    jenis: 'Pemasukan',
+    kategori: 'Infaq Fundraising',
+    uraian: 'b. Fanreshing',
+    nominal: 606000,
+    penanggungJawab: 'Dr.K.H Asep Khareul Faizin,MM',
+    metodePembayaran: 'Tunai (Kas DKM)',
+    createdAt: '2026-11-06T13:01:00.000Z',
+  },
+  {
+    id: 'bku-nov-in-03',
+    tanggal: '2026-11-06',
+    jenis: 'Pemasukan',
+    kategori: 'Infaq Fasilitas & Kebersihan',
+    uraian: 'c. Infak WC',
+    nominal: 616000,
+    penanggungJawab: 'Dr.K.H Asep Khareul Faizin,MM',
+    metodePembayaran: 'Tunai (Kas DKM)',
+    createdAt: '2026-11-06T13:02:00.000Z',
+  },
+  {
+    id: 'bku-nov-in-04',
+    tanggal: '2026-11-06',
+    jenis: 'Pemasukan',
+    kategori: 'Infaq Jumat & Koropak',
+    uraian: 'd. Infak harian',
+    nominal: 319500,
+    penanggungJawab: 'Dr.K.H Asep Khareul Faizin,MM',
+    metodePembayaran: 'Tunai (Kas DKM)',
+    createdAt: '2026-11-06T13:03:00.000Z',
+  },
+  {
+    id: 'bku-nov-in-05',
+    tanggal: '2026-11-06',
+    jenis: 'Pemasukan',
+    kategori: 'Infaq Fasilitas & Kebersihan',
+    uraian: 'e. Infak sandal',
+    nominal: 645000,
+    penanggungJawab: 'Dr.K.H Asep Khareul Faizin,MM',
+    metodePembayaran: 'Tunai (Kas DKM)',
+    createdAt: '2026-11-06T13:04:00.000Z',
+  },
+  {
+    id: 'bku-nov-in-06',
+    tanggal: '2026-11-06',
+    jenis: 'Pemasukan',
+    kategori: 'Infaq Pemakaian Masjid',
+    uraian: 'f. Infaq Pemakaian Masjid Sanema Tour Wanita Bercerita Dan MT SHOFFA',
+    nominal: 1700000,
+    penanggungJawab: 'Dr.K.H Asep Khareul Faizin,MM',
+    metodePembayaran: 'Tunai (Kas DKM)',
+    createdAt: '2026-11-06T13:05:00.000Z',
+  },
+  {
+    id: 'bku-nov-in-07',
+    tanggal: '2026-11-06',
+    jenis: 'Pemasukan',
+    kategori: 'Infaq Fasilitas & Kebersihan',
+    uraian: 'g. Infaq Pedagang Masjid(PPM)',
+    nominal: 282000,
+    penanggungJawab: 'Dr.K.H Asep Khareul Faizin,MM',
+    metodePembayaran: 'Tunai (Kas DKM)',
+    createdAt: '2026-11-06T13:06:00.000Z',
+  },
+  {
+    id: 'bku-nov-in-08',
+    tanggal: '2026-11-06',
+    jenis: 'Pemasukan',
+    kategori: 'Infaq QRIS',
+    uraian: 'h. Qris',
+    nominal: 2690885,
+    penanggungJawab: 'Dr.K.H Asep Khareul Faizin,MM',
+    metodePembayaran: 'QRIS',
+    createdAt: '2026-11-06T13:07:00.000Z',
+  },
+  {
+    id: 'bku-nov-out-01',
+    tanggal: '2026-11-06',
+    jenis: 'Pengeluaran',
+    kategori: 'Honorarium Khatib / Pemateri',
+    uraian: "a. Kafalah Jum'at",
+    nominal: 800000,
+    penanggungJawab: 'Dr.K.H Asep Khareul Faizin,MM',
+    metodePembayaran: 'Tunai (Kas DKM)',
+    createdAt: '2026-11-06T14:00:00.000Z',
+  },
+  {
+    id: 'bku-nov-out-02',
+    tanggal: '2026-11-06',
+    jenis: 'Pengeluaran',
+    kategori: 'Operasional & Listrik/Air',
+    uraian: 'b. Oprasional DKM',
+    nominal: 890000,
+    penanggungJawab: 'Dr.K.H Asep Khareul Faizin,MM',
+    metodePembayaran: 'Tunai (Kas DKM)',
+    createdAt: '2026-11-06T14:01:00.000Z',
+  },
+  {
+    id: 'bku-nov-out-03',
+    tanggal: '2026-11-06',
+    jenis: 'Pengeluaran',
+    kategori: 'Sarana & Prasarana / Aset',
+    uraian: 'c. Pemiharaan Sapras',
+    nominal: 630000,
+    penanggungJawab: 'Dr.K.H Asep Khareul Faizin,MM',
+    metodePembayaran: 'Tunai (Kas DKM)',
+    createdAt: '2026-11-06T14:02:00.000Z',
+  },
+
+  // === DATA PEMASUKAN & PENGELUARAN 13–17 NOVEMBER 2026 (MINGGU KE-2 & KE-3 NOVEMBER 2026) ===
+  // Debit (Pemasukan): Rp 1.068.300 | Kredit (Pengeluaran): Rp 860.400 | Selisih: Rp 207.900
+  {
+    id: 'bku-nov-in-09',
+    tanggal: '2026-11-13',
+    jenis: 'Pemasukan',
+    kategori: 'Infaq Jumat & Koropak',
+    uraian: 'sisa minggu lalu',
+    nominal: 468300,
+    penanggungJawab: 'Dr.K.H Asep Khareul Faizin,MM',
+    metodePembayaran: 'Tunai (Kas DKM)',
+    createdAt: '2026-11-13T09:00:00.000Z',
+  },
+  {
+    id: 'bku-nov-in-10',
+    tanggal: '2026-11-13',
+    jenis: 'Pemasukan',
+    kategori: 'Infaq Pemakaian Masjid',
+    uraian: 'Sanema Tour (Infaq untuk Tgl 12 Nov)',
+    nominal: 300000,
+    penanggungJawab: 'Dr.K.H Asep Khareul Faizin,MM',
+    metodePembayaran: 'Tunai (Kas DKM)',
+    catatan: 'Infaq untuk Tgl 12 Nov',
+    createdAt: '2026-11-13T09:05:00.000Z',
+  },
+  {
+    id: 'bku-nov-out-04',
+    tanggal: '2026-11-13',
+    jenis: 'Pengeluaran',
+    kategori: 'Honorarium Khatib / Pemateri',
+    uraian: 'Khotib',
+    nominal: 300000,
+    penanggungJawab: 'Dr.K.H Asep Khareul Faizin,MM',
+    metodePembayaran: 'Tunai (Kas DKM)',
+    createdAt: '2026-11-13T13:00:00.000Z',
+  },
+  {
+    id: 'bku-nov-out-05',
+    tanggal: '2026-11-13',
+    jenis: 'Pengeluaran',
+    kategori: 'Kebersihan & Perawatan Masjid',
+    uraian: 'Stella',
+    nominal: 23400,
+    penanggungJawab: 'Dr.K.H Asep Khareul Faizin,MM',
+    metodePembayaran: 'Tunai (Kas DKM)',
+    createdAt: '2026-11-13T13:10:00.000Z',
+  },
+  {
+    id: 'bku-nov-out-06',
+    tanggal: '2026-11-16',
+    jenis: 'Pengeluaran',
+    kategori: 'Konsumsi Jamaah',
+    uraian: 'makan service',
+    nominal: 12000,
+    penanggungJawab: 'Dr.K.H Asep Khareul Faizin,MM',
+    metodePembayaran: 'Tunai (Kas DKM)',
+    createdAt: '2026-11-16T11:00:00.000Z',
+  },
+  {
+    id: 'bku-nov-out-07',
+    tanggal: '2026-11-16',
+    jenis: 'Pengeluaran',
+    kategori: 'Operasional & Listrik/Air',
+    uraian: 'perbaikan Listrik& AC (listrik Pertitik @Rp 25,000)',
+    nominal: 275000,
+    penanggungJawab: 'Dr.K.H Asep Khareul Faizin,MM',
+    metodePembayaran: 'Tunai (Kas DKM)',
+    catatan: 'listrik Pertitik @Rp 25,000',
+    createdAt: '2026-11-16T14:00:00.000Z',
+  },
+  {
+    id: 'bku-nov-in-11',
+    tanggal: '2026-11-17',
+    jenis: 'Pemasukan',
+    kategori: 'Infaq Pemakaian Masjid',
+    uraian: 'Infaq Sanema',
+    nominal: 300000,
+    penanggungJawab: 'Dr.K.H Asep Khareul Faizin,MM',
+    metodePembayaran: 'Tunai (Kas DKM)',
+    createdAt: '2026-11-17T09:00:00.000Z',
+  },
+  {
+    id: 'bku-nov-out-08',
+    tanggal: '2026-11-17',
+    jenis: 'Pengeluaran',
+    kategori: 'Operasional & Listrik/Air',
+    uraian: 'Kasbon Rido',
+    nominal: 250000,
+    penanggungJawab: 'Dr.K.H Asep Khareul Faizin,MM',
+    metodePembayaran: 'Tunai (Kas DKM)',
+    createdAt: '2026-11-17T10:00:00.000Z',
+  },
 ]
+
+export const BASE_SALDO_AWAL_SEPTEMBER_2026 = 37283254
 
 export const INITIAL_SALDO_SEBELUMNYA: Record<string, number> = {
   '2026-10': 37283254, // SALDO BULAN SEPTEMBER = Rp 37.283.254
-  '2026-11': 46609487, // SALDO AKHIR OKTOBER = Rp 46.609.487
+}
+
+/**
+ * Menghitung Saldo Awal / Saldo Terakhir sebelum tanggal cutoff secara otomatis dari data awal
+ * (Saldo Awal September Rp 37.283.254 + Akumulasi Pemasukan - Akumulasi Pengeluaran sebelum tanggal tersebut),
+ * atau menggunakan nilai penyesuaian manual jika diatur oleh admin.
+ */
+export function computeRunningSaldoBefore(
+  items: LaporanKeuanganItem[],
+  cutoffIsoDate: string,
+  manualOverrideMap?: Record<string, number>,
+  overrideKey?: string
+): number {
+  if (
+    overrideKey &&
+    manualOverrideMap &&
+    typeof manualOverrideMap[overrideKey] === 'number' &&
+    !Number.isNaN(manualOverrideMap[overrideKey])
+  ) {
+    return manualOverrideMap[overrideKey]
+  }
+  const base =
+    manualOverrideMap && typeof manualOverrideMap['2026-10'] === 'number'
+      ? manualOverrideMap['2026-10']
+      : BASE_SALDO_AWAL_SEPTEMBER_2026
+
+  let running = base
+  for (const it of items) {
+    if (it.tanggal < cutoffIsoDate) {
+      if (it.jenis === 'Pemasukan') {
+        running += Number(it.nominal) || 0
+      } else {
+        running -= Number(it.nominal) || 0
+      }
+    }
+  }
+  return running
+}
+
+/**
+ * Menghitung Total Kas Masjid Realtime dari seluruh data awal s/d transaksi terakhir.
+ */
+export function computeTotalKasMasjidRealtime(
+  items: LaporanKeuanganItem[],
+  manualOverrideMap?: Record<string, number>
+): number {
+  const base =
+    manualOverrideMap && typeof manualOverrideMap['2026-10'] === 'number'
+      ? manualOverrideMap['2026-10']
+      : BASE_SALDO_AWAL_SEPTEMBER_2026
+
+  let running = base
+  for (const it of items) {
+    if (it.jenis === 'Pemasukan') {
+      running += Number(it.nominal) || 0
+    } else {
+      running -= Number(it.nominal) || 0
+    }
+  }
+  return running
 }
 
 const KEYS = {
@@ -1278,8 +1556,8 @@ const KEYS = {
   kalender: 'aljihad_kalender_v2',
   pengajuanKalender: 'aljihad_pengajuan_kalender_v1',
   kritik: 'aljihad_kritik_v1',
-  keuangan: 'aljihad_keuangan_v2',
-  saldoSebelumnya: 'aljihad_saldo_sebelumnya_v1',
+  keuangan: 'aljihad_keuangan_v3',
+  saldoSebelumnya: 'aljihad_saldo_sebelumnya_v2',
 }
 
 function safeGet<T>(key: string, fallback: T): T {
