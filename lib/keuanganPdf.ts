@@ -463,8 +463,10 @@ async function renderAndDownloadBkuPdf(params: {
   items: LaporanKeuanganItem[]
   minRows: number
   labelTotalPeriode: string
+  totalPeriodeValueOverride?: number
   labelSaldoSebelumnya?: string
   saldoSebelumnya?: number
+  labelSaldoAkhir?: string
   logoSrc?: string
 }) {
   // Ukuran A4 proporsional tajam (1240 x 1754 px)
@@ -682,17 +684,25 @@ async function renderAndDownloadBkuPdf(params: {
       drawNominalCell(ctx, jmlKeluarX, y + 2, cols.jmlKeluar, totalPengeluaran, true)
       y += sumRowH
 
-      // 2. Blok 3 Baris Bawah: TOTAL BULAN, SALDO BULAN SEBELUMNYA, SALDO AKHIR
+      // 2. Blok Baris Bawah: TOTAL PERIODE, SALDO SEBELUMNYA (opsional), SALDO KAS DKM PER TANGGAL
       const footerRows: Array<{ label: string; value: number; highlight?: boolean }> = [
-        { label: params.labelTotalPeriode.toUpperCase(), value: selisihPeriode },
+        {
+          label: params.labelTotalPeriode.toUpperCase(),
+          value:
+            typeof params.totalPeriodeValueOverride === 'number'
+              ? params.totalPeriodeValueOverride
+              : selisihPeriode,
+        },
       ]
       if (params.labelSaldoSebelumnya) {
         footerRows.push({
           label: params.labelSaldoSebelumnya.toUpperCase(),
           value: saldoPrev,
         })
+      }
+      if (params.labelSaldoSebelumnya || params.labelSaldoAkhir) {
         footerRows.push({
-          label: 'SALDO AKHIR',
+          label: params.labelSaldoAkhir || 'SALDO AKHIR',
           value: saldoAkhir,
           highlight: true,
         })
@@ -856,7 +866,7 @@ export async function exportLaporanMingguanPdf(options: {
       )}`
 
   await renderAndDownloadBkuPdf({
-    filename: `Laporan-BKU-Mingguan-Al-Jihad-${options.startDateIso}-sd-${options.endDateIso}.pdf`,
+    filename: `Laporan-Mingguan-Al-Jihad-${options.startDateIso}-sd-${options.endDateIso}.pdf`,
     judulLine1: 'LAPORAN BKU KEUANGAN AL JIHAD KARAWANG',
     judulLine2: periodeTitle,
     items: options.items,
@@ -864,6 +874,7 @@ export async function exportLaporanMingguanPdf(options: {
     labelTotalPeriode: `TOTAL ${options.mingguLabel || 'MINGGU INI'}`,
     labelSaldoSebelumnya: 'SALDO AWAL MINGGU',
     saldoSebelumnya: options.saldoAwalMinggu ?? 0,
+    labelSaldoAkhir: `SALDO KAS DKM PER TANGGAL ${formatTanggalIndo(options.endDateIso)}`,
     logoSrc: options.logoSrc,
   })
 }
@@ -878,16 +889,20 @@ export async function exportLaporanHarianPdf(options: {
   logoSrc?: string
 }) {
   const dayItems = options.items.filter((it) => it.tanggal === options.dateIso)
+  const totalPengeluaranHari = dayItems
+    .filter((i) => i.jenis !== 'Pemasukan')
+    .reduce((acc, i) => acc + (Number(i.nominal) || 0), 0)
 
   await renderAndDownloadBkuPdf({
-    filename: `Laporan-BKU-Harian-Al-Jihad-${options.dateIso}.pdf`,
+    filename: `Laporan-Harian-Al-Jihad-${options.dateIso}.pdf`,
     judulLine1: 'LAPORAN BKU KEUANGAN AL JIHAD KARAWANG',
     judulLine2: `LAPORAN HARIAN / ${formatTanggalIndo(options.dateIso).toUpperCase()}`,
     items: dayItems,
     minRows: 12,
-    labelTotalPeriode: `TOTAL HARIAN / ${formatTanggalSlash(options.dateIso)}`,
-    labelSaldoSebelumnya: 'SALDO AWAL HARI',
+    labelTotalPeriode: 'TOTAL PENGELUARAN',
+    totalPeriodeValueOverride: totalPengeluaranHari,
     saldoSebelumnya: options.saldoAwalHari ?? 0,
+    labelSaldoAkhir: `SALDO KAS DKM PER TANGGAL ${formatTanggalIndo(options.dateIso)}`,
     logoSrc: options.logoSrc,
   })
 }
@@ -907,11 +922,13 @@ export async function exportLaporanBulananPdf(options: {
   const prevMonthIndex = options.monthIndex === 0 ? 11 : options.monthIndex - 1
   const prevMonthName = NAMA_BULAN_BKU[prevMonthIndex] || 'Bulan Sebelumnya'
   const monthPrefix = `${options.year}-${String(options.monthIndex + 1).padStart(2, '0')}`
+  const daysInMonth = new Date(options.year, options.monthIndex + 1, 0).getDate()
+  const endMonthIso = `${monthPrefix}-${String(daysInMonth).padStart(2, '0')}`
 
   const monthItems = options.items.filter((it) => it.tanggal.startsWith(monthPrefix))
 
   await renderAndDownloadBkuPdf({
-    filename: `Laporan-BKU-Bulanan-Al-Jihad-${monthName}-${options.year}.pdf`,
+    filename: `Laporan-Bulan-${monthName}-${options.year}.pdf`,
     judulLine1: 'LAPORAN BKU KEUANGAN AL JIHAD KARAWANG',
     judulLine2: `BULAN ${monthName.toUpperCase()} ${options.year}`,
     items: monthItems,
@@ -919,6 +936,7 @@ export async function exportLaporanBulananPdf(options: {
     labelTotalPeriode: `TOTAL BULAN ${monthName.toUpperCase()}`,
     labelSaldoSebelumnya: `SALDO BULAN ${prevMonthName.toUpperCase()}`,
     saldoSebelumnya: options.saldoBulanSebelumnya ?? 0,
+    labelSaldoAkhir: `SALDO KAS DKM PER TANGGAL ${formatTanggalIndo(endMonthIso)}`,
     logoSrc: options.logoSrc,
   })
 }

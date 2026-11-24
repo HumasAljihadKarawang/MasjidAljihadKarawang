@@ -5300,7 +5300,7 @@ export default function AdminSidebarPage() {
 
                 return (
                   <>
-                    {/* PANEL KONTROL ATAS: TAB LAPORAN BULANAN / MINGGUAN / HARIAN + TOMBOL INPUT & MODE EXCEL DI BULANAN */}
+                    {/* PANEL KONTROL ATAS: SATU PAKET PERMANEN (SWITCH LAPORAN BULANAN / MINGGUAN / HARIAN + PILIHAN BULAN & TAHUN) */}
                     <div className={styles.panelCard}>
                       <div
                         style={{
@@ -5390,6 +5390,79 @@ export default function AdminSidebarPage() {
                           >
                             Laporan Harian
                           </button>
+
+                          {/* PILIHAN BULAN & TAHUN PERMANEN SATU PAKET DENGAN TOMBOL SWITCH LAPORAN */}
+                          <div
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '8px',
+                              paddingLeft: '8px',
+                              borderLeft: '2px solid rgba(27, 107, 69, 0.2)',
+                            }}
+                          >
+                            <select
+                              aria-label="Pilih Bulan Permanen"
+                              value={rekapKeuanganMonth}
+                              onChange={(e) => {
+                                const nextM = Number(e.target.value)
+                                setRekapKeuanganMonth(nextM)
+                                const nextPrefix = `${rekapKeuanganYear}-${String(
+                                  nextM + 1
+                                ).padStart(2, '0')}`
+                                if (!rekapKeuanganDailyDate.startsWith(nextPrefix)) {
+                                  setRekapKeuanganDailyDate(`${nextPrefix}-01`)
+                                }
+                              }}
+                              style={{
+                                padding: '9px 12px',
+                                borderRadius: '10px',
+                                border: '1px solid rgba(27, 107, 69, 0.28)',
+                                fontWeight: 800,
+                                fontSize: '0.85rem',
+                                background: '#f0fdf4',
+                                color: '#0f4a2a',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              {NAMA_BULAN_ADMIN.map((bln, idx) => (
+                                <option key={bln} value={idx}>
+                                  {bln}
+                                </option>
+                              ))}
+                            </select>
+
+                            <select
+                              aria-label="Pilih Tahun Permanen"
+                              value={rekapKeuanganYear}
+                              onChange={(e) => {
+                                const nextY = Number(e.target.value)
+                                setRekapKeuanganYear(nextY)
+                                const nextPrefix = `${nextY}-${String(
+                                  rekapKeuanganMonth + 1
+                                ).padStart(2, '0')}`
+                                if (!rekapKeuanganDailyDate.startsWith(nextPrefix)) {
+                                  setRekapKeuanganDailyDate(`${nextPrefix}-01`)
+                                }
+                              }}
+                              style={{
+                                padding: '9px 12px',
+                                borderRadius: '10px',
+                                border: '1px solid rgba(27, 107, 69, 0.28)',
+                                fontWeight: 800,
+                                fontSize: '0.85rem',
+                                background: '#f0fdf4',
+                                color: '#0f4a2a',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              {[2026, 2027, 2028].map((yr) => (
+                                <option key={yr} value={yr}>
+                                  {yr}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
                         </div>
 
                         {/* TOMBOL INPUT & EDIT TABEL EXCEL HANYA DI LAPORAN BULANAN */}
@@ -5433,7 +5506,7 @@ export default function AdminSidebarPage() {
                         )}
                       </div>
 
-                      {/* FILTER PERIODE BULAN / TAHUN (MULAI 2026) / MINGGU / TANGGAL HARIAN + TOMBOL UNDUH BKU */}
+                      {/* SUB-BAR KONDISIONAL: BULANAN (TANPA PILIHAN TAMBAHAN), MINGGUAN (PILIH MINGGU), HARIAN (PILIH KALENDER) + TOMBOL UNDUH */}
                       <div
                         style={{
                           display: 'flex',
@@ -5442,7 +5515,7 @@ export default function AdminSidebarPage() {
                           flexWrap: 'wrap',
                           gap: '14px',
                           background: '#f8faf8',
-                          padding: '16px',
+                          padding: '14px 16px',
                           borderRadius: '14px',
                           border: '1px solid rgba(27, 107, 69, 0.16)',
                         }}
@@ -5450,108 +5523,21 @@ export default function AdminSidebarPage() {
                         <div
                           style={{
                             display: 'flex',
-                            alignItems: 'flex-end',
+                            alignItems: 'center',
                             gap: '12px',
                             flexWrap: 'wrap',
                           }}
                         >
-                          {rekapKeuanganMode !== 'harian' ? (
-                            <>
-                              <div>
-                                <label
-                                  style={{
-                                    display: 'block',
-                                    fontSize: '0.78rem',
-                                    fontWeight: 800,
-                                    color: '#14532d',
-                                    marginBottom: '4px',
-                                  }}
-                                >
-                                  Pilih Bulan
-                                </label>
-                                <select
-                                  value={rekapKeuanganMonth}
-                                  onChange={(e) =>
-                                    setRekapKeuanganMonth(Number(e.target.value))
-                                  }
-                                  style={{
-                                    padding: '9px 12px',
-                                    borderRadius: '10px',
-                                    border: '1px solid rgba(27, 107, 69, 0.25)',
-                                    fontWeight: 700,
-                                    fontSize: '0.85rem',
-                                    background: '#ffffff',
-                                  }}
-                                >
-                                  {NAMA_BULAN_ADMIN.map((bln, idx) => (
-                                    <option key={bln} value={idx}>
-                                      {bln}
-                                    </option>
-                                  ))}
-                                </select>
-                              </div>
-
-                              <div>
-                                <label
-                                  style={{
-                                    display: 'block',
-                                    fontSize: '0.78rem',
-                                    fontWeight: 800,
-                                    color: '#14532d',
-                                    marginBottom: '4px',
-                                  }}
-                                >
-                                  Tahun
-                                </label>
-                                <select
-                                  value={rekapKeuanganYear}
-                                  onChange={(e) =>
-                                    setRekapKeuanganYear(Number(e.target.value))
-                                  }
-                                  style={{
-                                    padding: '9px 12px',
-                                    borderRadius: '10px',
-                                    border: '1px solid rgba(27, 107, 69, 0.25)',
-                                    fontWeight: 700,
-                                    fontSize: '0.85rem',
-                                    background: '#ffffff',
-                                  }}
-                                >
-                                  {[2026, 2027, 2028].map((yr) => (
-                                    <option key={yr} value={yr}>
-                                      {yr}
-                                    </option>
-                                  ))}
-                                </select>
-                              </div>
-                            </>
-                          ) : (
-                            <div>
-                              <label
-                                style={{
-                                  display: 'block',
-                                  fontSize: '0.78rem',
-                                  fontWeight: 800,
-                                  color: '#14532d',
-                                  marginBottom: '4px',
-                                }}
-                              >
-                                Pilih Tanggal Laporan Harian
-                              </label>
-                              <input
-                                type="date"
-                                value={rekapKeuanganDailyDate}
-                                onChange={(e) => setRekapKeuanganDailyDate(e.target.value)}
-                                style={{
-                                  padding: '8px 12px',
-                                  borderRadius: '10px',
-                                  border: '1px solid rgba(27, 107, 69, 0.25)',
-                                  fontWeight: 700,
-                                  fontSize: '0.85rem',
-                                  background: '#ffffff',
-                                }}
-                              />
-                            </div>
+                          {rekapKeuanganMode === 'bulanan' && (
+                            <span
+                              style={{
+                                fontSize: '0.85rem',
+                                fontWeight: 800,
+                                color: '#0f4a2a',
+                              }}
+                            >
+                              {`Periode Aktif: Bulan ${monthName} ${rekapKeuanganYear}`}
+                            </span>
                           )}
 
                           {rekapKeuanganMode === 'mingguan' && (
@@ -5595,6 +5581,47 @@ export default function AdminSidebarPage() {
                               </select>
                             </div>
                           )}
+
+                          {rekapKeuanganMode === 'harian' && (
+                            <div>
+                              <label
+                                style={{
+                                  display: 'block',
+                                  fontSize: '0.78rem',
+                                  fontWeight: 800,
+                                  color: '#14532d',
+                                  marginBottom: '4px',
+                                }}
+                              >
+                                Pilih Kalender Harian
+                              </label>
+                              <input
+                                type="date"
+                                value={rekapKeuanganDailyDate}
+                                onChange={(e) => {
+                                  const val = e.target.value
+                                  setRekapKeuanganDailyDate(val)
+                                  const parts = val.split('-')
+                                  if (parts.length === 3) {
+                                    const y = Number(parts[0])
+                                    const m = Number(parts[1]) - 1
+                                    if (!Number.isNaN(y)) setRekapKeuanganYear(y)
+                                    if (!Number.isNaN(m) && m >= 0 && m <= 11) {
+                                      setRekapKeuanganMonth(m)
+                                    }
+                                  }
+                                }}
+                                style={{
+                                  padding: '8px 12px',
+                                  borderRadius: '10px',
+                                  border: '1px solid rgba(27, 107, 69, 0.25)',
+                                  fontWeight: 700,
+                                  fontSize: '0.85rem',
+                                  background: '#ffffff',
+                                }}
+                              />
+                            </div>
+                          )}
                         </div>
 
                         <div
@@ -5629,7 +5656,7 @@ export default function AdminSidebarPage() {
                                 boxShadow: '0 6px 16px rgba(180, 83, 9, 0.25)',
                               }}
                             >
-                              {`Unduh BKU Laporan Bulan ${monthName}, ${rekapKeuanganYear}`}
+                              {`Unduh Laporan Bulan ${monthName}`}
                             </button>
                           ) : rekapKeuanganMode === 'mingguan' ? (
                             <button
@@ -5656,7 +5683,7 @@ export default function AdminSidebarPage() {
                                 boxShadow: '0 6px 16px rgba(21, 128, 61, 0.25)',
                               }}
                             >
-                              {`Unduh BKU Laporan Mingguan / ${selectedWeekDef.label}, ${monthName} ${rekapKeuanganYear}`}
+                              {`Unduh Laporan ${selectedWeekDef.label}`}
                             </button>
                           ) : (
                             <button
@@ -5681,7 +5708,7 @@ export default function AdminSidebarPage() {
                                 boxShadow: '0 6px 16px rgba(21, 128, 61, 0.25)',
                               }}
                             >
-                              {`Unduh BKU Laporan Harian / ${rekapKeuanganDailyDate}`}
+                              Unduh Laporan Harian
                             </button>
                           )}
                         </div>
@@ -6484,7 +6511,7 @@ export default function AdminSidebarPage() {
                               </td>
                             </tr>
 
-                            {/* BARIS TOTAL PERIODE */}
+                            {/* BARIS TOTAL PERIODE (UNTUK HARIAN: TOTAL PENGELUARAN) */}
                             <tr style={{ fontWeight: 900, background: '#ffffff' }}>
                               <td colSpan={2} />
                               <td
@@ -6499,9 +6526,7 @@ export default function AdminSidebarPage() {
                                   ? `TOTAL BULAN ${monthName.toUpperCase()}`
                                   : rekapKeuanganMode === 'mingguan'
                                     ? `TOTAL ${selectedWeekDef.label.toUpperCase()}`
-                                    : `TOTAL HARIAN / ${formatTanggalSlash(
-                                        rekapKeuanganDailyDate
-                                      )}`}
+                                    : 'TOTAL PENGELUARAN'}
                               </td>
                               <td
                                 colSpan={2}
@@ -6518,79 +6543,85 @@ export default function AdminSidebarPage() {
                               >
                                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                   <span>Rp</span>
-                                  <span>{formatAngkaTitik(selisihPeriode)}</span>
+                                  <span>
+                                    {formatAngkaTitik(
+                                      rekapKeuanganMode === 'harian'
+                                        ? totalPengeluaran
+                                        : selisihPeriode
+                                    )}
+                                  </span>
                                 </div>
                               </td>
                             </tr>
 
-                            {/* BARIS SALDO SEBELUMNYA (OTOMATIS DARI DATA AWAL, BISA DISESUAIKAN DI MODE TABEL EXCEL) */}
-                            <tr style={{ fontWeight: 900, background: '#ffffff' }}>
-                              <td colSpan={2} />
-                              <td
-                                colSpan={2}
-                                style={{
-                                  padding: '7px 10px',
-                                  borderRight: '2px solid #111827',
-                                  color: '#111827',
-                                }}
-                              >
-                                {rekapKeuanganMode === 'bulanan'
-                                  ? `SALDO BULAN ${prevMonthName.toUpperCase()}`
-                                  : rekapKeuanganMode === 'mingguan'
-                                    ? 'SALDO AWAL MINGGU'
-                                    : 'SALDO AWAL HARI'}
-                              </td>
-                              <td
-                                colSpan={2}
-                                style={{
-                                  borderRight: '1px solid #374151',
-                                }}
-                              />
-                              <td
-                                style={{
-                                  padding: '7px 10px',
-                                  borderBottom: '1px solid #111827',
-                                  color: '#111827',
-                                }}
-                              >
-                                {excelEditMode && rekapKeuanganMode === 'bulanan' ? (
-                                  <input
-                                    type="text"
-                                    inputMode="numeric"
-                                    value={String(activeSaldoSebelumnya)}
-                                    onChange={(e) => {
-                                      const val =
-                                        Number(e.target.value.replace(/\D/g, '')) || 0
-                                      const nextMap = {
-                                        ...saldoSebelumnyaMap,
-                                        [monthPrefix]: val,
-                                      }
-                                      setSaldoSebelumnyaMap(nextMap)
-                                      masjidStore.saveSaldoSebelumnyaMap(nextMap)
-                                    }}
-                                    style={{
-                                      width: '100%',
-                                      padding: '3px 6px',
-                                      fontSize: '0.78rem',
-                                      fontWeight: 800,
-                                      textAlign: 'right',
-                                      border: '1px solid #f59e0b',
-                                      borderRadius: '4px',
-                                      background: '#fffbeb',
-                                    }}
-                                  />
-                                ) : (
-                                  <div
-                                    style={{ display: 'flex', justifyContent: 'space-between' }}
-                                  >
-                                    <span>Rp</span>
-                                    <span>{formatAngkaTitik(activeSaldoSebelumnya)}</span>
-                                  </div>
-                                )}
-                              </td>
-                            </tr>
+                            {/* BARIS SALDO SEBELUMNYA (DIHAPUS UNTUK HARIAN) */}
+                            {rekapKeuanganMode !== 'harian' && (
+                              <tr style={{ fontWeight: 900, background: '#ffffff' }}>
+                                <td colSpan={2} />
+                                <td
+                                  colSpan={2}
+                                  style={{
+                                    padding: '7px 10px',
+                                    borderRight: '2px solid #111827',
+                                    color: '#111827',
+                                  }}
+                                >
+                                  {rekapKeuanganMode === 'bulanan'
+                                    ? `SALDO BULAN ${prevMonthName.toUpperCase()}`
+                                    : 'SALDO AWAL MINGGU'}
+                                </td>
+                                <td
+                                  colSpan={2}
+                                  style={{
+                                    borderRight: '1px solid #374151',
+                                  }}
+                                />
+                                <td
+                                  style={{
+                                    padding: '7px 10px',
+                                    borderBottom: '1px solid #111827',
+                                    color: '#111827',
+                                  }}
+                                >
+                                  {excelEditMode && rekapKeuanganMode === 'bulanan' ? (
+                                    <input
+                                      type="text"
+                                      inputMode="numeric"
+                                      value={String(activeSaldoSebelumnya)}
+                                      onChange={(e) => {
+                                        const val =
+                                          Number(e.target.value.replace(/\D/g, '')) || 0
+                                        const nextMap = {
+                                          ...saldoSebelumnyaMap,
+                                          [monthPrefix]: val,
+                                        }
+                                        setSaldoSebelumnyaMap(nextMap)
+                                        masjidStore.saveSaldoSebelumnyaMap(nextMap)
+                                      }}
+                                      style={{
+                                        width: '100%',
+                                        padding: '3px 6px',
+                                        fontSize: '0.78rem',
+                                        fontWeight: 800,
+                                        textAlign: 'right',
+                                        border: '1px solid #f59e0b',
+                                        borderRadius: '4px',
+                                        background: '#fffbeb',
+                                      }}
+                                    />
+                                  ) : (
+                                    <div
+                                      style={{ display: 'flex', justifyContent: 'space-between' }}
+                                    >
+                                      <span>Rp</span>
+                                      <span>{formatAngkaTitik(activeSaldoSebelumnya)}</span>
+                                    </div>
+                                  )}
+                                </td>
+                              </tr>
+                            )}
 
-                            {/* BARIS SALDO AKHIR */}
+                            {/* BARIS SALDO KAS DKM PER TANGGAL */}
                             <tr style={{ fontWeight: 900, background: '#ffffff' }}>
                               <td colSpan={2} />
                               <td
@@ -6601,7 +6632,13 @@ export default function AdminSidebarPage() {
                                   color: '#0f4a2a',
                                 }}
                               >
-                                SALDO AKHIR
+                                {rekapKeuanganMode === 'bulanan'
+                                  ? `SALDO KAS DKM PER TANGGAL ${daysInSelectedMonth} ${monthName} ${rekapKeuanganYear}`
+                                  : rekapKeuanganMode === 'mingguan'
+                                    ? `SALDO KAS DKM PER TANGGAL ${weekEndDay} ${monthName} ${rekapKeuanganYear}`
+                                    : `SALDO KAS DKM PER TANGGAL ${formatTanggalIndo(
+                                        rekapKeuanganDailyDate
+                                      )}`}
                               </td>
                               <td
                                 colSpan={2}
