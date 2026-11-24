@@ -5814,7 +5814,7 @@ export default function AdminSidebarPage() {
                         )}
                       </div>
 
-                      {/* 4 KARTU RINGKASAN REALTIME — WARNA SALDO DISAMAKAN, HANYA ANGKA PENGELUARAN MERAH */}
+                      {/* 4 KARTU RINGKASAN REALTIME — SHAPE BERBEDA AGAR KENTARA, FONT HITAM KECUALI ANGKA PENGELUARAN MERAH */}
                       <div
                         style={{
                           display: 'grid',
@@ -5825,10 +5825,12 @@ export default function AdminSidebarPage() {
                       >
                         <div
                           style={{
-                            padding: '13px 15px',
-                            borderRadius: '12px',
-                            background: '#f0fdf4',
-                            border: '1px solid rgba(22, 163, 74, 0.25)',
+                            padding: '13px 16px',
+                            borderRadius: '14px',
+                            background: '#f8fafc',
+                            border: '1px solid #cbd5e1',
+                            borderLeft: '5px solid #15803d',
+                            boxShadow: '0 2px 10px rgba(15, 23, 42, 0.04)',
                           }}
                         >
                           <span
@@ -5836,16 +5838,17 @@ export default function AdminSidebarPage() {
                               display: 'block',
                               fontSize: '0.75rem',
                               fontWeight: 700,
-                              color: '#166534',
+                              color: '#111827',
+                              marginBottom: '2px',
                             }}
                           >
                             Total Pemasukan Periode Ini
                           </span>
                           <strong
                             style={{
-                              fontSize: '1.14rem',
+                              fontSize: '1.16rem',
                               fontWeight: 900,
-                              color: '#0f4a2a',
+                              color: '#111827',
                             }}
                           >
                             {formatRupiah(totalPemasukan)}
@@ -5854,10 +5857,12 @@ export default function AdminSidebarPage() {
 
                         <div
                           style={{
-                            padding: '13px 15px',
-                            borderRadius: '12px',
-                            background: '#f0fdf4',
-                            border: '1px solid rgba(22, 163, 74, 0.25)',
+                            padding: '13px 16px',
+                            borderRadius: '4px 18px 18px 4px',
+                            background: '#ffffff',
+                            border: '1px solid #cbd5e1',
+                            borderLeft: '5px solid #dc2626',
+                            boxShadow: '0 2px 10px rgba(15, 23, 42, 0.04)',
                           }}
                         >
                           <span
@@ -5865,14 +5870,15 @@ export default function AdminSidebarPage() {
                               display: 'block',
                               fontSize: '0.75rem',
                               fontWeight: 700,
-                              color: '#166534',
+                              color: '#111827',
+                              marginBottom: '2px',
                             }}
                           >
                             Total Pengeluaran Periode Ini
                           </span>
                           <strong
                             style={{
-                              fontSize: '1.14rem',
+                              fontSize: '1.16rem',
                               fontWeight: 900,
                               color: '#dc2626',
                             }}
@@ -5883,10 +5889,12 @@ export default function AdminSidebarPage() {
 
                         <div
                           style={{
-                            padding: '13px 15px',
-                            borderRadius: '12px',
-                            background: '#f0fdf4',
-                            border: '1px solid rgba(22, 163, 74, 0.25)',
+                            padding: '13px 16px',
+                            borderRadius: '10px',
+                            background: '#f1f5f9',
+                            border: '1px solid #cbd5e1',
+                            borderTop: '4px solid #0f4a2a',
+                            boxShadow: '0 2px 10px rgba(15, 23, 42, 0.04)',
                           }}
                         >
                           <span
@@ -5894,16 +5902,17 @@ export default function AdminSidebarPage() {
                               display: 'block',
                               fontSize: '0.75rem',
                               fontWeight: 700,
-                              color: '#166534',
+                              color: '#111827',
+                              marginBottom: '2px',
                             }}
                           >
                             Saldo Kas Periode Ini
                           </span>
                           <strong
                             style={{
-                              fontSize: '1.14rem',
+                              fontSize: '1.16rem',
                               fontWeight: 900,
-                              color: '#0f4a2a',
+                              color: '#111827',
                             }}
                           >
                             {formatRupiah(saldoAkhirPeriode)}
@@ -5912,27 +5921,40 @@ export default function AdminSidebarPage() {
 
                         <div
                           style={{
-                            padding: '13px 15px',
-                            borderRadius: '12px',
-                            background: '#f0fdf4',
-                            border: '1.5px solid #15803d',
+                            padding: '13px 16px',
+                            borderRadius: '20px 6px 20px 6px',
+                            background: 'linear-gradient(135deg, #dcfce7 0%, #f0fdf4 100%)',
+                            border: '2px solid #15803d',
+                            boxShadow: '0 6px 18px rgba(21, 128, 61, 0.14)',
                           }}
                         >
                           <span
                             style={{
-                              display: 'block',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
                               fontSize: '0.75rem',
                               fontWeight: 800,
-                              color: '#166534',
+                              color: '#111827',
+                              marginBottom: '2px',
                             }}
                           >
+                            <span
+                              style={{
+                                width: '8px',
+                                height: '8px',
+                                borderRadius: '999px',
+                                background: '#16a34a',
+                                display: 'inline-block',
+                              }}
+                            />
                             Total Kas Masjid Realtime
                           </span>
                           <strong
                             style={{
-                              fontSize: '1.18rem',
+                              fontSize: '1.2rem',
                               fontWeight: 900,
-                              color: '#0f4a2a',
+                              color: '#111827',
                             }}
                           >
                             {formatRupiah(totalKasRealtime)}
