@@ -29,7 +29,9 @@ import {
 import {
   exportLaporanMingguanPdf,
   exportLaporanBulananPdf,
+  buildBkuPairedRows,
   formatRupiah,
+  formatAngkaTitik,
   formatTanggalIndo,
 } from '@/lib/keuanganPdf'
 import { getPrayerTimesByLocation, DEFAULT_LOCATION } from '@/lib/prayerTimes'
@@ -193,15 +195,13 @@ export default function AdminSidebarPage() {
   const [kritikList, setKritikList] = useState<KritikSaranItem[]>([])
   const [keuanganList, setKeuanganList] = useState<LaporanKeuanganItem[]>([])
 
-  // State Pencatatan & Rekap Laporan Keuangan Masjid (Input per Pengeluaran + PDF Mingguan/Bulanan)
+  // State Pencatatan & Rekap Laporan Keuangan Masjid (Input per Pengeluaran/Pemasukan + PDF BKU A4 Mingguan/Bulanan)
   const [showInputKeuanganModal, setShowInputKeuanganModal] = useState(false)
   const [previewKeuanganItem, setPreviewKeuanganItem] = useState<LaporanKeuanganItem | null>(null)
-  const [tglPengeluaran, setTglPengeluaran] = useState(() => {
-    const d = new Date()
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
-      d.getDate()
-    ).padStart(2, '0')}`
-  })
+  const [jenisTransaksiKeu, setJenisTransaksiKeu] = useState<'Pengeluaran' | 'Pemasukan'>(
+    'Pengeluaran'
+  )
+  const [tglPengeluaran, setTglPengeluaran] = useState('2026-10-31')
   const [kategoriPengeluaran, setKategoriPengeluaran] = useState('Operasional & Listrik/Air')
   const [uraianPengeluaran, setUraianPengeluaran] = useState('')
   const [nominalPengeluaran, setNominalPengeluaran] = useState('')
@@ -211,10 +211,11 @@ export default function AdminSidebarPage() {
   >('Tunai (Kas DKM)')
   const [catatanPengeluaran, setCatatanPengeluaran] = useState('')
   const [rekapKeuanganMode, setRekapKeuanganMode] = useState<'bulanan' | 'mingguan'>('bulanan')
-  const [rekapKeuanganYear, setRekapKeuanganYear] = useState<number>(() => new Date().getFullYear())
-  const [rekapKeuanganMonth, setRekapKeuanganMonth] = useState<number>(() => new Date().getMonth())
-  const [rekapKeuanganMingguKe, setRekapKeuanganMingguKe] = useState<number>(() =>
-    Math.min(5, Math.floor((new Date().getDate() - 1) / 7) + 1)
+  const [rekapKeuanganYear, setRekapKeuanganYear] = useState<number>(2026)
+  const [rekapKeuanganMonth, setRekapKeuanganMonth] = useState<number>(9) // Oktober 2026 (0-indexed = 9)
+  const [rekapKeuanganMingguKe, setRekapKeuanganMingguKe] = useState<number>(1)
+  const [saldoSebelumnyaMap, setSaldoSebelumnyaMap] = useState<Record<string, number>>(() =>
+    masjidStore.getSaldoSebelumnyaMap()
   )
 
   // 1. State Master Kegiatan & Custom Layanan Unggulan
@@ -2901,6 +2902,7 @@ export default function AdminSidebarPage() {
     const newItem: LaporanKeuanganItem = {
       id: 'keu-' + Date.now(),
       tanggal: tglPengeluaran,
+      jenis: jenisTransaksiKeu,
       kategori: kategoriPengeluaran,
       uraian: uraianPengeluaran.trim(),
       nominal: cleanNominal,
@@ -2909,8 +2911,8 @@ export default function AdminSidebarPage() {
       catatan: catatanPengeluaran.trim(),
       createdAt: new Date().toISOString(),
     }
-    const updated = [newItem, ...keuanganList].sort((a, b) =>
-      b.tanggal.localeCompare(a.tanggal)
+    const updated = [...keuanganList, newItem].sort(
+      (a, b) => a.tanggal.localeCompare(b.tanggal) || a.createdAt.localeCompare(b.createdAt)
     )
     setKeuanganList(updated)
     masjidStore.saveKeuangan(updated)
@@ -2920,6 +2922,7 @@ export default function AdminSidebarPage() {
         await getSupabaseClient().from('laporan_keuangan').insert({
           id: newItem.id,
           tanggal: newItem.tanggal,
+          jenis: newItem.jenis,
           kategori: newItem.kategori,
           uraian: newItem.uraian,
           nominal: newItem.nominal,
@@ -2937,9 +2940,9 @@ export default function AdminSidebarPage() {
     setCatatanPengeluaran('')
     setShowInputKeuanganModal(false)
     setSuccessMsg(
-      `Catatan pengeluaran "${newItem.uraian}" (${formatRupiah(
+      `Catatan ${newItem.jenis?.toLowerCase()} "${newItem.uraian}" (${formatRupiah(
         newItem.nominal
-      )}) berhasil disimpan!`
+      )}) berhasil disimpan ke BKU!`
     )
   }
 
@@ -5141,7 +5144,7 @@ export default function AdminSidebarPage() {
               )}
             </div>
 
-            {/* MENU TAMBAHAN: PENCATATAN & REKAP LAPORAN KEUANGAN MASJID (INPUT PER PENGELUARAN + PDF MINGGUAN & BULANAN) */}
+            {/* MENU TAMBAHAN: PENCATATAN & REKAP LAPORAN BKU KEUANGAN MASJID (INPUT PER PENGELUARAN/PEMASUKAN + PDF BKU A4 MINGGUAN & BULANAN) */}
             <div
               style={{
                 display: activeTab === 'keuangan' ? 'flex' : 'none',
@@ -5159,15 +5162,16 @@ export default function AdminSidebarPage() {
                   0
                 ).getDate()
                 const monthName = NAMA_BULAN_ADMIN[rekapKeuanganMonth] || 'Bulan'
+                const prevMonthIdx = rekapKeuanganMonth === 0 ? 11 : rekapKeuanganMonth - 1
+                const prevMonthName = NAMA_BULAN_ADMIN[prevMonthIdx] || 'Bulan Sebelumnya'
 
                 const itemsInMonth = [...keuanganList]
                   .filter((it) => it.tanggal.startsWith(monthPrefix))
-                  .sort((a, b) => a.tanggal.localeCompare(b.tanggal))
-
-                const totalBulanIni = itemsInMonth.reduce(
-                  (acc, it) => acc + (Number(it.nominal) || 0),
-                  0
-                )
+                  .sort(
+                    (a, b) =>
+                      a.tanggal.localeCompare(b.tanggal) ||
+                      a.createdAt.localeCompare(b.createdAt)
+                  )
 
                 const weekDefs = [
                   { mingguKe: 1, label: 'Minggu Ke-1', startDay: 1, endDay: 7 },
@@ -5193,19 +5197,28 @@ export default function AdminSidebarPage() {
                   const dayNum = Number(it.tanggal.slice(8, 10))
                   return dayNum >= weekStartDay && dayNum <= weekEndDay
                 })
-                const totalMingguIni = itemsInSelectedWeek.reduce(
-                  (acc, it) => acc + (Number(it.nominal) || 0),
-                  0
-                )
 
                 const activeItems =
                   rekapKeuanganMode === 'bulanan' ? itemsInMonth : itemsInSelectedWeek
-                const minTableRows = rekapKeuanganMode === 'bulanan' ? 10 : 6
-                const emptyRowsCount = Math.max(0, minTableRows - activeItems.length)
+
+                const totalPemasukan = activeItems
+                  .filter((it) => it.jenis === 'Pemasukan')
+                  .reduce((acc, it) => acc + (Number(it.nominal) || 0), 0)
+                const totalPengeluaran = activeItems
+                  .filter((it) => it.jenis !== 'Pemasukan')
+                  .reduce((acc, it) => acc + (Number(it.nominal) || 0), 0)
+                const selisihPeriode = totalPemasukan - totalPengeluaran
+                const activeSaldoSebelumnya = Number(saldoSebelumnyaMap[monthPrefix] ?? 0)
+                const saldoAkhirBulan = activeSaldoSebelumnya + selisihPeriode
+
+                const bkuPairedRows = buildBkuPairedRows(
+                  activeItems,
+                  rekapKeuanganMode === 'bulanan' ? 16 : 10
+                )
 
                 return (
                   <>
-                    {/* PANEL KONTROL ATAS: PILIH REKAP BULANAN / MINGGUAN + TOMBOL INPUT PENGELUARAN & UNDUH PDF */}
+                    {/* PANEL KONTROL ATAS: PILIH REKAP BKU BULANAN / MINGGUAN + INPUT & UNDUH PDF A4 */}
                     <div className={styles.panelCard}>
                       <div
                         style={{
@@ -5245,7 +5258,7 @@ export default function AdminSidebarPage() {
                               cursor: 'pointer',
                             }}
                           >
-                            Rekap Laporan Bulanan
+                            Laporan BKU Bulanan (A4)
                           </button>
 
                           <button
@@ -5266,29 +5279,50 @@ export default function AdminSidebarPage() {
                               cursor: 'pointer',
                             }}
                           >
-                            Rekap Laporan Mingguan
+                            Laporan BKU Mingguan (A4)
                           </button>
                         </div>
 
-                        <button
-                          type="button"
-                          className={styles.submitBtn}
-                          onClick={() => setShowInputKeuanganModal(true)}
-                          style={{
-                            width: 'auto',
-                            marginTop: 0,
-                            padding: '10px 18px',
-                            fontSize: '0.86rem',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '8px',
-                          }}
-                        >
-                          + Input Pengeluaran Masjid
-                        </button>
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                          <button
+                            type="button"
+                            className={styles.submitBtn}
+                            onClick={() => {
+                              setJenisTransaksiKeu('Pengeluaran')
+                              setShowInputKeuanganModal(true)
+                            }}
+                            style={{
+                              width: 'auto',
+                              marginTop: 0,
+                              padding: '10px 16px',
+                              fontSize: '0.84rem',
+                            }}
+                          >
+                            + Input Pengeluaran
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setJenisTransaksiKeu('Pemasukan')
+                              setShowInputKeuanganModal(true)
+                            }}
+                            style={{
+                              padding: '10px 16px',
+                              borderRadius: '10px',
+                              border: '1px solid #15803d',
+                              background: '#ecfdf5',
+                              color: '#0f4a2a',
+                              fontWeight: 800,
+                              fontSize: '0.84rem',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            + Input Pemasukan
+                          </button>
+                        </div>
                       </div>
 
-                      {/* FILTER PERIODE BULAN / TAHUN / MINGGU + TOMBOL EKSPOR PDF */}
+                      {/* FILTER PERIODE BULAN / TAHUN / SALDO SEBELUMNYA / MINGGU + TOMBOL EKSPOR PDF A4 */}
                       <div
                         style={{
                           display: 'flex',
@@ -5320,7 +5354,7 @@ export default function AdminSidebarPage() {
                                 marginBottom: '4px',
                               }}
                             >
-                              Pilih Bulan
+                              Pilih Bulan BKU
                             </label>
                             <select
                               value={rekapKeuanganMonth}
@@ -5366,17 +5400,49 @@ export default function AdminSidebarPage() {
                                 background: '#ffffff',
                               }}
                             >
-                              {[
-                                new Date().getFullYear() - 1,
-                                new Date().getFullYear(),
-                                new Date().getFullYear() + 1,
-                              ].map((yr) => (
+                              {[2025, 2026, 2027].map((yr) => (
                                 <option key={yr} value={yr}>
                                   {yr}
                                 </option>
                               ))}
                             </select>
                           </div>
+
+                          {rekapKeuanganMode === 'bulanan' && (
+                            <div>
+                              <label
+                                style={{
+                                  display: 'block',
+                                  fontSize: '0.78rem',
+                                  fontWeight: 800,
+                                  color: '#14532d',
+                                  marginBottom: '4px',
+                                }}
+                              >
+                                {`Saldo Bulan ${prevMonthName} (Rp)`}
+                              </label>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={String(activeSaldoSebelumnya)}
+                                onChange={(e) => {
+                                  const val = Number(e.target.value.replace(/\D/g, '')) || 0
+                                  const nextMap = { ...saldoSebelumnyaMap, [monthPrefix]: val }
+                                  setSaldoSebelumnyaMap(nextMap)
+                                  masjidStore.saveSaldoSebelumnyaMap(nextMap)
+                                }}
+                                style={{
+                                  padding: '9px 12px',
+                                  borderRadius: '10px',
+                                  border: '1px solid rgba(27, 107, 69, 0.25)',
+                                  fontWeight: 800,
+                                  fontSize: '0.85rem',
+                                  background: '#ffffff',
+                                  width: '165px',
+                                }}
+                              />
+                            </div>
+                          )}
 
                           {rekapKeuanganMode === 'mingguan' && (
                             <div>
@@ -5421,7 +5487,14 @@ export default function AdminSidebarPage() {
                           )}
                         </div>
 
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px',
+                            flexWrap: 'wrap',
+                          }}
+                        >
                           {rekapKeuanganMode === 'bulanan' ? (
                             <button
                               type="button"
@@ -5430,6 +5503,8 @@ export default function AdminSidebarPage() {
                                   year: rekapKeuanganYear,
                                   monthIndex: rekapKeuanganMonth,
                                   items: keuanganList,
+                                  saldoBulanSebelumnya: activeSaldoSebelumnya,
+                                  logoSrc: logoMasjidWarna.src,
                                 })
                               }
                               style={{
@@ -5444,7 +5519,7 @@ export default function AdminSidebarPage() {
                                 boxShadow: '0 6px 16px rgba(180, 83, 9, 0.25)',
                               }}
                             >
-                              {`Unduh PDF Laporan Bulanan (${monthName} ${rekapKeuanganYear})`}
+                              {`Unduh PDF BKU Bulanan A4 (${monthName} ${rekapKeuanganYear})`}
                             </button>
                           ) : (
                             <button
@@ -5453,7 +5528,9 @@ export default function AdminSidebarPage() {
                                 exportLaporanMingguanPdf({
                                   startDateIso: weekStartIso,
                                   endDateIso: weekEndIso,
+                                  mingguLabel: `${selectedWeekDef.label.toUpperCase()} BULAN ${monthName.toUpperCase()} ${rekapKeuanganYear}`,
                                   items: itemsInSelectedWeek,
+                                  logoSrc: logoMasjidWarna.src,
                                 })
                               }
                               style={{
@@ -5468,24 +5545,24 @@ export default function AdminSidebarPage() {
                                 boxShadow: '0 6px 16px rgba(21, 128, 61, 0.25)',
                               }}
                             >
-                              {`Unduh PDF Laporan Mingguan (${selectedWeekDef.label})`}
+                              {`Unduh PDF BKU Mingguan A4 (${selectedWeekDef.label})`}
                             </button>
                           )}
                         </div>
                       </div>
 
-                      {/* KARTU RINGKASAN NOMINAL PENGELUARAN */}
+                      {/* 4 KARTU RINGKASAN BKU */}
                       <div
                         style={{
                           display: 'grid',
-                          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
                           gap: '12px',
                           marginTop: '14px',
                         }}
                       >
                         <div
                           style={{
-                            padding: '14px 16px',
+                            padding: '13px 15px',
                             borderRadius: '12px',
                             background: '#f0fdf4',
                             border: '1px solid rgba(22, 163, 74, 0.25)',
@@ -5494,421 +5571,694 @@ export default function AdminSidebarPage() {
                           <span
                             style={{
                               display: 'block',
-                              fontSize: '0.76rem',
+                              fontSize: '0.75rem',
                               fontWeight: 700,
                               color: '#166534',
                             }}
                           >
-                            {`Total Pengeluaran Bulan ${monthName} ${rekapKeuanganYear}`}
+                            Total Pemasukan
                           </span>
                           <strong
                             style={{
-                              fontSize: '1.22rem',
+                              fontSize: '1.14rem',
                               fontWeight: 900,
                               color: '#0f4a2a',
                             }}
                           >
-                            {formatRupiah(totalBulanIni)}
+                            {formatRupiah(totalPemasukan)}
                           </strong>
-                          <span
-                            style={{
-                              display: 'block',
-                              fontSize: '0.73rem',
-                              color: '#4b5563',
-                              marginTop: '2px',
-                            }}
-                          >
-                            {`${itemsInMonth.length} catatan pengeluaran`}
-                          </span>
                         </div>
 
                         <div
                           style={{
-                            padding: '14px 16px',
+                            padding: '13px 15px',
                             borderRadius: '12px',
-                            background: '#fffbeb',
-                            border: '1px solid rgba(217, 119, 6, 0.28)',
+                            background: '#fef2f2',
+                            border: '1px solid #fecaca',
                           }}
                         >
                           <span
                             style={{
                               display: 'block',
-                              fontSize: '0.76rem',
+                              fontSize: '0.75rem',
+                              fontWeight: 700,
+                              color: '#991b1b',
+                            }}
+                          >
+                            Total Pengeluaran
+                          </span>
+                          <strong
+                            style={{
+                              fontSize: '1.14rem',
+                              fontWeight: 900,
+                              color: '#b91c1c',
+                            }}
+                          >
+                            {formatRupiah(totalPengeluaran)}
+                          </strong>
+                        </div>
+
+                        <div
+                          style={{
+                            padding: '13px 15px',
+                            borderRadius: '12px',
+                            background: '#fffbeb',
+                            border: '1px solid #fde68a',
+                          }}
+                        >
+                          <span
+                            style={{
+                              display: 'block',
+                              fontSize: '0.75rem',
                               fontWeight: 700,
                               color: '#92400e',
                             }}
                           >
-                            {`Total ${selectedWeekDef.label} (${weekStartDay}–${weekEndDay} ${monthName})`}
+                            {rekapKeuanganMode === 'bulanan'
+                              ? `Total Bulan ${monthName}`
+                              : `Total ${selectedWeekDef.label}`}
                           </span>
                           <strong
                             style={{
-                              fontSize: '1.22rem',
+                              fontSize: '1.14rem',
                               fontWeight: 900,
                               color: '#b45309',
                             }}
                           >
-                            {formatRupiah(totalMingguIni)}
+                            {formatRupiah(selisihPeriode)}
                           </strong>
-                          <span
+                        </div>
+
+                        {rekapKeuanganMode === 'bulanan' && (
+                          <div
                             style={{
-                              display: 'block',
-                              fontSize: '0.73rem',
-                              color: '#4b5563',
-                              marginTop: '2px',
+                              padding: '13px 15px',
+                              borderRadius: '12px',
+                              background: '#ecfdf5',
+                              border: '1.5px solid #15803d',
                             }}
                           >
-                            {`${itemsInSelectedWeek.length} catatan pengeluaran`}
-                          </span>
-                        </div>
+                            <span
+                              style={{
+                                display: 'block',
+                                fontSize: '0.75rem',
+                                fontWeight: 800,
+                                color: '#0f4a2a',
+                              }}
+                            >
+                              {`Saldo Akhir (+ Saldo ${prevMonthName})`}
+                            </span>
+                            <strong
+                              style={{
+                                fontSize: '1.18rem',
+                                fontWeight: 900,
+                                color: '#064e3b',
+                              }}
+                            >
+                              {formatRupiah(saldoAkhirBulan)}
+                            </strong>
+                          </div>
+                        )}
                       </div>
                     </div>
 
-                    {/* TABEL REKAPITULASI MINGGUAN DALAM 1 BULAN (SELALU TAMPIL MINGGU 1-5 TERMASUK YANG MASIH KOSONG) */}
-                    {rekapKeuanganMode === 'bulanan' && (
-                      <div className={styles.panelCard}>
-                        <div
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            flexWrap: 'wrap',
-                            gap: '8px',
-                            marginBottom: '12px',
-                          }}
-                        >
-                          <h2 className={styles.panelTitle} style={{ marginBottom: 0 }}>
-                            {`Tabel Rekapitulasi Mingguan — ${monthName} ${rekapKeuanganYear}`}
-                          </h2>
-                          <span
-                            style={{
-                              fontSize: '0.75rem',
-                              fontWeight: 700,
-                              color: '#166534',
-                              background: '#ecfdf5',
-                              padding: '4px 10px',
-                              borderRadius: '999px',
-                            }}
-                          >
-                            Siap Diekspor ke PDF Walau Belum Akhir Bulan
-                          </span>
-                        </div>
-
-                        <div
-                          style={{
-                            overflowX: 'auto',
-                            border: '1px solid rgba(27, 107, 69, 0.2)',
-                            borderRadius: '12px',
-                          }}
-                        >
-                          <table
-                            style={{
-                              width: '100%',
-                              borderCollapse: 'collapse',
-                              fontSize: '0.82rem',
-                            }}
-                          >
-                            <thead>
-                              <tr
-                                style={{
-                                  background: '#0f4a2a',
-                                  color: '#ffffff',
-                                  textAlign: 'left',
-                                }}
-                              >
-                                <th style={{ padding: '10px 12px' }}>Minggu</th>
-                                <th style={{ padding: '10px 12px' }}>Rentang Tanggal</th>
-                                <th style={{ padding: '10px 12px' }}>Jumlah Pengeluaran</th>
-                                <th style={{ padding: '10px 12px' }}>Ringkasan Uraian</th>
-                                <th style={{ padding: '10px 12px', textAlign: 'right' }}>
-                                  Subtotal (Rp)
-                                </th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {weekDefs.map((wk, idx) => {
-                                const valid = wk.startDay <= wk.endDay
-                                const wkItems = valid
-                                  ? itemsInMonth.filter((it) => {
-                                      const d = Number(it.tanggal.slice(8, 10))
-                                      return d >= wk.startDay && d <= wk.endDay
-                                    })
-                                  : []
-                                const wkSubtotal = wkItems.reduce(
-                                  (acc, it) => acc + (Number(it.nominal) || 0),
-                                  0
-                                )
-                                return (
-                                  <tr
-                                    key={wk.mingguKe}
-                                    style={{
-                                      borderBottom: '1px solid #e5e7eb',
-                                      background:
-                                        wkItems.length > 0
-                                          ? '#f0fdf4'
-                                          : idx % 2 === 0
-                                            ? '#ffffff'
-                                            : '#f9fafb',
-                                    }}
-                                  >
-                                    <td
-                                      style={{
-                                        padding: '9px 12px',
-                                        fontWeight: 800,
-                                        color: '#0f4a2a',
-                                      }}
-                                    >
-                                      {wk.label}
-                                    </td>
-                                    <td style={{ padding: '9px 12px', color: '#374151' }}>
-                                      {valid
-                                        ? `${wk.startDay} – ${wk.endDay} ${monthName} ${rekapKeuanganYear}`
-                                        : '-'}
-                                    </td>
-                                    <td
-                                      style={{
-                                        padding: '9px 12px',
-                                        fontWeight: 700,
-                                        color: wkItems.length > 0 ? '#15803d' : '#9ca3af',
-                                      }}
-                                    >
-                                      {wkItems.length > 0
-                                        ? `${wkItems.length} Transaksi`
-                                        : '0 (Kosong)'}
-                                    </td>
-                                    <td
-                                      style={{
-                                        padding: '9px 12px',
-                                        color: wkItems.length > 0 ? '#111827' : '#9ca3af',
-                                      }}
-                                    >
-                                      {wkItems.length > 0
-                                        ? wkItems.map((i) => i.uraian).join(', ')
-                                        : 'Belum ada catatan pengeluaran / Minggu belum berjalan'}
-                                    </td>
-                                    <td
-                                      style={{
-                                        padding: '9px 12px',
-                                        textAlign: 'right',
-                                        fontWeight: 800,
-                                        color: wkSubtotal > 0 ? '#111827' : '#9ca3af',
-                                      }}
-                                    >
-                                      {wkSubtotal > 0 ? formatRupiah(wkSubtotal) : '-'}
-                                    </td>
-                                  </tr>
-                                )
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* TABEL RINCIAN PENCATATAN PER PENGELUARAN (DENGAN BARIS KOSONG JIKA BELUM PENUH / BELUM AKHIR BULAN) */}
-                    <div className={styles.panelCard}>
+                    {/* TEMPLATE BKU KEUANGAN MASJID AL-JIHAD KARAWANG (DENGAN KOP RESMI + FORMAT TABEL BKU) */}
+                    <div
+                      className={styles.panelCard}
+                      style={{
+                        padding: '28px',
+                        background: '#ffffff',
+                        border: '1px solid rgba(15, 74, 42, 0.22)',
+                      }}
+                    >
+                      {/* KOP SURAT RESMI DKM MASJID RAYA AL-JIHAD KARAWANG */}
                       <div
                         style={{
                           display: 'flex',
                           alignItems: 'center',
-                          justifyContent: 'space-between',
-                          flexWrap: 'wrap',
-                          gap: '8px',
-                          marginBottom: '12px',
+                          justifyContent: 'center',
+                          gap: '18px',
+                          paddingBottom: '14px',
+                          marginBottom: '18px',
+                          borderBottom: '3px double #0f4a2a',
+                          position: 'relative',
                         }}
                       >
-                        <h2 className={styles.panelTitle} style={{ marginBottom: 0 }}>
-                          {rekapKeuanganMode === 'bulanan'
-                            ? `Tabel Rincian Pengeluaran Bulan ${monthName} ${rekapKeuanganYear}`
-                            : `Tabel Rincian Pengeluaran ${selectedWeekDef.label} (${weekStartDay}–${weekEndDay} ${monthName})`}
-                        </h2>
-                        <span style={{ fontSize: '0.78rem', color: '#4b5563', fontWeight: 700 }}>
-                          {`${activeItems.length} Transaksi Terisi • ${emptyRowsCount} Baris Kosong Siap Cetak`}
-                        </span>
+                        <Image
+                          src={logoMasjidWarna}
+                          alt="Logo Masjid Al-Jihad"
+                          style={{
+                            width: '74px',
+                            height: 'auto',
+                            objectFit: 'contain',
+                          }}
+                        />
+                        <div style={{ textAlign: 'center' }}>
+                          <div
+                            style={{
+                              fontSize: '0.92rem',
+                              fontWeight: 800,
+                              color: '#0f4a2a',
+                              letterSpacing: '0.04em',
+                            }}
+                          >
+                            DEWAN KEMAKMURAN MASJID (DKM)
+                          </div>
+                          <div
+                            style={{
+                              fontSize: '1.35rem',
+                              fontWeight: 900,
+                              color: '#111827',
+                              letterSpacing: '0.02em',
+                              margin: '2px 0',
+                            }}
+                          >
+                            MASJID RAYA AL-JIHAD KARAWANG
+                          </div>
+                          <div
+                            style={{
+                              fontSize: '0.78rem',
+                              color: '#4b5563',
+                              fontWeight: 600,
+                            }}
+                          >
+                            Jl. Jend. Ahmad Yani (Islamic Center), Kabupaten Karawang, Jawa Barat •
+                            Telp/WA: 0851-1155-6563
+                          </div>
+                        </div>
                       </div>
 
+                      {/* TABEL BKU RESMI (PEMASUKAN DI KIRI | PENGELUARAN DI KANAN) */}
                       <div
                         style={{
                           overflowX: 'auto',
-                          border: '1px solid rgba(27, 107, 69, 0.2)',
-                          borderRadius: '12px',
+                          border: '2px solid #111827',
+                          borderRadius: '4px',
                         }}
                       >
+                        {/* HEADER KOTAK JUDUL BKU */}
+                        <div
+                          style={{
+                            textAlign: 'center',
+                            padding: '14px 12px',
+                            borderBottom: '2px solid #111827',
+                            background: '#f8faf8',
+                          }}
+                        >
+                          <div
+                            style={{
+                              fontSize: '1.08rem',
+                              fontWeight: 900,
+                              color: '#111827',
+                              letterSpacing: '0.03em',
+                            }}
+                          >
+                            LAPORAN BKU KEUANGAN AL JIHAD KARAWANG
+                          </div>
+                          <div
+                            style={{
+                              fontSize: '0.98rem',
+                              fontWeight: 900,
+                              color: '#0f4a2a',
+                              marginTop: '3px',
+                            }}
+                          >
+                            {rekapKeuanganMode === 'bulanan'
+                              ? `BULAN ${monthName.toUpperCase()} ${rekapKeuanganYear}`
+                              : `${selectedWeekDef.label.toUpperCase()} (${weekStartDay}–${weekEndDay} ${monthName.toUpperCase()} ${rekapKeuanganYear})`}
+                          </div>
+                        </div>
+
                         <table
                           style={{
                             width: '100%',
                             borderCollapse: 'collapse',
-                            fontSize: '0.82rem',
+                            fontSize: '0.8rem',
                           }}
                         >
                           <thead>
+                            <tr>
+                              <th
+                                colSpan={4}
+                                style={{
+                                  padding: '8px 10px',
+                                  background: '#0f4a2a',
+                                  color: '#ffffff',
+                                  textAlign: 'center',
+                                  fontWeight: 900,
+                                  letterSpacing: '0.05em',
+                                  borderRight: '2px solid #111827',
+                                  borderBottom: '1.5px solid #111827',
+                                }}
+                              >
+                                PEMASUKAN
+                              </th>
+                              <th
+                                colSpan={3}
+                                style={{
+                                  padding: '8px 10px',
+                                  background: '#14532d',
+                                  color: '#ffffff',
+                                  textAlign: 'center',
+                                  fontWeight: 900,
+                                  letterSpacing: '0.05em',
+                                  borderBottom: '1.5px solid #111827',
+                                }}
+                              >
+                                PENGELUARAN
+                              </th>
+                            </tr>
                             <tr
                               style={{
-                                background: '#0f4a2a',
-                                color: '#ffffff',
-                                textAlign: 'left',
+                                background: '#ecfdf5',
+                                color: '#0f4a2a',
+                                fontWeight: 900,
+                                borderBottom: '2px solid #111827',
                               }}
                             >
-                              <th style={{ padding: '10px 12px', width: '44px' }}>No</th>
-                              <th style={{ padding: '10px 12px', width: '120px' }}>Tanggal</th>
-                              <th style={{ padding: '10px 12px' }}>Kategori</th>
-                              <th style={{ padding: '10px 12px' }}>Uraian Pengeluaran</th>
-                              <th style={{ padding: '10px 12px' }}>PJ / Penerima</th>
-                              <th style={{ padding: '10px 12px', textAlign: 'right' }}>
-                                Nominal (Rp)
+                              <th
+                                style={{
+                                  padding: '8px 6px',
+                                  width: '38px',
+                                  textAlign: 'center',
+                                  borderRight: '1px solid #374151',
+                                }}
+                              >
+                                NO
                               </th>
-                              <th style={{ padding: '10px 12px', textAlign: 'center' }}>Aksi</th>
+                              <th
+                                style={{
+                                  padding: '8px 8px',
+                                  width: '96px',
+                                  textAlign: 'center',
+                                  borderRight: '1px solid #374151',
+                                }}
+                              >
+                                TANGGAL
+                              </th>
+                              <th
+                                style={{
+                                  padding: '8px 10px',
+                                  textAlign: 'center',
+                                  borderRight: '1px solid #374151',
+                                }}
+                              >
+                                URAIAN PEMASUKAN
+                              </th>
+                              <th
+                                style={{
+                                  padding: '8px 10px',
+                                  width: '150px',
+                                  textAlign: 'center',
+                                  borderRight: '2px solid #111827',
+                                }}
+                              >
+                                JUMLAH
+                              </th>
+                              <th
+                                style={{
+                                  padding: '8px 8px',
+                                  width: '96px',
+                                  textAlign: 'center',
+                                  borderRight: '1px solid #374151',
+                                }}
+                              >
+                                TANGGAL
+                              </th>
+                              <th
+                                style={{
+                                  padding: '8px 10px',
+                                  textAlign: 'center',
+                                  borderRight: '1px solid #374151',
+                                }}
+                              >
+                                URAIAN PENGELUARAN
+                              </th>
+                              <th
+                                style={{
+                                  padding: '8px 10px',
+                                  width: '150px',
+                                  textAlign: 'center',
+                                }}
+                              >
+                                JUMLAH
+                              </th>
                             </tr>
                           </thead>
                           <tbody>
-                            {activeItems.map((item, idx) => (
+                            {bkuPairedRows.map((row, idx) => (
                               <tr
-                                key={item.id}
+                                key={row.rowNo}
                                 style={{
-                                  borderBottom: '1px solid #e5e7eb',
-                                  background: idx % 2 === 0 ? '#ffffff' : '#f9fafb',
+                                  borderBottom: '1px solid #4b5563',
+                                  background: idx % 2 === 0 ? '#ffffff' : '#f9fbf9',
+                                  height: '29px',
                                 }}
                               >
                                 <td
                                   style={{
-                                    padding: '9px 12px',
-                                    fontWeight: 700,
-                                    color: '#6b7280',
-                                  }}
-                                >
-                                  {idx + 1}
-                                </td>
-                                <td
-                                  style={{
-                                    padding: '9px 12px',
-                                    fontWeight: 700,
-                                    color: '#14532d',
-                                    whiteSpace: 'nowrap',
-                                  }}
-                                >
-                                  {item.tanggal}
-                                </td>
-                                <td style={{ padding: '9px 12px', color: '#374151' }}>
-                                  {item.kategori}
-                                </td>
-                                <td
-                                  style={{
-                                    padding: '9px 12px',
-                                    fontWeight: 800,
-                                    color: '#111827',
-                                  }}
-                                >
-                                  {item.uraian}
-                                </td>
-                                <td style={{ padding: '9px 12px', color: '#374151' }}>
-                                  {item.penanggungJawab}
-                                </td>
-                                <td
-                                  style={{
-                                    padding: '9px 12px',
-                                    textAlign: 'right',
-                                    fontWeight: 800,
-                                    color: '#991b1b',
-                                    whiteSpace: 'nowrap',
-                                  }}
-                                >
-                                  {formatRupiah(item.nominal)}
-                                </td>
-                                <td
-                                  style={{
-                                    padding: '9px 12px',
+                                    padding: '5px 6px',
                                     textAlign: 'center',
+                                    color: '#6b7280',
+                                    fontWeight: 700,
+                                    borderRight: '1px solid #4b5563',
+                                  }}
+                                >
+                                  {row.rowNo}
+                                </td>
+                                <td
+                                  style={{
+                                    padding: '5px 8px',
+                                    textAlign: 'center',
+                                    fontWeight: 700,
+                                    color: '#111827',
+                                    borderRight: '1px solid #4b5563',
                                     whiteSpace: 'nowrap',
                                   }}
                                 >
-                                  <div
-                                    style={{
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: '6px',
-                                    }}
-                                  >
-                                    <button
-                                      type="button"
-                                      onClick={() => setPreviewKeuanganItem(item)}
+                                  {row.tglMasuk}
+                                </td>
+                                <td
+                                  style={{
+                                    padding: '5px 10px',
+                                    color: '#111827',
+                                    borderRight: '1px solid #4b5563',
+                                  }}
+                                >
+                                  {row.itemMasuk ? (
+                                    <div
                                       style={{
-                                        border: '1px solid rgba(27, 107, 69, 0.25)',
-                                        background: '#f0fdf4',
-                                        color: '#14532d',
-                                        borderRadius: '6px',
-                                        padding: '4px 9px',
-                                        fontSize: '0.73rem',
-                                        fontWeight: 800,
-                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        gap: '6px',
                                       }}
                                     >
-                                      Preview
-                                    </button>
-                                    <button
-                                      type="button"
-                                      className={styles.deleteBtn}
-                                      style={{ padding: '4px 9px', fontSize: '0.73rem' }}
-                                      onClick={() => handleDeleteKeuangan(item.id)}
+                                      <span
+                                        onClick={() =>
+                                          row.itemMasuk && setPreviewKeuanganItem(row.itemMasuk)
+                                        }
+                                        style={{ cursor: 'pointer', fontWeight: 600 }}
+                                        title="Klik untuk preview rincian"
+                                      >
+                                        {row.uraianMasuk}
+                                      </span>
+                                      <button
+                                        type="button"
+                                        title="Hapus baris pemasukan ini"
+                                        onClick={() =>
+                                          row.itemMasuk &&
+                                          handleDeleteKeuangan(row.itemMasuk.id)
+                                        }
+                                        style={{
+                                          border: 'none',
+                                          background: 'transparent',
+                                          color: '#dc2626',
+                                          fontSize: '0.72rem',
+                                          fontWeight: 800,
+                                          cursor: 'pointer',
+                                          padding: '0 3px',
+                                        }}
+                                      >
+                                        ✕
+                                      </button>
+                                    </div>
+                                  ) : null}
+                                </td>
+                                <td
+                                  style={{
+                                    padding: '5px 10px',
+                                    borderRight: '2px solid #111827',
+                                    whiteSpace: 'nowrap',
+                                  }}
+                                >
+                                  {row.jumlahMasuk !== null && (
+                                    <div
+                                      style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        fontWeight: 700,
+                                        color: '#111827',
+                                      }}
                                     >
-                                      Hapus
-                                    </button>
-                                  </div>
+                                      <span>Rp</span>
+                                      <span>{formatAngkaTitik(row.jumlahMasuk)}</span>
+                                    </div>
+                                  )}
+                                </td>
+                                <td
+                                  style={{
+                                    padding: '5px 8px',
+                                    textAlign: 'center',
+                                    fontWeight: 700,
+                                    color: '#111827',
+                                    borderRight: '1px solid #4b5563',
+                                    whiteSpace: 'nowrap',
+                                  }}
+                                >
+                                  {row.tglKeluar}
+                                </td>
+                                <td
+                                  style={{
+                                    padding: '5px 10px',
+                                    color: '#111827',
+                                    borderRight: '1px solid #4b5563',
+                                  }}
+                                >
+                                  {row.itemKeluar ? (
+                                    <div
+                                      style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        gap: '6px',
+                                      }}
+                                    >
+                                      <span
+                                        onClick={() =>
+                                          row.itemKeluar && setPreviewKeuanganItem(row.itemKeluar)
+                                        }
+                                        style={{ cursor: 'pointer', fontWeight: 600 }}
+                                        title="Klik untuk preview rincian"
+                                      >
+                                        {row.uraianKeluar}
+                                      </span>
+                                      <button
+                                        type="button"
+                                        title="Hapus baris pengeluaran ini"
+                                        onClick={() =>
+                                          row.itemKeluar &&
+                                          handleDeleteKeuangan(row.itemKeluar.id)
+                                        }
+                                        style={{
+                                          border: 'none',
+                                          background: 'transparent',
+                                          color: '#dc2626',
+                                          fontSize: '0.72rem',
+                                          fontWeight: 800,
+                                          cursor: 'pointer',
+                                          padding: '0 3px',
+                                        }}
+                                      >
+                                        ✕
+                                      </button>
+                                    </div>
+                                  ) : null}
+                                </td>
+                                <td
+                                  style={{
+                                    padding: '5px 10px',
+                                    whiteSpace: 'nowrap',
+                                  }}
+                                >
+                                  {row.jumlahKeluar !== null && (
+                                    <div
+                                      style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        fontWeight: 700,
+                                        color: '#111827',
+                                      }}
+                                    >
+                                      <span>Rp</span>
+                                      <span>{formatAngkaTitik(row.jumlahKeluar)}</span>
+                                    </div>
+                                  )}
                                 </td>
                               </tr>
                             ))}
-
-                            {/* Baris Tabel Kosong untuk periode/tanggal yang belum terisi */}
-                            {Array.from({ length: emptyRowsCount }, (_, eIdx) => {
-                              const rowNumber = activeItems.length + eIdx + 1
-                              return (
-                                <tr
-                                  key={`empty-keu-${rowNumber}`}
-                                  style={{
-                                    borderBottom: '1px solid #e5e7eb',
-                                    background: rowNumber % 2 === 0 ? '#fafafa' : '#ffffff',
-                                    color: '#9ca3af',
-                                  }}
-                                >
-                                  <td style={{ padding: '8px 12px' }}>{rowNumber}</td>
-                                  <td style={{ padding: '8px 12px' }}>-</td>
-                                  <td style={{ padding: '8px 12px' }}>-</td>
-                                  <td style={{ padding: '8px 12px', fontStyle: 'italic' }}>
-                                    (Baris tabel kosong — belum ada input pengeluaran)
-                                  </td>
-                                  <td style={{ padding: '8px 12px' }}>-</td>
-                                  <td style={{ padding: '8px 12px', textAlign: 'right' }}>-</td>
-                                  <td style={{ padding: '8px 12px', textAlign: 'center' }}>-</td>
-                                </tr>
-                              )
-                            })}
                           </tbody>
                           <tfoot>
+                            {/* BARIS JUMLAH PEMASUKAN & PENGELUARAN */}
                             <tr
                               style={{
-                                background: '#dcfce7',
-                                color: '#0f4a2a',
+                                background: '#ecfdf5',
+                                borderTop: '2px solid #111827',
+                                borderBottom: '2px solid #111827',
                                 fontWeight: 900,
                               }}
                             >
-                              <td colSpan={5} style={{ padding: '11px 12px' }}>
-                                {rekapKeuanganMode === 'bulanan'
-                                  ? `TOTAL PENGELUARAN BULAN ${monthName.toUpperCase()} ${rekapKeuanganYear}`
-                                  : `TOTAL PENGELUARAN ${selectedWeekDef.label.toUpperCase()}`}
+                              <td
+                                style={{ borderRight: '1px solid #374151', padding: '7px 6px' }}
+                              />
+                              <td
+                                style={{ borderRight: '1px solid #374151', padding: '7px 8px' }}
+                              />
+                              <td
+                                style={{
+                                  padding: '7px 10px',
+                                  color: '#0f4a2a',
+                                  borderRight: '1px solid #374151',
+                                }}
+                              >
+                                JUMLAH
                               </td>
                               <td
                                 style={{
-                                  padding: '11px 12px',
-                                  textAlign: 'right',
-                                  fontSize: '0.92rem',
+                                  padding: '7px 10px',
+                                  borderRight: '2px solid #111827',
+                                  color: '#0f4a2a',
                                 }}
                               >
-                                {formatRupiah(
-                                  rekapKeuanganMode === 'bulanan'
-                                    ? totalBulanIni
-                                    : totalMingguIni
-                                )}
+                                <div
+                                  style={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                  }}
+                                >
+                                  <span>Rp</span>
+                                  <span>{formatAngkaTitik(totalPemasukan)}</span>
+                                </div>
                               </td>
-                              <td />
+                              <td
+                                style={{ borderRight: '1px solid #374151', padding: '7px 8px' }}
+                              />
+                              <td
+                                style={{ borderRight: '1px solid #374151', padding: '7px 10px' }}
+                              />
+                              <td style={{ padding: '7px 10px', color: '#991b1b' }}>
+                                <div
+                                  style={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                  }}
+                                >
+                                  <span>Rp</span>
+                                  <span>{formatAngkaTitik(totalPengeluaran)}</span>
+                                </div>
+                              </td>
                             </tr>
+
+                            {/* BARIS TOTAL BULAN */}
+                            <tr style={{ fontWeight: 900, background: '#ffffff' }}>
+                              <td colSpan={2} />
+                              <td
+                                colSpan={2}
+                                style={{
+                                  padding: '7px 10px',
+                                  borderRight: '2px solid #111827',
+                                  color: '#111827',
+                                }}
+                              >
+                                {rekapKeuanganMode === 'bulanan'
+                                  ? `TOTAL BULAN ${monthName.toUpperCase()}`
+                                  : `TOTAL ${selectedWeekDef.label.toUpperCase()}`}
+                              </td>
+                              <td
+                                colSpan={2}
+                                style={{
+                                  borderRight: '1px solid #374151',
+                                }}
+                              />
+                              <td
+                                style={{
+                                  padding: '7px 10px',
+                                  borderBottom: '1px solid #111827',
+                                  color: '#111827',
+                                }}
+                              >
+                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                  <span>Rp</span>
+                                  <span>{formatAngkaTitik(selisihPeriode)}</span>
+                                </div>
+                              </td>
+                            </tr>
+
+                            {rekapKeuanganMode === 'bulanan' && (
+                              <>
+                                {/* BARIS SALDO BULAN SEBELUMNYA */}
+                                <tr style={{ fontWeight: 900, background: '#ffffff' }}>
+                                  <td colSpan={2} />
+                                  <td
+                                    colSpan={2}
+                                    style={{
+                                      padding: '7px 10px',
+                                      borderRight: '2px solid #111827',
+                                      color: '#111827',
+                                    }}
+                                  >
+                                    {`SALDO BULAN ${prevMonthName.toUpperCase()}`}
+                                  </td>
+                                  <td
+                                    colSpan={2}
+                                    style={{
+                                      borderRight: '1px solid #374151',
+                                    }}
+                                  />
+                                  <td
+                                    style={{
+                                      padding: '7px 10px',
+                                      borderBottom: '1px solid #111827',
+                                      color: '#111827',
+                                    }}
+                                  >
+                                    <div
+                                      style={{ display: 'flex', justifyContent: 'space-between' }}
+                                    >
+                                      <span>Rp</span>
+                                      <span>{formatAngkaTitik(activeSaldoSebelumnya)}</span>
+                                    </div>
+                                  </td>
+                                </tr>
+
+                                {/* BARIS SALDO AKHIR */}
+                                <tr style={{ fontWeight: 900, background: '#ffffff' }}>
+                                  <td colSpan={2} />
+                                  <td
+                                    colSpan={2}
+                                    style={{
+                                      padding: '8px 10px',
+                                      borderRight: '2px solid #111827',
+                                      color: '#0f4a2a',
+                                    }}
+                                  >
+                                    SALDO AKHIR
+                                  </td>
+                                  <td
+                                    colSpan={2}
+                                    style={{
+                                      borderRight: '1px solid #374151',
+                                    }}
+                                  />
+                                  <td
+                                    style={{
+                                      padding: '8px 10px',
+                                      background: '#dcfce7',
+                                      color: '#0f4a2a',
+                                    }}
+                                  >
+                                    <div
+                                      style={{ display: 'flex', justifyContent: 'space-between' }}
+                                    >
+                                      <span>Rp</span>
+                                      <span>{formatAngkaTitik(saldoAkhirBulan)}</span>
+                                    </div>
+                                  </td>
+                                </tr>
+                              </>
+                            )}
                           </tfoot>
                         </table>
                       </div>
@@ -5917,7 +6267,7 @@ export default function AdminSidebarPage() {
                 )
               })()}
 
-              {/* POP-UP MODAL INPUT PENGELUARAN BARU */}
+              {/* POP-UP MODAL INPUT PENGELUARAN / PEMASUKAN BKU */}
               {showInputKeuanganModal && (
                 <div
                   style={{
@@ -5933,7 +6283,7 @@ export default function AdminSidebarPage() {
                   }}
                   onClick={() =>
                     setUnsavedConfirmModal({
-                      contextLabel: 'Input Pencatatan Pengeluaran Masjid',
+                      contextLabel: `Input ${jenisTransaksiKeu} BKU Masjid`,
                       onDiscard: () => {
                         setShowInputKeuanganModal(false)
                         setUraianPengeluaran('')
@@ -5965,14 +6315,14 @@ export default function AdminSidebarPage() {
                       }}
                     >
                       <h2 className={styles.panelTitle} style={{ margin: 0 }}>
-                        Input Pencatatan Pengeluaran Masjid
+                        {`Input Pencatatan ${jenisTransaksiKeu} BKU Masjid`}
                       </h2>
                       <button
                         type="button"
                         aria-label="Tutup Pop-up"
                         onClick={() =>
                           setUnsavedConfirmModal({
-                            contextLabel: 'Input Pencatatan Pengeluaran Masjid',
+                            contextLabel: `Input ${jenisTransaksiKeu} BKU Masjid`,
                             onDiscard: () => {
                               setShowInputKeuanganModal(false)
                               setUraianPengeluaran('')
@@ -5996,9 +6346,57 @@ export default function AdminSidebarPage() {
                     </div>
 
                     <form onSubmit={handleAddKeuangan}>
+                      <div className={styles.formGroup}>
+                        <label>Jenis Transaksi BKU</label>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button
+                            type="button"
+                            onClick={() => setJenisTransaksiKeu('Pengeluaran')}
+                            style={{
+                              flex: 1,
+                              padding: '9px',
+                              borderRadius: '9px',
+                              border:
+                                jenisTransaksiKeu === 'Pengeluaran'
+                                  ? '2px solid #dc2626'
+                                  : '1px solid #d1d5db',
+                              background:
+                                jenisTransaksiKeu === 'Pengeluaran' ? '#fef2f2' : '#ffffff',
+                              color:
+                                jenisTransaksiKeu === 'Pengeluaran' ? '#991b1b' : '#374151',
+                              fontWeight: 800,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            Pengeluaran
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setJenisTransaksiKeu('Pemasukan')}
+                            style={{
+                              flex: 1,
+                              padding: '9px',
+                              borderRadius: '9px',
+                              border:
+                                jenisTransaksiKeu === 'Pemasukan'
+                                  ? '2px solid #15803d'
+                                  : '1px solid #d1d5db',
+                              background:
+                                jenisTransaksiKeu === 'Pemasukan' ? '#f0fdf4' : '#ffffff',
+                              color:
+                                jenisTransaksiKeu === 'Pemasukan' ? '#14532d' : '#374151',
+                              fontWeight: 800,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            Pemasukan
+                          </button>
+                        </div>
+                      </div>
+
                       <div className={styles.twoCols}>
                         <div className={styles.formGroup}>
-                          <label>Tanggal Pengeluaran</label>
+                          <label>{`Tanggal ${jenisTransaksiKeu}`}</label>
                           <input
                             type="date"
                             required
@@ -6007,47 +6405,70 @@ export default function AdminSidebarPage() {
                           />
                         </div>
                         <div className={styles.formGroup}>
-                          <label>Kategori Pengeluaran</label>
+                          <label>{`Kategori ${jenisTransaksiKeu}`}</label>
                           <select
                             value={kategoriPengeluaran}
                             onChange={(e) => setKategoriPengeluaran(e.target.value)}
                           >
-                            <option value="Operasional & Listrik/Air">
-                              Operasional &amp; Listrik/Air
-                            </option>
-                            <option value="Honorarium Khatib / Pemateri">
-                              Honorarium Khatib / Pemateri
-                            </option>
-                            <option value="Kebersihan & Perawatan Masjid">
-                              Kebersihan &amp; Perawatan Masjid
-                            </option>
-                            <option value="Sarana & Prasarana / Aset">
-                              Sarana &amp; Prasarana / Aset
-                            </option>
-                            <option value="Kegiatan Dakwah & PHBI">
-                              Kegiatan Dakwah &amp; PHBI
-                            </option>
-                            <option value="Sosial & Santunan">Sosial &amp; Santunan</option>
-                            <option value="Konsumsi Jamaah">Konsumsi Jamaah</option>
-                            <option value="Lainnya">Lainnya</option>
+                            {jenisTransaksiKeu === 'Pengeluaran' ? (
+                              <>
+                                <option value="Operasional & Listrik/Air">
+                                  Operasional &amp; Listrik/Air
+                                </option>
+                                <option value="Honorarium Khatib / Pemateri">
+                                  Honorarium Khatib / Pemateri
+                                </option>
+                                <option value="Kebersihan & Perawatan Masjid">
+                                  Kebersihan &amp; Perawatan Masjid
+                                </option>
+                                <option value="Sarana & Prasarana / Aset">
+                                  Sarana &amp; Prasarana / Aset
+                                </option>
+                                <option value="Kegiatan Dakwah & PHBI">
+                                  Kegiatan Dakwah &amp; PHBI
+                                </option>
+                                <option value="Sosial & Santunan">Sosial &amp; Santunan</option>
+                                <option value="Konsumsi Jamaah">Konsumsi Jamaah</option>
+                                <option value="Lainnya">Lainnya</option>
+                              </>
+                            ) : (
+                              <>
+                                <option value="Infaq Jumat & Koropak">
+                                  Infaq Jumat &amp; Koropak
+                                </option>
+                                <option value="Infaq Fundraising">Infaq Fundraising</option>
+                                <option value="Infaq Pemakaian Masjid">
+                                  Infaq Pemakaian Masjid
+                                </option>
+                                <option value="Infaq Fasilitas & Kebersihan">
+                                  Infaq Fasilitas &amp; Kebersihan
+                                </option>
+                                <option value="Infaq QRIS">Infaq QRIS</option>
+                                <option value="Lainnya">Lainnya</option>
+                              </>
+                            )}
                           </select>
                         </div>
                       </div>
 
                       <div className={styles.formGroup}>
-                        <label>Uraian / Nama Pengeluaran</label>
+                        <label>{`Uraian ${jenisTransaksiKeu}`}</label>
                         <input
                           type="text"
                           required
                           value={uraianPengeluaran}
                           onChange={(e) => setUraianPengeluaran(e.target.value)}
-                          placeholder="Contoh: Pembelian lampu LED & servis AC Ruang Sholat Utama"
+                          placeholder={
+                            jenisTransaksiKeu === 'Pengeluaran'
+                              ? 'Contoh: Khotib, Imam an Bilal / Peralatan Kebersihan'
+                              : 'Contoh: Infaq Koropak / Infaq Pemakaian Mesjid dari ...'
+                          }
                         />
                       </div>
 
                       <div className={styles.twoCols}>
                         <div className={styles.formGroup}>
-                          <label>Nominal Pengeluaran (Rp)</label>
+                          <label>{`Jumlah / Nominal ${jenisTransaksiKeu} (Rp)`}</label>
                           <input
                             type="text"
                             inputMode="numeric"
@@ -6056,7 +6477,7 @@ export default function AdminSidebarPage() {
                             onChange={(e) =>
                               setNominalPengeluaran(e.target.value.replace(/\D/g, ''))
                             }
-                            placeholder="Contoh: 450000"
+                            placeholder="Contoh: 800000"
                           />
                           {nominalPengeluaran && (
                             <span
@@ -6090,13 +6511,13 @@ export default function AdminSidebarPage() {
                       </div>
 
                       <div className={styles.formGroup}>
-                        <label>Penanggung Jawab / Penerima</label>
+                        <label>Penanggung Jawab / Pencatat</label>
                         <input
                           type="text"
                           required
                           value={pjPengeluaran}
                           onChange={(e) => setPjPengeluaran(e.target.value)}
-                          placeholder="Contoh: Bendahara DKM / Bidang Sarpras"
+                          placeholder="Contoh: Bendahara DKM Al-Jihad"
                         />
                       </div>
 
@@ -6111,14 +6532,14 @@ export default function AdminSidebarPage() {
                       </div>
 
                       <button type="submit" className={styles.submitBtn}>
-                        Simpan Catatan Pengeluaran
+                        {`Simpan ke BKU (${jenisTransaksiKeu})`}
                       </button>
                     </form>
                   </div>
                 </div>
               )}
 
-              {/* POP-UP PREVIEW DETAIL PENGELUARAN */}
+              {/* POP-UP PREVIEW DETAIL TRANSAKSI BKU */}
               {previewKeuanganItem && (
                 <div
                   style={{
@@ -6159,11 +6580,13 @@ export default function AdminSidebarPage() {
                           fontWeight: 800,
                           padding: '4px 12px',
                           borderRadius: '999px',
-                          background: '#fee2e2',
-                          color: '#991b1b',
+                          background:
+                            previewKeuanganItem.jenis === 'Pemasukan' ? '#dcfce7' : '#fee2e2',
+                          color:
+                            previewKeuanganItem.jenis === 'Pemasukan' ? '#166534' : '#991b1b',
                         }}
                       >
-                        Catatan Pengeluaran Masjid
+                        {`Catatan ${previewKeuanganItem.jenis || 'Pengeluaran'} BKU`}
                       </span>
                       <button
                         type="button"
@@ -6197,15 +6620,20 @@ export default function AdminSidebarPage() {
                       style={{
                         padding: '10px 14px',
                         borderRadius: '10px',
-                        background: '#fef2f2',
-                        border: '1px solid #fecaca',
-                        color: '#991b1b',
+                        background:
+                          previewKeuanganItem.jenis === 'Pemasukan' ? '#f0fdf4' : '#fef2f2',
+                        border:
+                          previewKeuanganItem.jenis === 'Pemasukan'
+                            ? '1px solid #86efac'
+                            : '1px solid #fecaca',
+                        color:
+                          previewKeuanganItem.jenis === 'Pemasukan' ? '#166534' : '#991b1b',
                         fontSize: '1.05rem',
                         fontWeight: 900,
                         marginBottom: '12px',
                       }}
                     >
-                      {`Nominal: ${formatRupiah(previewKeuanganItem.nominal)}`}
+                      {`Jumlah: ${formatRupiah(previewKeuanganItem.nominal)}`}
                     </div>
 
                     <div
@@ -6221,14 +6649,14 @@ export default function AdminSidebarPage() {
                       }}
                     >
                       <div>
-                        <strong>Tanggal Pengeluaran :</strong>{' '}
+                        <strong>Tanggal :</strong>{' '}
                         {formatTanggalIndo(previewKeuanganItem.tanggal)}
                       </div>
                       <div>
                         <strong>Kategori :</strong> {previewKeuanganItem.kategori}
                       </div>
                       <div>
-                        <strong>Penanggung Jawab / Penerima :</strong>{' '}
+                        <strong>Penanggung Jawab :</strong>{' '}
                         {previewKeuanganItem.penanggungJawab}
                       </div>
                       <div>
