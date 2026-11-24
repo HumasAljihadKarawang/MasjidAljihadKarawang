@@ -271,6 +271,9 @@ export default function AdminSidebarPage() {
   const [adminKalMonth, setAdminKalMonth] = useState<number>(() => new Date().getMonth())
   const [adminKalSelectedDate, setAdminKalSelectedDate] = useState<string | null>(null)
   const [previewKegiatanAdmin, setPreviewKegiatanAdmin] = useState<AgendaKalenderItem | null>(null)
+  const [previewPengajuanAdmin, setPreviewPengajuanAdmin] = useState<PengajuanKalenderItem | null>(
+    null
+  )
   const [showAsetAdminModal, setShowAsetAdminModal] = useState(false)
   const [selectedAsetQtyAdmin, setSelectedAsetQtyAdmin] = useState<Record<string, number>>({})
   const [manualAsetExtraAdmin, setManualAsetExtraAdmin] = useState('')
@@ -4003,30 +4006,81 @@ export default function AdminSidebarPage() {
                         Belum ada pengajuan jadwal dari halaman kalender pengguna.
                       </p>
                     ) : (
-                      <div className={styles.itemList}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         {pengajuanKalenderList.map((pgj) => (
                           <div
                             key={pgj.id}
-                            className={styles.itemRow}
-                            style={{ flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}
+                            onClick={() => setPreviewPengajuanAdmin(pgj)}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              gap: '10px',
+                              padding: '10px 14px',
+                              borderRadius: '10px',
+                              background: '#f8faf8',
+                              border: '1px solid rgba(27, 107, 69, 0.16)',
+                              cursor: 'pointer',
+                              flexWrap: 'wrap',
+                            }}
                           >
                             <div
                               style={{
                                 display: 'flex',
-                                justifyContent: 'space-between',
                                 alignItems: 'center',
-                                gap: '8px',
+                                gap: '10px',
+                                flexWrap: 'wrap',
+                                minWidth: 0,
+                                flex: 1,
+                              }}
+                            >
+                              <strong
+                                style={{
+                                  fontSize: '0.88rem',
+                                  color: '#0f4a2a',
+                                  fontWeight: 800,
+                                }}
+                              >
+                                {pgj.namaKegiatan}
+                              </strong>
+                              <span
+                                style={{
+                                  fontSize: '0.78rem',
+                                  color: '#4b5563',
+                                  fontWeight: 600,
+                                }}
+                              >
+                                {`${pgj.tanggal} • ${pgj.jamMulai}–${pgj.jamSelesai} WIB • PJ: ${pgj.penanggungJawab}`}
+                              </span>
+                              {pgj.posterUrl && (
+                                <span
+                                  style={{
+                                    fontSize: '0.68rem',
+                                    fontWeight: 800,
+                                    padding: '2px 7px',
+                                    borderRadius: '999px',
+                                    background: '#e0f2fe',
+                                    color: '#0369a1',
+                                  }}
+                                >
+                                  Ada Poster
+                                </span>
+                              )}
+                            </div>
+
+                            <div
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
                                 flexWrap: 'wrap',
                               }}
                             >
-                              <h4 className={styles.itemTitle} style={{ margin: 0 }}>
-                                {pgj.namaKegiatan}
-                              </h4>
                               <span
                                 style={{
-                                  fontSize: '0.74rem',
+                                  fontSize: '0.7rem',
                                   fontWeight: 800,
-                                  padding: '3px 10px',
+                                  padding: '3px 9px',
                                   borderRadius: '999px',
                                   background:
                                     pgj.status === 'Disetujui'
@@ -4040,86 +4094,81 @@ export default function AdminSidebarPage() {
                                       : pgj.status === 'Ditolak'
                                         ? '#991b1b'
                                         : '#92400e',
+                                  whiteSpace: 'nowrap',
                                 }}
                               >
                                 {pgj.status}
                               </span>
-                            </div>
-                            <div className={styles.itemMeta} style={{ lineHeight: 1.55 }}>
-                              <div>
-                                <strong>PJ:</strong> {pgj.penanggungJawab} • <strong>Telp:</strong>{' '}
-                                {pgj.noTeleponPj}
-                              </div>
-                              <div>
-                                <strong>Waktu:</strong> {pgj.tanggal} ({pgj.jamMulai}–
-                                {pgj.jamSelesai} WIB) • <strong>Tempat:</strong>{' '}
-                                {pgj.tempatKegiatan}
-                              </div>
-                              <div>
-                                <strong>Aset:</strong> {pgj.peminjamanAset || '-'}
-                              </div>
-                              {pgj.deskripsi && (
-                                <div>
-                                  <strong>Deskripsi:</strong> {pgj.deskripsi}
-                                </div>
-                              )}
-                              {pgj.catatan && (
-                                <div>
-                                  <strong>Catatan:</strong> {pgj.catatan}
-                                </div>
-                              )}
-                            </div>
-                            {pgj.posterUrl && (
-                              <img
-                                src={pgj.posterUrl}
-                                alt="Poster Pengajuan"
-                                style={{
-                                  maxWidth: '160px',
-                                  borderRadius: '8px',
-                                  border: '1px solid #e5e7eb',
+
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setPreviewPengajuanAdmin(pgj)
                                 }}
-                              />
-                            )}
-                            {pgj.status === 'Menunggu' && (
-                              <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
-                                <button
-                                  type="button"
-                                  className={styles.submitBtn}
-                                  style={{ padding: '7px 14px', fontSize: '0.8rem', flex: 1 }}
-                                  onClick={() => {
-                                    setPendingAdminAction({
-                                      type: 'review_pengajuan',
-                                      item: pgj,
-                                      decision: 'Disetujui',
-                                    })
-                                    setAdminAuthPassword('')
-                                    setShowAdminAuthPassword(false)
-                                    setAdminAuthError('')
-                                    setAdminAuthModalOpen(true)
-                                  }}
-                                >
-                                  Setujui
-                                </button>
-                                <button
-                                  type="button"
-                                  className={styles.deleteBtn}
-                                  style={{ padding: '7px 14px', fontSize: '0.8rem', flex: 1 }}
-                                  onClick={() => {
-                                    setPendingAdminAction({
-                                      type: 'review_pengajuan',
-                                      item: pgj,
-                                      decision: 'Ditolak',
-                                    })
-                                    setAdminAuthPassword('')
-                                    setShowAdminAuthPassword(false)
-                                    setAdminAuthError('')
-                                    setAdminAuthModalOpen(true)
-                                  }}
-                                >
-                                  Tolak
-                                </button>
-                              </div>
-                            )}
+                                style={{
+                                  border: '1px solid rgba(27, 107, 69, 0.25)',
+                                  background: '#ffffff',
+                                  color: '#14532d',
+                                  borderRadius: '7px',
+                                  padding: '4px 10px',
+                                  fontSize: '0.74rem',
+                                  fontWeight: 800,
+                                  cursor: 'pointer',
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                Preview ›
+                              </button>
+
+                              {pgj.status === 'Menunggu' && (
+                                <>
+                                  <button
+                                    type="button"
+                                    className={styles.submitBtn}
+                                    style={{
+                                      width: 'auto',
+                                      marginTop: 0,
+                                      padding: '4px 10px',
+                                      fontSize: '0.74rem',
+                                    }}
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setPendingAdminAction({
+                                        type: 'review_pengajuan',
+                                        item: pgj,
+                                        decision: 'Disetujui',
+                                      })
+                                      setAdminAuthPassword('')
+                                      setShowAdminAuthPassword(false)
+                                      setAdminAuthError('')
+                                      setAdminAuthModalOpen(true)
+                                    }}
+                                  >
+                                    Setujui
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className={styles.deleteBtn}
+                                    style={{ padding: '4px 10px', fontSize: '0.74rem' }}
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setPendingAdminAction({
+                                        type: 'review_pengajuan',
+                                        item: pgj,
+                                        decision: 'Ditolak',
+                                      })
+                                      setAdminAuthPassword('')
+                                      setShowAdminAuthPassword(false)
+                                      setAdminAuthError('')
+                                      setAdminAuthModalOpen(true)
+                                    }}
+                                  >
+                                    Tolak
+                                  </button>
+                                </>
+                              )}
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -4533,6 +4582,204 @@ export default function AdminSidebarPage() {
                             objectFit: 'contain',
                           }}
                         />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* POP-UP PREVIEW PENGAJUAN JADWAL PENGGUNA (BESERTA POSTER JIKA ADA) */}
+              {previewPengajuanAdmin && (
+                <div
+                  style={{
+                    position: 'fixed',
+                    inset: 0,
+                    background: 'rgba(15, 23, 42, 0.68)',
+                    backdropFilter: 'blur(4px)',
+                    zIndex: 9994,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '16px',
+                  }}
+                  onClick={() => setPreviewPengajuanAdmin(null)}
+                >
+                  <div
+                    style={{
+                      background: '#ffffff',
+                      borderRadius: '18px',
+                      width: '100%',
+                      maxWidth: '540px',
+                      maxHeight: '90vh',
+                      overflowY: 'auto',
+                      padding: '24px',
+                      boxShadow: '0 24px 60px rgba(0, 0, 0, 0.32)',
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '10px',
+                        marginBottom: '12px',
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: '0.75rem',
+                          fontWeight: 800,
+                          padding: '4px 12px',
+                          borderRadius: '999px',
+                          background:
+                            previewPengajuanAdmin.status === 'Disetujui'
+                              ? '#dcfce7'
+                              : previewPengajuanAdmin.status === 'Ditolak'
+                                ? '#fee2e2'
+                                : '#fef3c7',
+                          color:
+                            previewPengajuanAdmin.status === 'Disetujui'
+                              ? '#166534'
+                              : previewPengajuanAdmin.status === 'Ditolak'
+                                ? '#991b1b'
+                                : '#92400e',
+                        }}
+                      >
+                        {`Status: ${previewPengajuanAdmin.status}`}
+                      </span>
+                      <button
+                        type="button"
+                        aria-label="Tutup Preview Pengajuan"
+                        onClick={() => setPreviewPengajuanAdmin(null)}
+                        style={{
+                          border: 'none',
+                          background: '#f3f4f6',
+                          borderRadius: '8px',
+                          width: '32px',
+                          height: '32px',
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        ✕
+                      </button>
+                    </div>
+
+                    <h3
+                      style={{
+                        margin: '0 0 12px',
+                        fontSize: '1.15rem',
+                        fontWeight: 800,
+                        color: '#0f4a2a',
+                      }}
+                    >
+                      {previewPengajuanAdmin.namaKegiatan}
+                    </h3>
+
+                    <div
+                      style={{
+                        display: 'grid',
+                        gap: '8px',
+                        fontSize: '0.86rem',
+                        color: '#1f2937',
+                        background: '#f8faf8',
+                        padding: '14px',
+                        borderRadius: '12px',
+                        border: '1px solid rgba(27, 107, 69, 0.14)',
+                      }}
+                    >
+                      <div>
+                        <strong>Hari / Tanggal :</strong> {previewPengajuanAdmin.tanggal}
+                      </div>
+                      <div>
+                        <strong>Waktu :</strong>{' '}
+                        {`${previewPengajuanAdmin.jamMulai} – ${previewPengajuanAdmin.jamSelesai} WIB`}
+                      </div>
+                      <div>
+                        <strong>Penanggung Jawab :</strong> {previewPengajuanAdmin.penanggungJawab}
+                      </div>
+                      <div>
+                        <strong>No. Telepon PJ :</strong> {previewPengajuanAdmin.noTeleponPj}
+                      </div>
+                      <div>
+                        <strong>Tempat / Area Masjid :</strong>{' '}
+                        {previewPengajuanAdmin.tempatKegiatan}
+                      </div>
+                      <div>
+                        <strong>Peminjaman Aset :</strong>{' '}
+                        {previewPengajuanAdmin.peminjamanAset || '-'}
+                      </div>
+                      {previewPengajuanAdmin.deskripsi && (
+                        <div>
+                          <strong>Deskripsi :</strong> {previewPengajuanAdmin.deskripsi}
+                        </div>
+                      )}
+                      {previewPengajuanAdmin.catatan && (
+                        <div>
+                          <strong>Catatan :</strong> {previewPengajuanAdmin.catatan}
+                        </div>
+                      )}
+                    </div>
+
+                    {previewPengajuanAdmin.posterUrl && (
+                      <div style={{ marginTop: '14px', textAlign: 'center' }}>
+                        <img
+                          src={previewPengajuanAdmin.posterUrl}
+                          alt={`Poster ${previewPengajuanAdmin.namaKegiatan}`}
+                          style={{
+                            maxWidth: '100%',
+                            maxHeight: '340px',
+                            borderRadius: '12px',
+                            border: '1px solid rgba(27, 107, 69, 0.18)',
+                            objectFit: 'contain',
+                          }}
+                        />
+                      </div>
+                    )}
+
+                    {previewPengajuanAdmin.status === 'Menunggu' && (
+                      <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+                        <button
+                          type="button"
+                          className={styles.submitBtn}
+                          style={{ flex: 1, marginTop: 0 }}
+                          onClick={() => {
+                            const target = previewPengajuanAdmin
+                            setPreviewPengajuanAdmin(null)
+                            setPendingAdminAction({
+                              type: 'review_pengajuan',
+                              item: target,
+                              decision: 'Disetujui',
+                            })
+                            setAdminAuthPassword('')
+                            setShowAdminAuthPassword(false)
+                            setAdminAuthError('')
+                            setAdminAuthModalOpen(true)
+                          }}
+                        >
+                          ✓ Setujui Pengajuan
+                        </button>
+                        <button
+                          type="button"
+                          className={styles.deleteBtn}
+                          style={{ flex: 1 }}
+                          onClick={() => {
+                            const target = previewPengajuanAdmin
+                            setPreviewPengajuanAdmin(null)
+                            setPendingAdminAction({
+                              type: 'review_pengajuan',
+                              item: target,
+                              decision: 'Ditolak',
+                            })
+                            setAdminAuthPassword('')
+                            setShowAdminAuthPassword(false)
+                            setAdminAuthError('')
+                            setAdminAuthModalOpen(true)
+                          }}
+                        >
+                          ✕ Tolak Pengajuan
+                        </button>
                       </div>
                     )}
                   </div>
