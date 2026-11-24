@@ -204,6 +204,7 @@ export default function AdminSidebarPage() {
   const [showInputKeuanganModal, setShowInputKeuanganModal] = useState(false)
   const [previewKeuanganItem, setPreviewKeuanganItem] = useState<LaporanKeuanganItem | null>(null)
   const [excelEditMode, setExcelEditMode] = useState(false)
+  const [showExcelGuidePrompt, setShowExcelGuidePrompt] = useState(false)
   const [excelTutorialStep, setExcelTutorialStep] = useState<number | null>(null)
   const [excelTourRect, setExcelTourRect] = useState<{
     top: number
@@ -471,13 +472,17 @@ export default function AdminSidebarPage() {
       updateRect()
     }, 60)
 
-    const settleTimer = window.setTimeout(updateRect, 340)
+    const settleTimer1 = window.setTimeout(updateRect, 150)
+    const settleTimer2 = window.setTimeout(updateRect, 360)
+    const settleTimer3 = window.setTimeout(updateRect, 680)
     window.addEventListener('resize', updateRect)
     window.addEventListener('scroll', updateRect, true)
 
     return () => {
       window.clearTimeout(scrollTimer)
-      window.clearTimeout(settleTimer)
+      window.clearTimeout(settleTimer1)
+      window.clearTimeout(settleTimer2)
+      window.clearTimeout(settleTimer3)
       window.removeEventListener('resize', updateRect)
       window.removeEventListener('scroll', updateRect, true)
     }
@@ -5994,9 +5999,10 @@ export default function AdminSidebarPage() {
                                 setRekapKeuanganMode('bulanan')
                               }
                               setExcelEditMode(true)
-                              setExcelTutorialStep(0)
+                              setShowExcelGuidePrompt(true)
                             } else {
                               setExcelEditMode(false)
+                              setShowExcelGuidePrompt(false)
                               setExcelTutorialStep(null)
                             }
                           }}
@@ -7189,6 +7195,124 @@ export default function AdminSidebarPage() {
                 )
               })()}
 
+              {/* POP-UP KONFIRMASI: BUTUH PANDUAN TUTORIAL MODE EDIT TABEL ATAU TIDAK */}
+              {showExcelGuidePrompt && (
+                <div
+                  style={{
+                    position: 'fixed',
+                    inset: 0,
+                    background: 'rgba(15, 23, 42, 0.55)',
+                    backdropFilter: 'blur(3px)',
+                    zIndex: 9997,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '16px',
+                  }}
+                  onClick={() => setShowExcelGuidePrompt(false)}
+                >
+                  <div
+                    style={{
+                      background: '#ffffff',
+                      borderRadius: '18px',
+                      width: '100%',
+                      maxWidth: '430px',
+                      padding: '24px',
+                      boxShadow: '0 24px 60px rgba(0, 0, 0, 0.3)',
+                      border: '1px solid rgba(27, 107, 69, 0.22)',
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        marginBottom: '10px',
+                      }}
+                    >
+                      <h3
+                        style={{
+                          margin: 0,
+                          fontSize: '1.05rem',
+                          fontWeight: 900,
+                          color: '#0f4a2a',
+                        }}
+                      >
+                        Butuh Panduan Tutorial?
+                      </h3>
+                      <button
+                        type="button"
+                        aria-label="Tutup Pop-up"
+                        onClick={() => setShowExcelGuidePrompt(false)}
+                        style={{
+                          border: 'none',
+                          background: '#f3f4f6',
+                          borderRadius: '8px',
+                          width: '30px',
+                          height: '30px',
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                    <p
+                      style={{
+                        margin: '0 0 18px',
+                        fontSize: '0.86rem',
+                        color: '#374151',
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      Mode Edit Tabel (Excel) sudah aktif pada <strong>Laporan Bulanan</strong>.
+                      Apakah Anda ingin melihat panduan interaktif langkah demi langkah terlebih
+                      dahulu?
+                    </p>
+                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                      <button
+                        type="button"
+                        onClick={() => setShowExcelGuidePrompt(false)}
+                        style={{
+                          flex: 1,
+                          padding: '10px 14px',
+                          borderRadius: '10px',
+                          border: '1px solid #d1d5db',
+                          background: '#f9fafb',
+                          color: '#374151',
+                          fontWeight: 800,
+                          fontSize: '0.84rem',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Tidak, Langsung Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowExcelGuidePrompt(false)
+                          setExcelTutorialStep(0)
+                        }}
+                        style={{
+                          flex: 1,
+                          padding: '10px 14px',
+                          borderRadius: '10px',
+                          border: 'none',
+                          background: 'linear-gradient(135deg, #0f4a2a, #15803d)',
+                          color: '#ffffff',
+                          fontWeight: 800,
+                          fontSize: '0.84rem',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Ya, Tampilkan Panduan
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* TUTORIAL INTERAKTIF STEP-BY-STEP ALA GAME (SPOTLIGHT + BUBBLE CHAT) UNTUK MODE EDIT TABEL EXCEL */}
               {excelTutorialStep !== null &&
                 (() => {
@@ -7220,7 +7344,14 @@ export default function AdminSidebarPage() {
                   const vh = typeof window !== 'undefined' ? window.innerHeight : 800
                   const bubbleW = Math.min(360, vw - 28)
 
-                  const hasRect = Boolean(excelTourRect && excelTourRect.width > 0)
+                  const hasRect = Boolean(
+                    excelTourRect &&
+                      excelTourRect.width > 0 &&
+                      excelTourRect.top + excelTourRect.height > 0 &&
+                      excelTourRect.top < vh &&
+                      excelTourRect.left + excelTourRect.width > 0 &&
+                      excelTourRect.left < vw
+                  )
                   const showAbove = hasRect && excelTourRect!.top > vh * 0.56
                   const bubbleTop = hasRect
                     ? showAbove
@@ -7250,8 +7381,8 @@ export default function AdminSidebarPage() {
                         pointerEvents: 'none',
                       }}
                     >
-                      {/* Area Spotlight yang Menyorot Elemen Target (tembus klik & ketik langsung) */}
-                      {hasRect && excelTourRect ? (
+                      {/* Area Spotlight yang Menyorot Elemen Target (tembus klik & ketik langsung, tidak membuat layar gelap saat target di luar layar) */}
+                      {hasRect && excelTourRect && (
                         <div
                           style={{
                             position: 'fixed',
@@ -7261,18 +7392,9 @@ export default function AdminSidebarPage() {
                             height: excelTourRect.height + 10,
                             borderRadius: '12px',
                             boxShadow:
-                              '0 0 0 9999px rgba(15, 23, 42, 0.45), 0 0 0 3px #4ade80, 0 0 26px rgba(74, 222, 128, 0.75)',
+                              '0 0 0 9999px rgba(15, 23, 42, 0.34), 0 0 0 3px #4ade80, 0 0 24px rgba(74, 222, 128, 0.7)',
                             pointerEvents: 'none',
                             transition: 'all 0.28s cubic-bezier(0.22, 1, 0.36, 1)',
-                          }}
-                        />
-                      ) : (
-                        <div
-                          style={{
-                            position: 'fixed',
-                            inset: 0,
-                            background: 'rgba(15, 23, 42, 0.45)',
-                            pointerEvents: 'none',
                           }}
                         />
                       )}
@@ -7334,7 +7456,7 @@ export default function AdminSidebarPage() {
                               fontWeight: 900,
                             }}
                           >
-                            {`🎮 ${currentStep.badge}`}
+                            {currentStep.badge}
                           </span>
                           <button
                             type="button"
@@ -7443,7 +7565,7 @@ export default function AdminSidebarPage() {
                                 cursor: 'pointer',
                               }}
                             >
-                              {isLastStep ? '✓ Mulai Edit!' : 'Lanjut →'}
+                              {isLastStep ? '✓ Selesai' : 'Lanjut →'}
                             </button>
                           </div>
                         </div>
