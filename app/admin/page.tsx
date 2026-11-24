@@ -586,7 +586,8 @@ export default function AdminSidebarPage() {
     reader.readAsDataURL(file)
   }
 
-  // 7. State Surat Undangan Resmi DKM
+  // 7. State Surat Undangan Resmi DKM (Klasifikasi Manual & Otomatis dengan Nomor Seri Sinkron)
+  const [suratTabMode, setSuratTabMode] = useState<'manual' | 'otomatis'>('manual')
   const [noSurat, setNoSurat] = useState('045/DKM-ALJIHAD/KRW/XI/2026')
   const [waShareHint, setWaShareHint] = useState('')
   const [lastUsedNoSurat, setLastUsedNoSurat] = useState<{
@@ -594,18 +595,101 @@ export default function AdminSidebarPage() {
     waktu: string
   } | null>(null)
 
+  type AutoUndanganStatus = 'Belum Dikirim' | 'Sudah Dikirim' | 'Diterima' | 'Ditolak'
+  interface AutoUndanganItem {
+    id: string
+    noSurat: string
+    nama: string
+    perihal: string
+    tanggal: string
+    noTelp: string
+    status: AutoUndanganStatus
+    createdAt: string
+  }
+  const [autoUndanganList, setAutoUndanganList] = useState<AutoUndanganItem[]>([])
+  const [khatibContacts, setKhatibContacts] = useState<Record<string, string>>({})
+  const [autoUndanganNama, setAutoUndanganNama] = useState('')
+  const [autoUndanganPerihal, setAutoUndanganPerihal] = useState(
+    "Permohonan Menjadi Khotib & Imam Sholat Jum'at"
+  )
+  const [autoUndanganTanggal, setAutoUndanganTanggal] = useState('2026-11-27')
+  const [autoUndanganTelp, setAutoUndanganTelp] = useState('')
+  const [autoWaShareHint, setAutoWaShareHint] = useState('')
+  const [konfirmasiAutoModal, setKonfirmasiAutoModal] = useState<AutoUndanganItem | null>(null)
+
+  const ROMAN_MONTHS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII']
+
+  const buildNextNoSurat = (currentNomor: string, refTanggalIso?: string) => {
+    const match = String(currentNomor || '').match(/^(\d+)/)
+    const seq = match ? Number(match[1]) + 1 : 1
+    const seqStr = String(seq).padStart(3, '0')
+    const dt = refTanggalIso ? new Date(`${refTanggalIso}T12:00:00`) : new Date()
+    const validDt = Number.isNaN(dt.getTime()) ? new Date() : dt
+    const roman = ROMAN_MONTHS[validDt.getMonth()] || 'XI'
+    const yr = validDt.getFullYear()
+    return `${seqStr}/DKM-ALJIHAD/KRW/${roman}/${yr}`
+  }
+
+  const normalizeWaPhone = (raw: string) => {
+    const digits = String(raw || '').replace(/\D/g, '')
+    if (!digits) return ''
+    if (digits.startsWith('62')) return digits
+    if (digits.startsWith('0')) return `62${digits.slice(1)}`
+    return `62${digits}`
+  }
+
   useEffect(() => {
     try {
-      const saved = window.localStorage.getItem('aljihad_last_no_surat_v1')
-      if (saved) {
-        setLastUsedNoSurat(JSON.parse(saved))
+      const savedNo = window.localStorage.getItem('aljihad_last_no_surat_v1')
+      if (savedNo) {
+        const parsed = JSON.parse(savedNo) as { nomor: string; waktu: string }
+        setLastUsedNoSurat(parsed)
+        if (parsed?.nomor) {
+          setNoSurat(buildNextNoSurat(parsed.nomor))
+        }
+      }
+      const savedAuto = window.localStorage.getItem('aljihad_auto_undangan_v1')
+      if (savedAuto) {
+        const parsedList = JSON.parse(savedAuto) as AutoUndanganItem[]
+        if (Array.isArray(parsedList)) {
+          setAutoUndanganList(parsedList)
+        }
+      }
+      const savedContacts = window.localStorage.getItem('aljihad_khatib_contacts_v1')
+      if (savedContacts) {
+        const parsedContacts = JSON.parse(savedContacts) as Record<string, string>
+        if (parsedContacts && typeof parsedContacts === 'object') {
+          setKhatibContacts(parsedContacts)
+        }
       }
     } catch {
       // ignore storage error
     }
   }, [])
 
-  const recordLastUsedNoSurat = (nomor: string) => {
+  const saveAutoUndanganList = (nextList: AutoUndanganItem[]) => {
+    setAutoUndanganList(nextList)
+    try {
+      window.localStorage.setItem('aljihad_auto_undangan_v1', JSON.stringify(nextList))
+    } catch {
+      // ignore storage error
+    }
+  }
+
+  const saveKhatibContact = (nama: string, telp: string) => {
+    const cleanName = nama.trim()
+    const cleanTelp = telp.trim()
+    if (!cleanName || !cleanTelp) return
+    const next = { ...khatibContacts, [cleanName]: cleanTelp }
+    setKhatibContacts(next)
+    try {
+      window.localStorage.setItem('aljihad_khatib_contacts_v1', JSON.stringify(next))
+    } catch {
+      // ignore storage error
+    }
+  }
+
+  const recordLastUsedNoSurat = (nomor: string, refTanggalIso?: string) => {
     if (!nomor.trim()) return
     const entry = {
       nomor: nomor.trim(),
@@ -618,6 +702,7 @@ export default function AdminSidebarPage() {
       }),
     }
     setLastUsedNoSurat(entry)
+    setNoSurat(buildNextNoSurat(entry.nomor, refTanggalIso))
     try {
       window.localStorage.setItem('aljihad_last_no_surat_v1', JSON.stringify(entry))
     } catch {
@@ -2046,14 +2131,24 @@ export default function AdminSidebarPage() {
     renderPosterCanvas()
   }, [renderPosterCanvas])
 
-  // Template teks WhatsApp simple & formal tanpa stiker untuk pengantar lampiran PDF
-  const getSuratWaText = () => {
-    const sapaan = jenisSurat === 'Khutbah Jumat' ? 'Bapak/Ustadz' : 'Bapak/Ibu/Ustadz'
+  // Template teks WhatsApp simple & formal tanpa stiker untuk pengantar lampiran foto/PDF
+  const getSuratWaText = (overrides?: {
+    kepada?: string
+    perihal?: string
+    jenisSurat?: 'Khutbah Jumat' | 'Umum'
+  }) => {
+    const targetJenis = overrides?.jenisSurat ?? jenisSurat
+    const targetKepada = overrides?.kepada ?? kepadaSurat
+    const targetPerihal = overrides?.perihal ?? perihalSurat
+    const isKhutbah =
+      targetJenis === 'Khutbah Jumat' ||
+      /khotib|khatib|imam|bilal|jumat|jum'at/i.test(targetPerihal)
+    const sapaan = isKhutbah ? 'Bapak/Ustadz' : 'Bapak/Ibu/Ustadz'
     return [
       "*Assalamu'alaikum Warahmatullahi Wabarakatuh*",
       '',
-      `Yth. *${kepadaSurat || sapaan}*,`,
-      `Dengan hormat, bersama pesan ini kami sampaikan surat undangan resmi dari DKM Masjid Raya Al-Jihad Islamic Center Karawang (${perihalSurat || 'Undangan Resmi'}) sebagaimana terlampir.`,
+      `Yth. *${targetKepada || sapaan}*,`,
+      `Dengan hormat, bersama pesan ini kami sampaikan surat undangan resmi dari DKM Masjid Al-Jihad Islamic Center Karawang (${targetPerihal || 'Undangan Resmi'}) sebagaimana terlampir.`,
       '',
       `Mohon kesediaan ${sapaan} untuk berkenan memeriksa rincian undangan tersebut. Atas perhatian dan kehadirannya kami ucapkan _Jazakumullahu Khairan Katsiran_.`,
       '',
@@ -2063,7 +2158,28 @@ export default function AdminSidebarPage() {
   }
 
   // Render kertas surat undangan A4 (1240x1754px) ke Canvas untuk output PDF & Share Foto WA
-  const renderSuratCanvas = async (): Promise<HTMLCanvasElement> => {
+  const renderSuratCanvas = async (overrides?: {
+    noSurat?: string
+    perihal?: string
+    kepada?: string
+    tanggal?: string
+    waktu?: string
+    tempat?: string
+    agenda?: string
+    jenisSurat?: 'Khutbah Jumat' | 'Umum'
+  }): Promise<HTMLCanvasElement> => {
+    const activeNoSurat = overrides?.noSurat ?? noSurat
+    const activePerihal = overrides?.perihal ?? perihalSurat
+    const activeKepada = overrides?.kepada ?? kepadaSurat
+    const activeTanggal = overrides?.tanggal ?? tanggalSuratAcara
+    const activeWaktu = overrides?.waktu ?? waktuSuratAcara
+    const activeTempat = overrides?.tempat ?? tempatSuratAcara
+    const activeAgenda = overrides?.agenda ?? agendaSurat
+    const activeJenis =
+      overrides?.jenisSurat ??
+      (/khotib|khatib|imam|bilal|jumat|jum'at/i.test(activePerihal)
+        ? 'Khutbah Jumat'
+        : jenisSurat)
     const W = 1240
     const H = 1754
     const canvas = document.createElement('canvas')
@@ -2159,16 +2275,16 @@ export default function AdminSidebarPage() {
       y += 38
     }
 
-    drawKv('Nomor', noSurat || '-', marginX, 130)
+    drawKv('Nomor', activeNoSurat || '-', marginX, 130)
     drawKv('Lampiran', '-', marginX, 130)
-    drawKv('Perihal', perihalSurat || '-', marginX, 130, true)
+    drawKv('Perihal', activePerihal || '-', marginX, 130, true)
 
     y += 28
     ctx.font = '25px "Times New Roman", serif'
     ctx.fillText('Kepada Yth.', marginX, y)
     y += 34
     ctx.font = 'bold 26px "Times New Roman", serif'
-    ctx.fillText(kepadaSurat || '-', marginX, y)
+    ctx.fillText(activeKepada || '-', marginX, y)
     y += 34
     ctx.font = '25px "Times New Roman", serif'
     ctx.fillText('di Tempat', marginX, y)
@@ -2198,28 +2314,35 @@ export default function AdminSidebarPage() {
       }
     }
 
-    const roleText =
-      perihalKhutbahOpsi === 'Khotib & Imam'
-        ? 'Khotib & Imam'
-        : perihalKhutbahOpsi === 'Khotib Jumat'
-          ? 'Khotib'
-          : perihalKhutbahOpsi === 'Imam Jumat'
-            ? 'Imam'
-            : perihalKhutbahOpsi === 'Bilal'
-              ? 'Bilal'
-              : 'Petugas Ibadah Jumat'
+    const roleText = /khotib.*imam|imam.*khotib/i.test(activePerihal)
+      ? 'Khotib & Imam'
+      : /khotib|khatib/i.test(activePerihal)
+        ? 'Khotib'
+        : /imam/i.test(activePerihal)
+          ? 'Imam'
+          : /bilal/i.test(activePerihal)
+            ? 'Bilal'
+            : perihalKhutbahOpsi === 'Khotib & Imam'
+              ? 'Khotib & Imam'
+              : perihalKhutbahOpsi === 'Khotib Jumat'
+                ? 'Khotib'
+                : perihalKhutbahOpsi === 'Imam Jumat'
+                  ? 'Imam'
+                  : perihalKhutbahOpsi === 'Bilal'
+                    ? 'Bilal'
+                    : 'Petugas Ibadah Jumat'
 
     const pembuka =
-      jenisSurat === 'Khutbah Jumat'
-        ? `Sehubungan dengan pelaksanaan kegiatan ibadah Jumat di Masjid Raya Al-Jihad Karawang, kami memohon kesediaan Bapak/Ustadz untuk menjadi ${roleText} pada:`
-        : 'Sehubungan dengan pelaksanaan kegiatan di Masjid Raya Al-Jihad Karawang, bersama surat ini kami memohon kesediaan Bapak/Ibu/Ustadz untuk hadir pada:'
+      activeJenis === 'Khutbah Jumat'
+        ? `Sehubungan dengan pelaksanaan kegiatan ibadah Jumat di Masjid Al-Jihad Islamic Center Karawang, kami memohon kesediaan Bapak/Ustadz untuk menjadi ${roleText} pada:`
+        : 'Sehubungan dengan pelaksanaan kegiatan di Masjid Al-Jihad Islamic Center Karawang, bersama surat ini kami memohon kesediaan Bapak/Ibu/Ustadz untuk hadir pada:'
 
     y += 42
     drawWrapped(pembuka, '25px "Times New Roman", serif')
 
     y += 18
-    const tglFmt = tanggalSuratAcara
-      ? new Date(`${tanggalSuratAcara}T12:00:00`).toLocaleDateString('id-ID', {
+    const tglFmt = activeTanggal
+      ? new Date(`${activeTanggal}T12:00:00`).toLocaleDateString('id-ID', {
           weekday: 'long',
           day: 'numeric',
           month: 'long',
@@ -2228,9 +2351,14 @@ export default function AdminSidebarPage() {
       : '-'
 
     drawKv('Hari / Tanggal', tglFmt, marginX + 46, 185)
-    drawKv(jenisSurat === 'Khutbah Jumat' ? 'Waktu Jumat' : 'Waktu', waktuSuratAcara || '-', marginX + 46, 185)
-    drawKv('Tempat', tempatSuratAcara || '-', marginX + 46, 185)
-    drawKv('Agenda', agendaSurat || '-', marginX + 46, 185)
+    drawKv(
+      activeJenis === 'Khutbah Jumat' ? 'Waktu Jumat' : 'Waktu',
+      activeWaktu || '-',
+      marginX + 46,
+      185
+    )
+    drawKv('Tempat', activeTempat || '-', marginX + 46, 185)
+    drawKv('Agenda', activeAgenda || activePerihal || '-', marginX + 46, 185)
 
     y += 22
     drawWrapped(
@@ -2275,8 +2403,10 @@ export default function AdminSidebarPage() {
     return canvas
   }
 
-  const buildSuratImageBlob = async (): Promise<Blob> => {
-    const canvas = await renderSuratCanvas()
+  const buildSuratImageBlob = async (
+    overrides?: Parameters<typeof renderSuratCanvas>[0]
+  ): Promise<Blob> => {
+    const canvas = await renderSuratCanvas(overrides)
     const blob = await new Promise<Blob | null>((resolve) =>
       canvas.toBlob((b) => resolve(b), 'image/png')
     )
@@ -9039,13 +9169,79 @@ export default function AdminSidebarPage() {
               </div>
             </div>
 
-            {/* MENU 7: SURAT UNDANGAN RESMI DKM */}
-            <div
-              className={styles.dashGrid}
-              style={{ display: activeTab === 'surat_undangan' ? 'grid' : 'none' }}
-            >
-              <div className={styles.panelCard}>
-                <h2 className={styles.panelTitle}>Pembuat Surat Undangan Resmi DKM</h2>
+            {/* MENU 7: SURAT UNDANGAN RESMI DKM (KLASIFIKASI MANUAL & OTOMATIS) */}
+            <div style={{ display: activeTab === 'surat_undangan' ? 'block' : 'none' }}>
+              {/* Switcher Klasifikasi Surat Undangan: Manual vs Otomatis */}
+              <div
+                className={styles.panelCard}
+                style={{
+                  marginBottom: '16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: '12px',
+                  padding: '14px 18px',
+                }}
+              >
+                <div>
+                  <h2 className={styles.panelTitle} style={{ margin: 0, fontSize: '1.05rem' }}>
+                    Klasifikasi Surat Undangan DKM
+                  </h2>
+                  <span style={{ fontSize: '0.78rem', color: '#4b5563', fontWeight: 600 }}>
+                    {`Nomor seri berikutnya tersinkron otomatis: ${noSurat}`}
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    onClick={() => setSuratTabMode('manual')}
+                    style={{
+                      padding: '9px 16px',
+                      borderRadius: '10px',
+                      border:
+                        suratTabMode === 'manual'
+                          ? '1px solid #0f4a2a'
+                          : '1px solid rgba(27, 107, 69, 0.25)',
+                      background: suratTabMode === 'manual' ? '#0f4a2a' : '#f0fdf4',
+                      color: suratTabMode === 'manual' ? '#ffffff' : '#14532d',
+                      fontWeight: 800,
+                      fontSize: '0.84rem',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Surat Undangan Manual
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSuratTabMode('otomatis')}
+                    style={{
+                      padding: '9px 16px',
+                      borderRadius: '10px',
+                      border:
+                        suratTabMode === 'otomatis'
+                          ? '1px solid #0f4a2a'
+                          : '1px solid rgba(27, 107, 69, 0.25)',
+                      background: suratTabMode === 'otomatis' ? '#0f4a2a' : '#ffffff',
+                      color: suratTabMode === 'otomatis' ? '#ffffff' : '#14532d',
+                      fontWeight: 800,
+                      fontSize: '0.84rem',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {`Surat Undangan Otomatis (${autoUndanganList.length})`}
+                  </button>
+                </div>
+              </div>
+
+              {/* KLASIFIKASI 1: SURAT UNDANGAN MANUAL */}
+              <div
+                className={styles.dashGrid}
+                style={{ display: suratTabMode === 'manual' ? 'grid' : 'none' }}
+              >
+                <div className={styles.panelCard}>
+                  <h2 className={styles.panelTitle}>Pembuat Surat Undangan Manual</h2>
 
                 <div className={styles.formGroup}>
                   <label>Jenis Surat Undangan</label>
@@ -9237,7 +9433,7 @@ export default function AdminSidebarPage() {
                     type="button"
                     className={styles.submitBtn}
                     onClick={async () => {
-                      recordLastUsedNoSurat(noSurat)
+                      recordLastUsedNoSurat(noSurat, tanggalSuratAcara)
                       const pdfBlob = await buildSuratPdfBlob()
                       const url = URL.createObjectURL(pdfBlob)
                       const a = document.createElement('a')
@@ -9266,7 +9462,7 @@ export default function AdminSidebarPage() {
                       boxShadow: '0 6px 16px rgba(18, 140, 126, 0.25)',
                     }}
                     onClick={async () => {
-                      recordLastUsedNoSurat(noSurat)
+                      recordLastUsedNoSurat(noSurat, tanggalSuratAcara)
                       const waSuratText = getSuratWaText()
                       const imgBlob = await buildSuratImageBlob()
                       const fileName = `Surat-Undangan-DKM-${tanggalSuratAcara || 'Resmi'}.png`
@@ -9531,6 +9727,548 @@ export default function AdminSidebarPage() {
                   />
                 </div>
               </div>
+              </div>
+
+              {/* KLASIFIKASI 2: SURAT UNDANGAN OTOMATIS (FORM SIMPEL 4 INPUT + MENU LIST + SHARE WA LANGSUNG + KONFIRMASI STATUS) */}
+              {suratTabMode === 'otomatis' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {/* Form Input Simpel Undangan Otomatis */}
+                  <div className={styles.panelCard}>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: '8px',
+                        marginBottom: '12px',
+                      }}
+                    >
+                      <div>
+                        <h2 className={styles.panelTitle} style={{ margin: 0 }}>
+                          Buat Surat Undangan Otomatis
+                        </h2>
+                        <span style={{ fontSize: '0.78rem', color: '#4b5563', fontWeight: 600 }}>
+                          {`Nomor Seri Berikutnya: ${noSurat} (Sinkron otomatis dengan Manual, Kajian, Khutbah & Bilal)`}
+                        </span>
+                      </div>
+                      {lastUsedNoSurat && (
+                        <span
+                          style={{
+                            fontSize: '0.75rem',
+                            fontWeight: 700,
+                            padding: '4px 10px',
+                            borderRadius: '999px',
+                            background: '#f0fdf4',
+                            color: '#166534',
+                            border: '1px solid rgba(22, 163, 74, 0.25)',
+                          }}
+                        >
+                          {`Terakhir: ${lastUsedNoSurat.nomor}`}
+                        </span>
+                      )}
+                    </div>
+
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault()
+                        if (!autoUndanganNama.trim() || !autoUndanganPerihal.trim() || !autoUndanganTanggal) {
+                          return
+                        }
+                        const assignedNo = noSurat
+                        const newItem: AutoUndanganItem = {
+                          id: `auto-und-${Date.now()}`,
+                          noSurat: assignedNo,
+                          nama: autoUndanganNama.trim(),
+                          perihal: autoUndanganPerihal.trim(),
+                          tanggal: autoUndanganTanggal,
+                          noTelp: autoUndanganTelp.trim(),
+                          status: 'Belum Dikirim',
+                          createdAt: new Date().toISOString(),
+                        }
+                        saveAutoUndanganList([newItem, ...autoUndanganList])
+                        saveKhatibContact(autoUndanganNama, autoUndanganTelp)
+                        recordLastUsedNoSurat(assignedNo, autoUndanganTanggal)
+                        setAutoUndanganNama('')
+                        setAutoUndanganTelp('')
+                      }}
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+                        gap: '12px',
+                        alignItems: 'end',
+                      }}
+                    >
+                      <div className={styles.formGroup} style={{ marginBottom: 0 }}>
+                        <label>Nama Penerima / Khotib / Bilal</label>
+                        <input
+                          type="text"
+                          required
+                          list="khatib-contact-list"
+                          placeholder="Contoh: KH. Ahmad Fauzan, S.Ag."
+                          value={autoUndanganNama}
+                          onChange={(e) => {
+                            const val = e.target.value
+                            setAutoUndanganNama(val)
+                            const knownPhone =
+                              khatibContacts[val] ||
+                              kalenderList.find((k) => k.pemateri === val && k.noTeleponPj)
+                                ?.noTeleponPj ||
+                              pengajuanKalenderList.find(
+                                (p) => p.penanggungJawab === val && p.noTeleponPj
+                              )?.noTeleponPj
+                            if (knownPhone) {
+                              setAutoUndanganTelp(knownPhone)
+                            }
+                          }}
+                        />
+                        <datalist id="khatib-contact-list">
+                          {Array.from(
+                            new Set([
+                              ...Object.keys(khatibContacts),
+                              ...kalenderList.map((k) => k.pemateri).filter(Boolean),
+                              ...pengajuanKalenderList.map((p) => p.penanggungJawab).filter(Boolean),
+                            ])
+                          ).map((nm) => (
+                            <option key={nm} value={nm} />
+                          ))}
+                        </datalist>
+                      </div>
+
+                      <div className={styles.formGroup} style={{ marginBottom: 0 }}>
+                        <label>Perihal Undangan</label>
+                        <input
+                          type="text"
+                          required
+                          list="perihal-undangan-presets"
+                          placeholder="Khotib / Bilal / Kajian..."
+                          value={autoUndanganPerihal}
+                          onChange={(e) => setAutoUndanganPerihal(e.target.value)}
+                        />
+                        <datalist id="perihal-undangan-presets">
+                          <option value="Permohonan Menjadi Khotib & Imam Sholat Jum'at" />
+                          <option value="Permohonan Menjadi Khotib Sholat Jum'at" />
+                          <option value="Permohonan Menjadi Imam Sholat Jum'at" />
+                          <option value="Permohonan Menjadi Bilal Sholat Jum'at" />
+                          <option value="Permohonan Menjadi Pemateri Kajian Pekanan" />
+                        </datalist>
+                      </div>
+
+                      <div className={styles.formGroup} style={{ marginBottom: 0 }}>
+                        <label>Tanggal</label>
+                        <input
+                          type="date"
+                          required
+                          value={autoUndanganTanggal}
+                          onChange={(e) => setAutoUndanganTanggal(e.target.value)}
+                        />
+                      </div>
+
+                      <div className={styles.formGroup} style={{ marginBottom: 0 }}>
+                        <label>No. Telepon (HP Khotib)</label>
+                        <input
+                          type="tel"
+                          required
+                          placeholder="0812xxxxxxxx"
+                          value={autoUndanganTelp}
+                          onChange={(e) => setAutoUndanganTelp(e.target.value)}
+                        />
+                      </div>
+
+                      <button
+                        type="submit"
+                        className={styles.submitBtn}
+                        style={{ marginTop: 0, height: '42px' }}
+                      >
+                        + Tambah ke List Undangan
+                      </button>
+                    </form>
+                  </div>
+
+                  {/* Menu List Undangan Otomatis */}
+                  <div className={styles.panelCard}>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: '8px',
+                        marginBottom: '12px',
+                      }}
+                    >
+                      <h2 className={styles.panelTitle} style={{ margin: 0 }}>
+                        {`Daftar Surat Undangan Otomatis (${autoUndanganList.length})`}
+                      </h2>
+                      {autoWaShareHint && (
+                        <span
+                          style={{
+                            fontSize: '0.78rem',
+                            fontWeight: 700,
+                            color: '#166534',
+                            background: '#f0fdf4',
+                            padding: '5px 10px',
+                            borderRadius: '8px',
+                            border: '1px solid rgba(22, 163, 74, 0.25)',
+                          }}
+                        >
+                          {autoWaShareHint}
+                        </span>
+                      )}
+                    </div>
+
+                    {autoUndanganList.length === 0 ? (
+                      <p className={styles.panelSub} style={{ marginBottom: 0 }}>
+                        Belum ada daftar undangan otomatis. Isi Nama, Perihal, Tanggal, dan No. HP
+                        Khotib di atas untuk membuat undangan siap kirim WA.
+                      </p>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {autoUndanganList.map((item) => {
+                          const statusColors =
+                            item.status === 'Diterima'
+                              ? { bg: '#dcfce7', fg: '#166534' }
+                              : item.status === 'Ditolak'
+                                ? { bg: '#fee2e2', fg: '#991b1b' }
+                                : item.status === 'Sudah Dikirim'
+                                  ? { bg: '#dbeafe', fg: '#1e40af' }
+                                  : { bg: '#fef3c7', fg: '#92400e' }
+
+                          return (
+                            <div
+                              key={item.id}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                gap: '12px',
+                                padding: '11px 14px',
+                                borderRadius: '11px',
+                                background: '#f8faf8',
+                                border: '1px solid rgba(27, 107, 69, 0.16)',
+                                flexWrap: 'wrap',
+                              }}
+                            >
+                              <div
+                                style={{
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  gap: '3px',
+                                  minWidth: '220px',
+                                  flex: 1,
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    flexWrap: 'wrap',
+                                  }}
+                                >
+                                  <span
+                                    style={{
+                                      fontSize: '0.71rem',
+                                      fontWeight: 800,
+                                      padding: '2px 8px',
+                                      borderRadius: '6px',
+                                      background: '#ecfdf5',
+                                      color: '#0f4a2a',
+                                      border: '1px solid rgba(22, 163, 74, 0.25)',
+                                    }}
+                                  >
+                                    {item.noSurat}
+                                  </span>
+                                  <strong
+                                    style={{
+                                      fontSize: '0.9rem',
+                                      color: '#111827',
+                                      fontWeight: 800,
+                                    }}
+                                  >
+                                    {item.nama}
+                                  </strong>
+                                  <span
+                                    style={{
+                                      fontSize: '0.7rem',
+                                      fontWeight: 800,
+                                      padding: '2px 9px',
+                                      borderRadius: '999px',
+                                      background: statusColors.bg,
+                                      color: statusColors.fg,
+                                    }}
+                                  >
+                                    {item.status}
+                                  </span>
+                                </div>
+                                <div
+                                  style={{
+                                    fontSize: '0.79rem',
+                                    color: '#374151',
+                                    fontWeight: 600,
+                                  }}
+                                >
+                                  {`${item.perihal} • ${item.tanggal} • WA: ${item.noTelp}`}
+                                </div>
+                              </div>
+
+                              {/* Pojok Kanan: Tombol Share WA langsung + Ubah Status + Hapus */}
+                              <div
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '7px',
+                                  flexWrap: 'wrap',
+                                }}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => setKonfirmasiAutoModal(item)}
+                                  style={{
+                                    border: '1px solid rgba(27, 107, 69, 0.25)',
+                                    background: '#ffffff',
+                                    color: '#14532d',
+                                    borderRadius: '8px',
+                                    padding: '6px 10px',
+                                    fontSize: '0.76rem',
+                                    fontWeight: 800,
+                                    cursor: 'pointer',
+                                  }}
+                                >
+                                  Status
+                                </button>
+                                <button
+                                  type="button"
+                                  className={styles.deleteBtn}
+                                  style={{ padding: '6px 10px', fontSize: '0.76rem' }}
+                                  onClick={() =>
+                                    saveAutoUndanganList(
+                                      autoUndanganList.filter((x) => x.id !== item.id)
+                                    )
+                                  }
+                                >
+                                  Hapus
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    const isKhutbah = /khotib|khatib|imam|bilal|jumat|jum'at/i.test(
+                                      item.perihal
+                                    )
+                                    const jenisTarget: 'Khutbah Jumat' | 'Umum' = isKhutbah
+                                      ? 'Khutbah Jumat'
+                                      : 'Umum'
+                                    const waText = getSuratWaText({
+                                      kepada: item.nama,
+                                      perihal: item.perihal,
+                                      jenisSurat: jenisTarget,
+                                    })
+                                    const imgBlob = await buildSuratImageBlob({
+                                      noSurat: item.noSurat,
+                                      perihal: item.perihal,
+                                      kepada: item.nama,
+                                      tanggal: item.tanggal,
+                                      waktu: isKhutbah ? '11:36 WIB' : waktuSuratAcara,
+                                      agenda: item.perihal,
+                                      jenisSurat: jenisTarget,
+                                    })
+                                    const fileName = `Surat-Undangan-${item.nama.replace(
+                                      /[^a-zA-Z0-9]+/g,
+                                      '-'
+                                    )}-${item.tanggal}.png`
+
+                                    try {
+                                      if (
+                                        typeof ClipboardItem !== 'undefined' &&
+                                        navigator.clipboard?.write
+                                      ) {
+                                        await navigator.clipboard.write([
+                                          new ClipboardItem({ 'image/png': imgBlob }),
+                                        ])
+                                      }
+                                    } catch {
+                                      // ignore clipboard fallback
+                                    }
+
+                                    const url = URL.createObjectURL(imgBlob)
+                                    const a = document.createElement('a')
+                                    a.href = url
+                                    a.download = fileName
+                                    a.click()
+                                    URL.revokeObjectURL(url)
+
+                                    const waPhone = normalizeWaPhone(item.noTelp)
+                                    const waUrl = waPhone
+                                      ? `https://wa.me/${waPhone}?text=${encodeURIComponent(waText)}`
+                                      : `https://wa.me/?text=${encodeURIComponent(waText)}`
+                                    window.open(waUrl, '_blank', 'noopener,noreferrer')
+
+                                    setAutoWaShareHint(
+                                      `Foto undangan (${item.noSurat}) disalin ke clipboard & diunduh, serta WA ke ${item.noTelp} dibuka. Silakan konfirmasi status undangan.`
+                                    )
+                                    setKonfirmasiAutoModal(item)
+                                  }}
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    border: 'none',
+                                    background: 'linear-gradient(135deg, #25D366, #128C7E)',
+                                    color: '#ffffff',
+                                    borderRadius: '8px',
+                                    padding: '7px 13px',
+                                    fontSize: '0.78rem',
+                                    fontWeight: 800,
+                                    cursor: 'pointer',
+                                    boxShadow: '0 4px 12px rgba(18, 140, 126, 0.25)',
+                                  }}
+                                >
+                                  Share WA
+                                </button>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* POP-UP KONFIRMASI ADMIN STATUS UNDANGAN OTOMATIS (SUDAH DIKIRIM / DITERIMA / DITOLAK) */}
+              {konfirmasiAutoModal && (
+                <div
+                  style={{
+                    position: 'fixed',
+                    inset: 0,
+                    background: 'rgba(15, 23, 42, 0.68)',
+                    backdropFilter: 'blur(4px)',
+                    zIndex: 9996,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '16px',
+                  }}
+                  onClick={() => setKonfirmasiAutoModal(null)}
+                >
+                  <div
+                    style={{
+                      background: '#ffffff',
+                      borderRadius: '18px',
+                      width: '100%',
+                      maxWidth: '460px',
+                      padding: '24px',
+                      boxShadow: '0 24px 60px rgba(0, 0, 0, 0.32)',
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        marginBottom: '10px',
+                      }}
+                    >
+                      <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 900, color: '#0f4a2a' }}>
+                        Konfirmasi Status Undangan
+                      </h3>
+                      <button
+                        type="button"
+                        aria-label="Tutup Konfirmasi"
+                        onClick={() => setKonfirmasiAutoModal(null)}
+                        style={{
+                          border: 'none',
+                          background: '#f3f4f6',
+                          borderRadius: '8px',
+                          width: '30px',
+                          height: '30px',
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                    <p style={{ margin: '0 0 14px', fontSize: '0.84rem', color: '#374151', lineHeight: 1.5 }}>
+                      Tandai status undangan untuk <strong>{konfirmasiAutoModal.nama}</strong> ({konfirmasiAutoModal.noSurat}) agar mudah membedakan mana yang sudah dikirim, diterima, atau ditolak:
+                    </p>
+                    <div style={{ display: 'grid', gap: '8px' }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          saveAutoUndanganList(
+                            autoUndanganList.map((x) =>
+                              x.id === konfirmasiAutoModal.id
+                                ? { ...x, status: 'Sudah Dikirim' }
+                                : x
+                            )
+                          )
+                          setKonfirmasiAutoModal(null)
+                        }}
+                        style={{
+                          padding: '10px 14px',
+                          borderRadius: '10px',
+                          border: '1px solid #93c5fd',
+                          background: '#eff6ff',
+                          color: '#1e40af',
+                          fontWeight: 800,
+                          fontSize: '0.85rem',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        ✓ Sudah Dikirim ke WhatsApp
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          saveAutoUndanganList(
+                            autoUndanganList.map((x) =>
+                              x.id === konfirmasiAutoModal.id ? { ...x, status: 'Diterima' } : x
+                            )
+                          )
+                          setKonfirmasiAutoModal(null)
+                        }}
+                        style={{
+                          padding: '10px 14px',
+                          borderRadius: '10px',
+                          border: '1px solid #86efac',
+                          background: '#f0fdf4',
+                          color: '#166534',
+                          fontWeight: 800,
+                          fontSize: '0.85rem',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        ✓ Diterima (Penerima Bersedia)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          saveAutoUndanganList(
+                            autoUndanganList.map((x) =>
+                              x.id === konfirmasiAutoModal.id ? { ...x, status: 'Ditolak' } : x
+                            )
+                          )
+                          setKonfirmasiAutoModal(null)
+                        }}
+                        style={{
+                          padding: '10px 14px',
+                          borderRadius: '10px',
+                          border: '1px solid #fca5a5',
+                          background: '#fef2f2',
+                          color: '#991b1b',
+                          fontWeight: 800,
+                          fontSize: '0.85rem',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        ✕ Ditolak / Berhalangan
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* MENU 8: UPLOAD KITAB EL JIHAD */}
