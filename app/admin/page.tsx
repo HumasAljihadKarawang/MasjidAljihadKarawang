@@ -4492,7 +4492,20 @@ export default function AdminSidebarPage() {
                     justifyContent: 'center',
                     padding: '16px',
                   }}
-                  onClick={() =>
+                  onClick={() => {
+                    const hasInput = Boolean(
+                      judulKal.trim() ||
+                        pemateriKal.trim() ||
+                        noTelpKal.trim() ||
+                        asetKal.trim() ||
+                        manualAsetExtraAdmin.trim() ||
+                        Object.values(selectedAsetQtyAdmin).some((q) => q > 0) ||
+                        internalMasjidKal
+                    )
+                    if (!hasInput) {
+                      setShowInputKalenderModal(false)
+                      return
+                    }
                     setUnsavedConfirmModal({
                       contextLabel: 'Input Jadwal Kalender',
                       onDiscard: () => {
@@ -4506,7 +4519,7 @@ export default function AdminSidebarPage() {
                         setInternalMasjidKal(false)
                       },
                     })
-                  }
+                  }}
                 >
                   <div
                     style={{
@@ -4535,7 +4548,20 @@ export default function AdminSidebarPage() {
                       <button
                         type="button"
                         aria-label="Tutup Pop-up"
-                        onClick={() =>
+                        onClick={() => {
+                          const hasInput = Boolean(
+                            judulKal.trim() ||
+                              pemateriKal.trim() ||
+                              noTelpKal.trim() ||
+                              asetKal.trim() ||
+                              manualAsetExtraAdmin.trim() ||
+                              Object.values(selectedAsetQtyAdmin).some((q) => q > 0) ||
+                              internalMasjidKal
+                          )
+                          if (!hasInput) {
+                            setShowInputKalenderModal(false)
+                            return
+                          }
                           setUnsavedConfirmModal({
                             contextLabel: 'Input Jadwal Kalender',
                             onDiscard: () => {
@@ -4549,7 +4575,7 @@ export default function AdminSidebarPage() {
                               setInternalMasjidKal(false)
                             },
                           })
-                        }
+                        }}
                         style={{
                           border: 'none',
                           background: '#f3f4f6',
@@ -4779,7 +4805,15 @@ export default function AdminSidebarPage() {
                     justifyContent: 'center',
                     padding: '16px',
                   }}
-                  onClick={() =>
+                  onClick={() => {
+                    const hasInput = Boolean(
+                      Object.values(selectedAsetQtyAdmin).some((q) => q > 0) ||
+                        manualAsetExtraAdmin.trim()
+                    )
+                    if (!hasInput) {
+                      setShowAsetAdminModal(false)
+                      return
+                    }
                     setUnsavedConfirmModal({
                       contextLabel: 'Pilihan Peminjaman Aset Masjid',
                       onDiscard: () => {
@@ -4789,7 +4823,7 @@ export default function AdminSidebarPage() {
                         setShowAsetAdminModal(false)
                       },
                     })
-                  }
+                  }}
                 >
                   <div
                     style={{
@@ -4815,7 +4849,15 @@ export default function AdminSidebarPage() {
                       </h4>
                       <button
                         type="button"
-                        onClick={() =>
+                        onClick={() => {
+                          const hasInput = Boolean(
+                            Object.values(selectedAsetQtyAdmin).some((q) => q > 0) ||
+                              manualAsetExtraAdmin.trim()
+                          )
+                          if (!hasInput) {
+                            setShowAsetAdminModal(false)
+                            return
+                          }
                           setUnsavedConfirmModal({
                             contextLabel: 'Pilihan Peminjaman Aset Masjid',
                             onDiscard: () => {
@@ -4825,7 +4867,7 @@ export default function AdminSidebarPage() {
                               setShowAsetAdminModal(false)
                             },
                           })
-                        }
+                        }}
                         style={{
                           border: 'none',
                           background: '#f3f4f6',
@@ -4999,7 +5041,12 @@ export default function AdminSidebarPage() {
                     justifyContent: 'center',
                     padding: '16px',
                   }}
-                  onClick={() =>
+                  onClick={() => {
+                    if (!adminAuthPassword.trim()) {
+                      setAdminAuthModalOpen(false)
+                      setPendingAdminAction(null)
+                      return
+                    }
                     setUnsavedConfirmModal({
                       contextLabel: 'Konfirmasi Password Admin',
                       onDiscard: () => {
@@ -5007,7 +5054,7 @@ export default function AdminSidebarPage() {
                         setPendingAdminAction(null)
                       },
                     })
-                  }
+                  }}
                 >
                   <div
                     style={{
@@ -5033,7 +5080,12 @@ export default function AdminSidebarPage() {
                       </h3>
                       <button
                         type="button"
-                        onClick={() =>
+                        onClick={() => {
+                          if (!adminAuthPassword.trim()) {
+                            setAdminAuthModalOpen(false)
+                            setPendingAdminAction(null)
+                            return
+                          }
                           setUnsavedConfirmModal({
                             contextLabel: 'Konfirmasi Password Admin',
                             onDiscard: () => {
@@ -5041,7 +5093,7 @@ export default function AdminSidebarPage() {
                               setPendingAdminAction(null)
                             },
                           })
-                        }
+                        }}
                         style={{
                           border: 'none',
                           background: '#f3f4f6',
@@ -5112,7 +5164,12 @@ export default function AdminSidebarPage() {
                       <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
                         <button
                           type="button"
-                          onClick={() =>
+                          onClick={() => {
+                            if (!adminAuthPassword.trim()) {
+                              setAdminAuthModalOpen(false)
+                              setPendingAdminAction(null)
+                              return
+                            }
                             setUnsavedConfirmModal({
                               contextLabel: 'Konfirmasi Password Admin',
                               onDiscard: () => {
@@ -5120,7 +5177,7 @@ export default function AdminSidebarPage() {
                                 setPendingAdminAction(null)
                               },
                             })
-                          }
+                          }}
                           style={{
                             flex: 1,
                             padding: '10px',
@@ -7169,7 +7226,16 @@ export default function AdminSidebarPage() {
                     justifyContent: 'center',
                     padding: '16px',
                   }}
-                  onClick={() =>
+                  onClick={() => {
+                    const hasInput = Boolean(
+                      uraianPengeluaran.trim() ||
+                        nominalPengeluaran.trim() ||
+                        catatanPengeluaran.trim()
+                    )
+                    if (!hasInput) {
+                      setShowInputKeuanganModal(false)
+                      return
+                    }
                     setUnsavedConfirmModal({
                       contextLabel: `Input ${jenisTransaksiKeu} BKU Masjid`,
                       onDiscard: () => {
@@ -7179,7 +7245,7 @@ export default function AdminSidebarPage() {
                         setCatatanPengeluaran('')
                       },
                     })
-                  }
+                  }}
                 >
                   <div
                     style={{
@@ -7208,7 +7274,16 @@ export default function AdminSidebarPage() {
                       <button
                         type="button"
                         aria-label="Tutup Pop-up"
-                        onClick={() =>
+                        onClick={() => {
+                          const hasInput = Boolean(
+                            uraianPengeluaran.trim() ||
+                              nominalPengeluaran.trim() ||
+                              catatanPengeluaran.trim()
+                          )
+                          if (!hasInput) {
+                            setShowInputKeuanganModal(false)
+                            return
+                          }
                           setUnsavedConfirmModal({
                             contextLabel: `Input ${jenisTransaksiKeu} BKU Masjid`,
                             onDiscard: () => {
@@ -7218,7 +7293,7 @@ export default function AdminSidebarPage() {
                               setCatatanPengeluaran('')
                             },
                           })
-                        }
+                        }}
                         style={{
                           border: 'none',
                           background: '#f3f4f6',

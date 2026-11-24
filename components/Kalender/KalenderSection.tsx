@@ -970,7 +970,24 @@ export default function KalenderSection() {
             justifyContent: 'center',
             padding: '16px',
           }}
-          onClick={() =>
+          onClick={() => {
+            const hasInput = Boolean(
+              namaKegiatan.trim() ||
+                deskripsiKegiatan.trim() ||
+                penanggungJawab.trim() ||
+                noTeleponPj.trim() ||
+                tempatKegiatan.trim() ||
+                peminjamanAset.trim() ||
+                posterUrl.trim() ||
+                catatanPengajuan.trim() ||
+                manualAsetExtra.trim() ||
+                Object.values(selectedAsetQty).some((q) => q > 0)
+            )
+            if (!hasInput) {
+              setShowPengajuanModal(false)
+              setFormError('')
+              return
+            }
             setUnsavedModalUser({
               contextLabel: 'Formulir Pengajuan Kegiatan Masjid Al-Jihad',
               onDiscard: () => {
@@ -988,7 +1005,7 @@ export default function KalenderSection() {
                 setFormError('')
               },
             })
-          }
+          }}
         >
           <div
             style={{
@@ -1019,7 +1036,24 @@ export default function KalenderSection() {
               <button
                 type="button"
                 aria-label="Tutup Pop-up"
-                onClick={() =>
+                onClick={() => {
+                  const hasInput = Boolean(
+                    namaKegiatan.trim() ||
+                      deskripsiKegiatan.trim() ||
+                      penanggungJawab.trim() ||
+                      noTeleponPj.trim() ||
+                      tempatKegiatan.trim() ||
+                      peminjamanAset.trim() ||
+                      posterUrl.trim() ||
+                      catatanPengajuan.trim() ||
+                      manualAsetExtra.trim() ||
+                      Object.values(selectedAsetQty).some((q) => q > 0)
+                  )
+                  if (!hasInput) {
+                    setShowPengajuanModal(false)
+                    setFormError('')
+                    return
+                  }
                   setUnsavedModalUser({
                     contextLabel: 'Formulir Pengajuan Kegiatan Masjid Al-Jihad',
                     onDiscard: () => {
@@ -1037,7 +1071,7 @@ export default function KalenderSection() {
                       setFormError('')
                     },
                   })
-                }
+                }}
                 style={{
                   border: 'none',
                   background: '#f3f4f6',
@@ -1371,7 +1405,14 @@ export default function KalenderSection() {
             justifyContent: 'center',
             padding: '16px',
           }}
-          onClick={() =>
+          onClick={() => {
+            const hasInput = Boolean(
+              Object.values(selectedAsetQty).some((q) => q > 0) || manualAsetExtra.trim()
+            )
+            if (!hasInput) {
+              setShowAsetModal(false)
+              return
+            }
             setUnsavedModalUser({
               contextLabel: 'Pilihan Peminjaman Aset Masjid',
               onDiscard: () => {
@@ -1381,7 +1422,7 @@ export default function KalenderSection() {
                 setShowAsetModal(false)
               },
             })
-          }
+          }}
         >
           <div
             style={{
@@ -1407,7 +1448,14 @@ export default function KalenderSection() {
               </h4>
               <button
                 type="button"
-                onClick={() =>
+                onClick={() => {
+                  const hasInput = Boolean(
+                    Object.values(selectedAsetQty).some((q) => q > 0) || manualAsetExtra.trim()
+                  )
+                  if (!hasInput) {
+                    setShowAsetModal(false)
+                    return
+                  }
                   setUnsavedModalUser({
                     contextLabel: 'Pilihan Peminjaman Aset Masjid',
                     onDiscard: () => {
@@ -1417,7 +1465,7 @@ export default function KalenderSection() {
                       setShowAsetModal(false)
                     },
                   })
-                }
+                }}
                 style={{
                   border: 'none',
                   background: '#f3f4f6',
@@ -1592,12 +1640,16 @@ export default function KalenderSection() {
             justifyContent: 'center',
             padding: '16px',
           }}
-          onClick={() =>
+          onClick={() => {
+            if (!captchaInput.trim()) {
+              setShowCaptchaModal(false)
+              return
+            }
             setUnsavedModalUser({
               contextLabel: 'Verifikasi Keamanan Pengajuan',
               onDiscard: () => setShowCaptchaModal(false),
             })
-          }
+          }}
         >
           <div
             style={{
@@ -1615,12 +1667,16 @@ export default function KalenderSection() {
             <button
               type="button"
               aria-label="Tutup Pop-up"
-              onClick={() =>
+              onClick={() => {
+                if (!captchaInput.trim()) {
+                  setShowCaptchaModal(false)
+                  return
+                }
                 setUnsavedModalUser({
                   contextLabel: 'Verifikasi Keamanan Pengajuan',
                   onDiscard: () => setShowCaptchaModal(false),
                 })
-              }
+              }}
               style={{
                 position: 'absolute',
                 top: '14px',
@@ -1716,12 +1772,16 @@ export default function KalenderSection() {
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button
                   type="button"
-                  onClick={() =>
+                  onClick={() => {
+                    if (!captchaInput.trim()) {
+                      setShowCaptchaModal(false)
+                      return
+                    }
                     setUnsavedModalUser({
                       contextLabel: 'Verifikasi Keamanan Pengajuan',
                       onDiscard: () => setShowCaptchaModal(false),
                     })
-                  }
+                  }}
                   style={{
                     flex: 1,
                     padding: '10px',
