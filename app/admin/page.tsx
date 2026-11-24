@@ -9,6 +9,7 @@ import logoIg from '@/logo/LOGO IG.png'
 import logoWeb from '@/logo/LOGO WEB.png'
 import posterKajianBg from '@/logo/Poster Kajian Pekanan.png'
 import ttdDkm from '@/logo/TTD DKM MASJID AL JIHAD.png'
+import ttdBendahara from '@/logo/TTD BENDAHARA MASJID AL JIHAD.png'
 import {
   getActiveSupabaseConfig,
   saveRuntimeSupabaseConfig,
@@ -5477,6 +5478,8 @@ export default function AdminSidebarPage() {
                                   items: keuanganList,
                                   saldoBulanSebelumnya: activeSaldoSebelumnya,
                                   logoSrc: logoMasjidWarna.src,
+                                  ttdDkmSrc: ttdDkm.src,
+                                  ttdBendaharaSrc: ttdBendahara.src,
                                 })
                               }
                               style={{
@@ -5504,6 +5507,8 @@ export default function AdminSidebarPage() {
                                   items: itemsInSelectedWeek,
                                   saldoAwalMinggu: activeSaldoSebelumnya,
                                   logoSrc: logoMasjidWarna.src,
+                                  ttdDkmSrc: ttdDkm.src,
+                                  ttdBendaharaSrc: ttdBendahara.src,
                                 })
                               }
                               style={{
@@ -5529,6 +5534,8 @@ export default function AdminSidebarPage() {
                                   items: keuanganList,
                                   saldoAwalHari: activeSaldoSebelumnya,
                                   logoSrc: logoMasjidWarna.src,
+                                  ttdDkmSrc: ttdDkm.src,
+                                  ttdBendaharaSrc: ttdBendahara.src,
                                 })
                               }
                               style={{
@@ -6938,23 +6945,34 @@ export default function AdminSidebarPage() {
                       >
                         <div>
                           <div style={{ fontWeight: 700 }}>Mengetahui,</div>
-                          <div style={{ fontWeight: 800, marginBottom: '6px' }}>Ketua DKM</div>
-                          <svg
-                            width="150"
-                            height="56"
-                            viewBox="0 0 180 65"
-                            style={{ display: 'block', margin: '0 auto' }}
-                          >
-                            <path
-                              d="M 25 52 Q 45 8 58 50 Q 70 22 82 48 Q 96 18 110 46 Q 134 38 162 34"
-                              fill="none"
-                              stroke="#1e293b"
-                              strokeWidth="2.2"
-                              strokeLinecap="round"
-                            />
-                          </svg>
+                          <div style={{ fontWeight: 800, marginBottom: '4px' }}>Ketua DKM</div>
                           <div
                             style={{
+                              position: 'relative',
+                              marginTop: '-6px',
+                              marginBottom: '-14px',
+                              zIndex: 2,
+                              pointerEvents: 'none',
+                            }}
+                          >
+                            <Image
+                              src={ttdDkm}
+                              alt="TTD Ketua DKM Masjid Al-Jihad"
+                              width={ttdDkm.width}
+                              height={ttdDkm.height}
+                              style={{
+                                width: '165px',
+                                height: '64px',
+                                margin: '0 auto',
+                                objectFit: 'contain',
+                                display: 'block',
+                              }}
+                            />
+                          </div>
+                          <div
+                            style={{
+                              position: 'relative',
+                              zIndex: 1,
                               fontWeight: 800,
                               textDecoration: 'underline',
                               marginTop: '2px',
@@ -6968,23 +6986,34 @@ export default function AdminSidebarPage() {
                           <div style={{ fontWeight: 700 }}>
                             {`Karawang, ${formatTanggalIndo(todayIsoAdmin)}`}
                           </div>
-                          <div style={{ fontWeight: 800, marginBottom: '6px' }}>Bendahara</div>
-                          <svg
-                            width="150"
-                            height="56"
-                            viewBox="0 0 180 65"
-                            style={{ display: 'block', margin: '0 auto' }}
-                          >
-                            <path
-                              d="M 55 38 Q 72 4 82 62 Q 74 26 104 34 Q 128 40 158 36"
-                              fill="none"
-                              stroke="#0f172a"
-                              strokeWidth="3"
-                              strokeLinecap="round"
-                            />
-                          </svg>
+                          <div style={{ fontWeight: 800, marginBottom: '4px' }}>Bendahara</div>
                           <div
                             style={{
+                              position: 'relative',
+                              marginTop: '-6px',
+                              marginBottom: '-14px',
+                              zIndex: 2,
+                              pointerEvents: 'none',
+                            }}
+                          >
+                            <Image
+                              src={ttdBendahara}
+                              alt="TTD Bendahara Masjid Al-Jihad"
+                              width={ttdBendahara.width}
+                              height={ttdBendahara.height}
+                              style={{
+                                width: '165px',
+                                height: '64px',
+                                margin: '0 auto',
+                                objectFit: 'contain',
+                                display: 'block',
+                              }}
+                            />
+                          </div>
+                          <div
+                            style={{
+                              position: 'relative',
+                              zIndex: 1,
                               fontWeight: 800,
                               textDecoration: 'underline',
                               marginTop: '2px',

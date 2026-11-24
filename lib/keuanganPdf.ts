@@ -468,6 +468,8 @@ async function renderAndDownloadBkuPdf(params: {
   saldoSebelumnya?: number
   labelSaldoAkhir?: string
   logoSrc?: string
+  ttdDkmSrc?: string
+  ttdBendaharaSrc?: string
 }) {
   // Ukuran A4 proporsional tajam (1240 x 1754 px)
   const W = 1240
@@ -487,6 +489,8 @@ async function renderAndDownloadBkuPdf(params: {
   const rowH = 30
 
   const logoImg = await loadOptionalImage(params.logoSrc)
+  const ttdDkmImg = await loadOptionalImage(params.ttdDkmSrc)
+  const ttdBendaharaImg = await loadOptionalImage(params.ttdBendaharaSrc)
   const pairedRows = buildBkuPairedRows(params.items, params.minRows)
 
   const totalPemasukan = params.items
@@ -779,30 +783,52 @@ async function renderAndDownloadBkuPdf(params: {
         ctx.fillText('Dibuat Oleh,', rightSigX, sigY + 24)
         ctx.fillText('Bendahara', rightSigX, sigY + 46)
 
-        // Goresan tanda tangan Ketua DKM
-        ctx.save()
-        ctx.strokeStyle = '#1e293b'
-        ctx.lineWidth = 2.2
-        ctx.lineCap = 'round'
-        ctx.lineJoin = 'round'
-        ctx.beginPath()
-        ctx.moveTo(leftSigX - 58, sigY + 108)
-        ctx.quadraticCurveTo(leftSigX - 38, sigY + 55, leftSigX - 24, sigY + 106)
-        ctx.quadraticCurveTo(leftSigX - 12, sigY + 78, leftSigX - 2, sigY + 104)
-        ctx.quadraticCurveTo(leftSigX + 10, sigY + 72, leftSigX + 22, sigY + 102)
-        ctx.quadraticCurveTo(leftSigX + 44, sigY + 95, leftSigX + 76, sigY + 90)
-        ctx.stroke()
+        // Gambar tanda tangan asli Ketua DKM (fallback goresan jika gambar gagal dimuat)
+        if (ttdDkmImg) {
+          const maxW = 180
+          const maxH = 82
+          const scale = Math.min(maxW / ttdDkmImg.width, maxH / ttdDkmImg.height)
+          const drawW = ttdDkmImg.width * scale
+          const drawH = ttdDkmImg.height * scale
+          ctx.drawImage(ttdDkmImg, leftSigX - drawW / 2, sigY + 52, drawW, drawH)
+        } else {
+          ctx.save()
+          ctx.strokeStyle = '#1e293b'
+          ctx.lineWidth = 2.2
+          ctx.lineCap = 'round'
+          ctx.lineJoin = 'round'
+          ctx.beginPath()
+          ctx.moveTo(leftSigX - 58, sigY + 108)
+          ctx.quadraticCurveTo(leftSigX - 38, sigY + 55, leftSigX - 24, sigY + 106)
+          ctx.quadraticCurveTo(leftSigX - 12, sigY + 78, leftSigX - 2, sigY + 104)
+          ctx.quadraticCurveTo(leftSigX + 10, sigY + 72, leftSigX + 22, sigY + 102)
+          ctx.quadraticCurveTo(leftSigX + 44, sigY + 95, leftSigX + 76, sigY + 90)
+          ctx.stroke()
+          ctx.restore()
+        }
 
-        // Goresan tanda tangan Bendahara (Dr.K.H Asep Khareul Faizin,MM)
-        ctx.strokeStyle = '#0f172a'
-        ctx.lineWidth = 3.2
-        ctx.beginPath()
-        ctx.moveTo(rightSigX - 32, sigY + 94)
-        ctx.quadraticCurveTo(rightSigX - 16, sigY + 42, rightSigX - 6, sigY + 126)
-        ctx.quadraticCurveTo(rightSigX - 14, sigY + 76, rightSigX + 14, sigY + 86)
-        ctx.quadraticCurveTo(rightSigX + 38, sigY + 92, rightSigX + 72, sigY + 88)
-        ctx.stroke()
-        ctx.restore()
+        // Gambar tanda tangan asli Bendahara (Dr.K.H Asep Khareul Faizin,MM)
+        if (ttdBendaharaImg) {
+          const maxW = 180
+          const maxH = 82
+          const scale = Math.min(maxW / ttdBendaharaImg.width, maxH / ttdBendaharaImg.height)
+          const drawW = ttdBendaharaImg.width * scale
+          const drawH = ttdBendaharaImg.height * scale
+          ctx.drawImage(ttdBendaharaImg, rightSigX - drawW / 2, sigY + 52, drawW, drawH)
+        } else {
+          ctx.save()
+          ctx.strokeStyle = '#0f172a'
+          ctx.lineWidth = 3.2
+          ctx.lineCap = 'round'
+          ctx.lineJoin = 'round'
+          ctx.beginPath()
+          ctx.moveTo(rightSigX - 32, sigY + 94)
+          ctx.quadraticCurveTo(rightSigX - 16, sigY + 42, rightSigX - 6, sigY + 126)
+          ctx.quadraticCurveTo(rightSigX - 14, sigY + 76, rightSigX + 14, sigY + 86)
+          ctx.quadraticCurveTo(rightSigX + 38, sigY + 92, rightSigX + 72, sigY + 88)
+          ctx.stroke()
+          ctx.restore()
+        }
 
         ctx.fillStyle = '#111827'
         ctx.font = 'bold 15px Arial, sans-serif'
@@ -856,6 +882,8 @@ export async function exportLaporanMingguanPdf(options: {
   items: LaporanKeuanganItem[]
   saldoAwalMinggu?: number
   logoSrc?: string
+  ttdDkmSrc?: string
+  ttdBendaharaSrc?: string
 }) {
   const periodeTitle = options.mingguLabel
     ? `${options.mingguLabel} / ${formatTanggalSlash(options.startDateIso)} - ${formatTanggalSlash(
@@ -876,6 +904,8 @@ export async function exportLaporanMingguanPdf(options: {
     saldoSebelumnya: options.saldoAwalMinggu ?? 0,
     labelSaldoAkhir: `SALDO KAS DKM PER TANGGAL ${formatTanggalIndo(options.endDateIso)}`,
     logoSrc: options.logoSrc,
+    ttdDkmSrc: options.ttdDkmSrc,
+    ttdBendaharaSrc: options.ttdBendaharaSrc,
   })
 }
 
@@ -887,6 +917,8 @@ export async function exportLaporanHarianPdf(options: {
   items: LaporanKeuanganItem[]
   saldoAwalHari?: number
   logoSrc?: string
+  ttdDkmSrc?: string
+  ttdBendaharaSrc?: string
 }) {
   const dayItems = options.items.filter((it) => it.tanggal === options.dateIso)
   const totalPengeluaranHari = dayItems
@@ -904,6 +936,8 @@ export async function exportLaporanHarianPdf(options: {
     saldoSebelumnya: options.saldoAwalHari ?? 0,
     labelSaldoAkhir: `SALDO KAS DKM PER TANGGAL ${formatTanggalIndo(options.dateIso)}`,
     logoSrc: options.logoSrc,
+    ttdDkmSrc: options.ttdDkmSrc,
+    ttdBendaharaSrc: options.ttdBendaharaSrc,
   })
 }
 
@@ -917,6 +951,8 @@ export async function exportLaporanBulananPdf(options: {
   items: LaporanKeuanganItem[]
   saldoBulanSebelumnya?: number
   logoSrc?: string
+  ttdDkmSrc?: string
+  ttdBendaharaSrc?: string
 }) {
   const monthName = NAMA_BULAN_BKU[options.monthIndex] || 'Bulan'
   const prevMonthIndex = options.monthIndex === 0 ? 11 : options.monthIndex - 1
@@ -938,5 +974,7 @@ export async function exportLaporanBulananPdf(options: {
     saldoSebelumnya: options.saldoBulanSebelumnya ?? 0,
     labelSaldoAkhir: `SALDO KAS DKM PER TANGGAL ${formatTanggalIndo(endMonthIso)}`,
     logoSrc: options.logoSrc,
+    ttdDkmSrc: options.ttdDkmSrc,
+    ttdBendaharaSrc: options.ttdBendaharaSrc,
   })
 }
