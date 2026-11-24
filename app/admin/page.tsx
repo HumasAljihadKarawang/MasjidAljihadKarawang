@@ -6107,7 +6107,7 @@ export default function AdminSidebarPage() {
                               margin: '2px 0',
                             }}
                           >
-                            MASJID RAYA AL-JIHAD KARAWANG
+                            MASJID AL-JIHAD ISLAMIC CENTER KARAWANG
                           </div>
                           <div
                             style={{
@@ -7105,13 +7105,13 @@ export default function AdminSidebarPage() {
                         }}
                       >
                         <div>
-                          <div style={{ fontWeight: 700 }}>Mengetahui,</div>
+                          <div style={{ fontWeight: 700, marginTop: '20px' }}>Mengetahui,</div>
                           <div style={{ fontWeight: 800, marginBottom: '4px' }}>Ketua DKM</div>
                           <div
                             style={{
                               position: 'relative',
                               marginTop: '-6px',
-                              marginBottom: '-18px',
+                              marginBottom: '-22px',
                               zIndex: 2,
                               pointerEvents: 'none',
                             }}
@@ -7122,8 +7122,8 @@ export default function AdminSidebarPage() {
                               width={ttdDkm.width}
                               height={ttdDkm.height}
                               style={{
-                                width: '195px',
-                                height: '78px',
+                                width: '235px',
+                                height: '94px',
                                 margin: '0 auto',
                                 objectFit: 'contain',
                                 display: 'block',
@@ -7145,15 +7145,16 @@ export default function AdminSidebarPage() {
                         </div>
 
                         <div>
-                          <div style={{ fontWeight: 700 }}>
+                          <div style={{ fontSize: '0.8rem', color: '#374151', fontWeight: 600 }}>
                             {`Karawang, ${formatTanggalIndo(todayIsoAdmin)}`}
                           </div>
+                          <div style={{ fontWeight: 700 }}>Dibuat Oleh,</div>
                           <div style={{ fontWeight: 800, marginBottom: '4px' }}>Bendahara</div>
                           <div
                             style={{
                               position: 'relative',
                               marginTop: '-8px',
-                              marginBottom: '-16px',
+                              marginBottom: '-22px',
                               zIndex: 2,
                               pointerEvents: 'none',
                             }}
@@ -7164,8 +7165,8 @@ export default function AdminSidebarPage() {
                               width={ttdBendahara.width}
                               height={ttdBendahara.height}
                               style={{
-                                width: '120px',
-                                height: '82px',
+                                width: '150px',
+                                height: '98px',
                                 margin: '0 auto',
                                 objectFit: 'contain',
                                 display: 'block',

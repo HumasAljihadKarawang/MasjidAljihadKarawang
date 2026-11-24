@@ -287,24 +287,35 @@ function drawKopBkuA4(
   ctx.fillStyle = '#d4a843'
   ctx.fillRect(0, 14, width, 4)
 
-  // Logo Masjid di sisi kiri KOP (proporsional pas dengan tinggi kop)
+  // Logo Masjid di sisi kiri KOP (skala proporsional 100% agar tidak gepeng)
   if (logoImg) {
-    const targetH = 108
-    const ratio = (logoImg.width || 1) / (logoImg.height || 1)
-    const targetW = Math.min(155, targetH * ratio)
-    ctx.drawImage(logoImg, marginX + 6, 26, targetW, targetH)
+    const maxLogoW = 148
+    const maxLogoH = 104
+    const logoScale = Math.min(
+      maxLogoW / (logoImg.width || 1),
+      maxLogoH / (logoImg.height || 1)
+    )
+    const drawLogoW = (logoImg.width || 1) * logoScale
+    const drawLogoH = (logoImg.height || 1) * logoScale
+    ctx.drawImage(
+      logoImg,
+      marginX + 6,
+      26 + (maxLogoH - drawLogoH) / 2,
+      drawLogoW,
+      drawLogoH
+    )
   }
 
-  const textCenterX = logoImg ? width / 2 + 34 : width / 2
+  const textCenterX = logoImg ? width / 2 + 44 : width / 2
   ctx.textAlign = 'center'
 
   ctx.fillStyle = '#0f4a2a'
-  ctx.font = 'bold 22px Arial, sans-serif'
-  ctx.fillText('DEWAN KEMAKMURAN MASJID (DKM)', textCenterX, 56)
+  ctx.font = 'bold 21px Arial, sans-serif'
+  ctx.fillText('DEWAN KEMAKMURAN MASJID (DKM)', textCenterX, 54)
 
   ctx.fillStyle = '#111827'
-  ctx.font = 'bold 30px Arial, sans-serif'
-  ctx.fillText('MASJID RAYA AL-JIHAD KARAWANG', textCenterX, 92)
+  ctx.font = 'bold 25px Arial, sans-serif'
+  ctx.fillText('MASJID AL-JIHAD ISLAMIC CENTER KARAWANG', textCenterX, 89)
 
   ctx.fillStyle = '#374151'
   ctx.font = '15px Arial, sans-serif'
@@ -758,41 +769,41 @@ async function renderAndDownloadBkuPdf(params: {
       ctx.lineWidth = 2.4
       ctx.strokeRect(marginX, tableStartY, tableW, y - tableStartY)
 
-      // Tanda tangan Ketua DKM & Bendahara DKM di halaman terakhir (lengkap dengan tanda tangan & nama pejabat DKM)
-      if (y + 185 < H - 25) {
+      // Tanda tangan Ketua DKM & Bendahara DKM di halaman terakhir (layout simetris & tanda tangan realistis)
+      if (y + 205 < H - 25) {
         const now = new Date()
         const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(
           2,
           '0'
         )}-${String(now.getDate()).padStart(2, '0')}`
-        const sigY = y + 32
+        const sigY = y + 34
 
+        const leftSigX = marginX + 230
+        const rightSigX = W - marginX - 230
+
+        ctx.textAlign = 'center'
         ctx.fillStyle = '#374151'
         ctx.font = '15px Arial, sans-serif'
-        ctx.textAlign = 'right'
-        ctx.fillText(`Karawang, ${formatTanggalIndo(todayIso)}`, W - marginX - 10, sigY)
+        ctx.fillText(`Karawang, ${formatTanggalIndo(todayIso)}`, rightSigX, sigY + 4)
 
-        const leftSigX = marginX + 215
-        const rightSigX = W - marginX - 215
-        ctx.textAlign = 'center'
         ctx.fillStyle = '#111827'
         ctx.font = 'bold 16px Arial, sans-serif'
-        ctx.fillText('Mengetahui,', leftSigX, sigY + 24)
-        ctx.fillText('Ketua DKM', leftSigX, sigY + 46)
+        ctx.fillText('Mengetahui,', leftSigX, sigY + 28)
+        ctx.fillText('Ketua DKM', leftSigX, sigY + 50)
 
-        ctx.fillText('Dibuat Oleh,', rightSigX, sigY + 24)
-        ctx.fillText('Bendahara', rightSigX, sigY + 46)
+        ctx.fillText('Dibuat Oleh,', rightSigX, sigY + 28)
+        ctx.fillText('Bendahara', rightSigX, sigY + 50)
 
-        // Gambar tanda tangan asli Ketua DKM (proporsional + multiply agar menyatu seperti tinta asli)
+        // Gambar tanda tangan asli Ketua DKM (ukuran penuh realistis + multiply menyatu di kertas)
         if (ttdDkmImg) {
-          const maxW = 230
-          const maxH = 96
+          const maxW = 285
+          const maxH = 122
           const scale = Math.min(maxW / ttdDkmImg.width, maxH / ttdDkmImg.height)
           const drawW = ttdDkmImg.width * scale
           const drawH = ttdDkmImg.height * scale
           ctx.save()
           ctx.globalCompositeOperation = 'multiply'
-          ctx.drawImage(ttdDkmImg, leftSigX - drawW / 2, sigY + 46, drawW, drawH)
+          ctx.drawImage(ttdDkmImg, leftSigX - drawW / 2, sigY + 52, drawW, drawH)
           ctx.restore()
         } else {
           ctx.save()
@@ -801,25 +812,25 @@ async function renderAndDownloadBkuPdf(params: {
           ctx.lineCap = 'round'
           ctx.lineJoin = 'round'
           ctx.beginPath()
-          ctx.moveTo(leftSigX - 58, sigY + 108)
-          ctx.quadraticCurveTo(leftSigX - 38, sigY + 55, leftSigX - 24, sigY + 106)
-          ctx.quadraticCurveTo(leftSigX - 12, sigY + 78, leftSigX - 2, sigY + 104)
-          ctx.quadraticCurveTo(leftSigX + 10, sigY + 72, leftSigX + 22, sigY + 102)
-          ctx.quadraticCurveTo(leftSigX + 44, sigY + 95, leftSigX + 76, sigY + 90)
+          ctx.moveTo(leftSigX - 58, sigY + 114)
+          ctx.quadraticCurveTo(leftSigX - 38, sigY + 61, leftSigX - 24, sigY + 112)
+          ctx.quadraticCurveTo(leftSigX - 12, sigY + 84, leftSigX - 2, sigY + 110)
+          ctx.quadraticCurveTo(leftSigX + 10, sigY + 78, leftSigX + 22, sigY + 108)
+          ctx.quadraticCurveTo(leftSigX + 44, sigY + 101, leftSigX + 76, sigY + 96)
           ctx.stroke()
           ctx.restore()
         }
 
         // Gambar tanda tangan asli Bendahara (Dr.K.H Asep Khareul Faizin,MM)
         if (ttdBendaharaImg) {
-          const maxW = 140
-          const maxH = 96
+          const maxW = 195
+          const maxH = 124
           const scale = Math.min(maxW / ttdBendaharaImg.width, maxH / ttdBendaharaImg.height)
           const drawW = ttdBendaharaImg.width * scale
           const drawH = ttdBendaharaImg.height * scale
           ctx.save()
           ctx.globalCompositeOperation = 'multiply'
-          ctx.drawImage(ttdBendaharaImg, rightSigX - drawW / 2, sigY + 46, drawW, drawH)
+          ctx.drawImage(ttdBendaharaImg, rightSigX - drawW / 2, sigY + 50, drawW, drawH)
           ctx.restore()
         } else {
           ctx.save()
@@ -828,26 +839,30 @@ async function renderAndDownloadBkuPdf(params: {
           ctx.lineCap = 'round'
           ctx.lineJoin = 'round'
           ctx.beginPath()
-          ctx.moveTo(rightSigX - 32, sigY + 94)
-          ctx.quadraticCurveTo(rightSigX - 16, sigY + 42, rightSigX - 6, sigY + 126)
-          ctx.quadraticCurveTo(rightSigX - 14, sigY + 76, rightSigX + 14, sigY + 86)
-          ctx.quadraticCurveTo(rightSigX + 38, sigY + 92, rightSigX + 72, sigY + 88)
+          ctx.moveTo(rightSigX - 32, sigY + 100)
+          ctx.quadraticCurveTo(rightSigX - 16, sigY + 48, rightSigX - 6, sigY + 132)
+          ctx.quadraticCurveTo(rightSigX - 14, sigY + 82, rightSigX + 14, sigY + 92)
+          ctx.quadraticCurveTo(rightSigX + 38, sigY + 98, rightSigX + 72, sigY + 94)
           ctx.stroke()
           ctx.restore()
         }
 
+        const leftName = 'Drs.H.Acep Kusnadi,M.Pd.C.Med'
+        const rightName = 'Dr.K.H Asep Khareul Faizin,MM'
         ctx.fillStyle = '#111827'
         ctx.font = 'bold 15px Arial, sans-serif'
-        ctx.fillText('Drs.H.Acep Kusnadi,M.Pd.C.Med', leftSigX, sigY + 146)
-        ctx.fillText('Dr.K.H Asep Khareul Faizin,MM', rightSigX, sigY + 146)
+        ctx.fillText(leftName, leftSigX, sigY + 166)
+        ctx.fillText(rightName, rightSigX, sigY + 166)
 
-        ctx.strokeStyle = '#374151'
-        ctx.lineWidth = 1.2
+        const leftNameW = ctx.measureText(leftName).width
+        const rightNameW = ctx.measureText(rightName).width
+        ctx.strokeStyle = '#111827'
+        ctx.lineWidth = 1.4
         ctx.beginPath()
-        ctx.moveTo(leftSigX - 125, sigY + 152)
-        ctx.lineTo(leftSigX + 125, sigY + 152)
-        ctx.moveTo(rightSigX - 125, sigY + 152)
-        ctx.lineTo(rightSigX + 125, sigY + 152)
+        ctx.moveTo(leftSigX - leftNameW / 2, sigY + 170)
+        ctx.lineTo(leftSigX + leftNameW / 2, sigY + 170)
+        ctx.moveTo(rightSigX - rightNameW / 2, sigY + 170)
+        ctx.lineTo(rightSigX + rightNameW / 2, sigY + 170)
         ctx.stroke()
         ctx.textAlign = 'left'
       }
