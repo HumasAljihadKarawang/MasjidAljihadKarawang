@@ -203,6 +203,7 @@ export default function AdminSidebarPage() {
   const [showInputKeuanganModal, setShowInputKeuanganModal] = useState(false)
   const [previewKeuanganItem, setPreviewKeuanganItem] = useState<LaporanKeuanganItem | null>(null)
   const [excelEditMode, setExcelEditMode] = useState(false)
+  const [showExcelTutorialModal, setShowExcelTutorialModal] = useState(false)
   const [activeExcelEditor, setActiveExcelEditor] = useState<{
     rowNo: number
     side: 'masuk' | 'keluar' | 'saldo'
@@ -5343,266 +5344,128 @@ export default function AdminSidebarPage() {
                       : 8
                 )
 
+                const isExcelTableActive =
+                  excelEditMode && rekapKeuanganMode === 'bulanan'
+
                 return (
                   <>
-                    {/* PANEL SWITCH MENU LAPORAN: DI ATASNYA HANYA DUA PILIHAN (BULAN/TANGGAL & TAHUN), DI BAWAHNYA SWITCH LAPORAN */}
+                    {/* PANEL SWITCH MENU LAPORAN: BARIS ATAS BULAN, TAHUN & TOMBOL UNDUH (POJOK KANAN ATAS), BARIS BAWAH SWITCH LAPORAN */}
                     <div className={styles.panelCard}>
-                      {/* BARIS ATAS: DUA PILIHAN PERMANEN (BULAN/TANGGAL & TAHUN) */}
+                      {/* BARIS ATAS: BULAN & TAHUN DI KIRI + TOMBOL UNDUH PERMANEN DI POJOK KANAN ATAS */}
                       <div
                         style={{
-                          display: 'grid',
-                          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 240px))',
+                          display: 'flex',
+                          alignItems: 'flex-end',
+                          justifyContent: 'space-between',
+                          flexWrap: 'wrap',
                           gap: '12px',
                           paddingBottom: '14px',
                           marginBottom: '14px',
                           borderBottom: '1px solid rgba(27, 107, 69, 0.14)',
                         }}
                       >
-                        <div>
-                          <label
-                            style={{
-                              display: 'block',
-                              fontSize: '0.76rem',
-                              fontWeight: 800,
-                              color: '#14532d',
-                              marginBottom: '4px',
-                            }}
-                          >
-                            Bulan
-                          </label>
-                          <select
-                            aria-label="Pilih Bulan Permanen"
-                            value={rekapKeuanganMonth}
-                            onChange={(e) => {
-                              const nextM = Number(e.target.value)
-                              setRekapKeuanganMonth(nextM)
-                              setActiveExcelEditor(null)
-                              const nextPrefix = `${rekapKeuanganYear}-${String(
-                                nextM + 1
-                              ).padStart(2, '0')}`
-                              if (!rekapKeuanganDailyDate.startsWith(nextPrefix)) {
-                                setRekapKeuanganDailyDate(`${nextPrefix}-01`)
-                              }
-                            }}
-                            style={{
-                              width: '100%',
-                              padding: '9px 12px',
-                              borderRadius: '10px',
-                              border: '1px solid rgba(27, 107, 69, 0.28)',
-                              fontWeight: 800,
-                              fontSize: '0.85rem',
-                              background: '#f0fdf4',
-                              color: '#0f4a2a',
-                              cursor: 'pointer',
-                            }}
-                          >
-                            {NAMA_BULAN_ADMIN.map((bln, idx) => (
-                              <option key={bln} value={idx}>
-                                {bln}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div>
-                          <label
-                            style={{
-                              display: 'block',
-                              fontSize: '0.76rem',
-                              fontWeight: 800,
-                              color: '#14532d',
-                              marginBottom: '4px',
-                            }}
-                          >
-                            Tahun
-                          </label>
-                          <select
-                            aria-label="Pilih Tahun Permanen"
-                            value={rekapKeuanganYear}
-                            onChange={(e) => {
-                              const nextY = Number(e.target.value)
-                              setRekapKeuanganYear(nextY)
-                              setActiveExcelEditor(null)
-                              const nextPrefix = `${nextY}-${String(
-                                rekapKeuanganMonth + 1
-                              ).padStart(2, '0')}`
-                              if (!rekapKeuanganDailyDate.startsWith(nextPrefix)) {
-                                setRekapKeuanganDailyDate(`${nextPrefix}-01`)
-                              }
-                            }}
-                            style={{
-                              width: '100%',
-                              padding: '9px 12px',
-                              borderRadius: '10px',
-                              border: '1px solid rgba(27, 107, 69, 0.28)',
-                              fontWeight: 800,
-                              fontSize: '0.85rem',
-                              background: '#f0fdf4',
-                              color: '#0f4a2a',
-                              cursor: 'pointer',
-                            }}
-                          >
-                            {[2026, 2027, 2028].map((yr) => (
-                              <option key={yr} value={yr}>
-                                {yr}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-
-                      {/* BARIS BAWAH: SWITCH LAPORAN BULANAN / MINGGUAN / HARIAN + FILTER MINGGU/KALENDER + UNDUH */}
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          flexWrap: 'wrap',
-                          gap: '12px',
-                        }}
-                      >
                         <div
                           style={{
                             display: 'flex',
-                            alignItems: 'center',
-                            gap: '10px',
+                            alignItems: 'flex-end',
+                            gap: '12px',
                             flexWrap: 'wrap',
                           }}
                         >
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setActiveExcelEditor(null)
-                              setRekapKeuanganMode('bulanan')
-                            }}
-                            style={{
-                              padding: '9px 16px',
-                              borderRadius: '10px',
-                              border:
-                                rekapKeuanganMode === 'bulanan'
-                                  ? '1px solid #0f4a2a'
-                                  : '1px solid rgba(27, 107, 69, 0.22)',
-                              background:
-                                rekapKeuanganMode === 'bulanan' ? '#0f4a2a' : '#f0fdf4',
-                              color: rekapKeuanganMode === 'bulanan' ? '#ffffff' : '#14532d',
-                              fontWeight: 800,
-                              fontSize: '0.86rem',
-                              cursor: 'pointer',
-                            }}
-                          >
-                            Laporan Bulanan
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setActiveExcelEditor(null)
-                              setRekapKeuanganMode('mingguan')
-                            }}
-                            style={{
-                              padding: '9px 16px',
-                              borderRadius: '10px',
-                              border:
-                                rekapKeuanganMode === 'mingguan'
-                                  ? '1px solid #0f4a2a'
-                                  : '1px solid rgba(27, 107, 69, 0.22)',
-                              background:
-                                rekapKeuanganMode === 'mingguan' ? '#0f4a2a' : '#ffffff',
-                              color: rekapKeuanganMode === 'mingguan' ? '#ffffff' : '#14532d',
-                              fontWeight: 800,
-                              fontSize: '0.86rem',
-                              cursor: 'pointer',
-                            }}
-                          >
-                            Laporan Mingguan
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setActiveExcelEditor(null)
-                              setRekapKeuanganMode('harian')
-                            }}
-                            style={{
-                              padding: '9px 16px',
-                              borderRadius: '10px',
-                              border:
-                                rekapKeuanganMode === 'harian'
-                                  ? '1px solid #0f4a2a'
-                                  : '1px solid rgba(27, 107, 69, 0.22)',
-                              background:
-                                rekapKeuanganMode === 'harian' ? '#0f4a2a' : '#ffffff',
-                              color: rekapKeuanganMode === 'harian' ? '#ffffff' : '#14532d',
-                              fontWeight: 800,
-                              fontSize: '0.86rem',
-                              cursor: 'pointer',
-                            }}
-                          >
-                            Laporan Harian
-                          </button>
-
-                          {rekapKeuanganMode === 'mingguan' && (
-                            <select
-                              aria-label="Pilih Minggu"
-                              value={rekapKeuanganMingguKe}
-                              onChange={(e) => {
-                                setActiveExcelEditor(null)
-                                setRekapKeuanganMingguKe(Number(e.target.value))
-                              }}
+                          <div style={{ minWidth: '170px' }}>
+                            <label
                               style={{
-                                padding: '9px 12px',
-                                borderRadius: '10px',
-                                border: '1px solid rgba(27, 107, 69, 0.25)',
-                                fontWeight: 700,
-                                fontSize: '0.85rem',
-                                background: '#ffffff',
+                                display: 'block',
+                                fontSize: '0.76rem',
+                                fontWeight: 800,
+                                color: '#14532d',
+                                marginBottom: '4px',
                               }}
                             >
-                              {weekDefs.map((w) => (
-                                <option key={w.mingguKe} value={w.mingguKe}>
-                                  {`${w.label} / ${Math.min(
-                                    w.startDay,
-                                    daysInSelectedMonth
-                                  )}–${Math.max(
-                                    Math.min(w.startDay, daysInSelectedMonth),
-                                    w.endDay
-                                  )} ${monthName}`}
-                                </option>
-                              ))}
-                            </select>
-                          )}
-
-                          {rekapKeuanganMode === 'harian' && (
-                            <input
-                              type="date"
-                              aria-label="Pilih Kalender Harian"
-                              value={rekapKeuanganDailyDate}
+                              Bulan
+                            </label>
+                            <select
+                              aria-label="Pilih Bulan Permanen"
+                              value={rekapKeuanganMonth}
                               onChange={(e) => {
-                                const val = e.target.value
+                                const nextM = Number(e.target.value)
+                                setRekapKeuanganMonth(nextM)
                                 setActiveExcelEditor(null)
-                                setRekapKeuanganDailyDate(val)
-                                const parts = val.split('-')
-                                if (parts.length === 3) {
-                                  const y = Number(parts[0])
-                                  const m = Number(parts[1]) - 1
-                                  if (!Number.isNaN(y)) setRekapKeuanganYear(y)
-                                  if (!Number.isNaN(m) && m >= 0 && m <= 11) {
-                                    setRekapKeuanganMonth(m)
-                                  }
+                                const nextPrefix = `${rekapKeuanganYear}-${String(
+                                  nextM + 1
+                                ).padStart(2, '0')}`
+                                if (!rekapKeuanganDailyDate.startsWith(nextPrefix)) {
+                                  setRekapKeuanganDailyDate(`${nextPrefix}-01`)
                                 }
                               }}
                               style={{
-                                padding: '8px 12px',
+                                width: '100%',
+                                padding: '9px 12px',
                                 borderRadius: '10px',
-                                border: '1px solid rgba(27, 107, 69, 0.25)',
-                                fontWeight: 700,
+                                border: '1px solid rgba(27, 107, 69, 0.28)',
+                                fontWeight: 800,
                                 fontSize: '0.85rem',
-                                background: '#ffffff',
+                                background: '#f0fdf4',
+                                color: '#0f4a2a',
+                                cursor: 'pointer',
                               }}
-                            />
-                          )}
+                            >
+                              {NAMA_BULAN_ADMIN.map((bln, idx) => (
+                                <option key={bln} value={idx}>
+                                  {bln}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div style={{ minWidth: '130px' }}>
+                            <label
+                              style={{
+                                display: 'block',
+                                fontSize: '0.76rem',
+                                fontWeight: 800,
+                                color: '#14532d',
+                                marginBottom: '4px',
+                              }}
+                            >
+                              Tahun
+                            </label>
+                            <select
+                              aria-label="Pilih Tahun Permanen"
+                              value={rekapKeuanganYear}
+                              onChange={(e) => {
+                                const nextY = Number(e.target.value)
+                                setRekapKeuanganYear(nextY)
+                                setActiveExcelEditor(null)
+                                const nextPrefix = `${nextY}-${String(
+                                  rekapKeuanganMonth + 1
+                                ).padStart(2, '0')}`
+                                if (!rekapKeuanganDailyDate.startsWith(nextPrefix)) {
+                                  setRekapKeuanganDailyDate(`${nextPrefix}-01`)
+                                }
+                              }}
+                              style={{
+                                width: '100%',
+                                padding: '9px 12px',
+                                borderRadius: '10px',
+                                border: '1px solid rgba(27, 107, 69, 0.28)',
+                                fontWeight: 800,
+                                fontSize: '0.85rem',
+                                background: '#f0fdf4',
+                                color: '#0f4a2a',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              {[2026, 2027, 2028].map((yr) => (
+                                <option key={yr} value={yr}>
+                                  {yr}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
                         </div>
 
+                        {/* TOMBOL UNDUH TETAP DI POJOK KANAN ATAS SEJAJAR BULAN & TAHUN */}
                         <div>
                           {rekapKeuanganMode === 'bulanan' ? (
                             <button
@@ -5620,12 +5483,12 @@ export default function AdminSidebarPage() {
                                 padding: '10px 18px',
                                 borderRadius: '10px',
                                 border: 'none',
-                                background: 'linear-gradient(135deg, #b45309, #d97706)',
+                                background: 'linear-gradient(135deg, #0f4a2a, #15803d)',
                                 color: '#ffffff',
                                 fontWeight: 800,
                                 fontSize: '0.86rem',
                                 cursor: 'pointer',
-                                boxShadow: '0 6px 16px rgba(180, 83, 9, 0.25)',
+                                boxShadow: '0 6px 16px rgba(21, 128, 61, 0.25)',
                               }}
                             >
                               {`Unduh Laporan Bulan ${monthName}`}
@@ -5686,7 +5549,152 @@ export default function AdminSidebarPage() {
                         </div>
                       </div>
 
-                      {/* 4 KARTU RINGKASAN REALTIME */}
+                      {/* BARIS BAWAH: SWITCH LAPORAN BULANAN / MINGGUAN / HARIAN + FILTER MINGGU/KALENDER */}
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '10px',
+                          flexWrap: 'wrap',
+                        }}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveExcelEditor(null)
+                            setRekapKeuanganMode('bulanan')
+                          }}
+                          style={{
+                            padding: '9px 16px',
+                            borderRadius: '10px',
+                            border:
+                              rekapKeuanganMode === 'bulanan'
+                                ? '1px solid #0f4a2a'
+                                : '1px solid rgba(27, 107, 69, 0.22)',
+                            background:
+                              rekapKeuanganMode === 'bulanan' ? '#0f4a2a' : '#f0fdf4',
+                            color: rekapKeuanganMode === 'bulanan' ? '#ffffff' : '#14532d',
+                            fontWeight: 800,
+                            fontSize: '0.86rem',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Laporan Bulanan
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveExcelEditor(null)
+                            setExcelEditMode(false)
+                            setRekapKeuanganMode('mingguan')
+                          }}
+                          style={{
+                            padding: '9px 16px',
+                            borderRadius: '10px',
+                            border:
+                              rekapKeuanganMode === 'mingguan'
+                                ? '1px solid #0f4a2a'
+                                : '1px solid rgba(27, 107, 69, 0.22)',
+                            background:
+                              rekapKeuanganMode === 'mingguan' ? '#0f4a2a' : '#ffffff',
+                            color: rekapKeuanganMode === 'mingguan' ? '#ffffff' : '#14532d',
+                            fontWeight: 800,
+                            fontSize: '0.86rem',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Laporan Mingguan
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveExcelEditor(null)
+                            setExcelEditMode(false)
+                            setRekapKeuanganMode('harian')
+                          }}
+                          style={{
+                            padding: '9px 16px',
+                            borderRadius: '10px',
+                            border:
+                              rekapKeuanganMode === 'harian'
+                                ? '1px solid #0f4a2a'
+                                : '1px solid rgba(27, 107, 69, 0.22)',
+                            background:
+                              rekapKeuanganMode === 'harian' ? '#0f4a2a' : '#ffffff',
+                            color: rekapKeuanganMode === 'harian' ? '#ffffff' : '#14532d',
+                            fontWeight: 800,
+                            fontSize: '0.86rem',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Laporan Harian
+                        </button>
+
+                        {rekapKeuanganMode === 'mingguan' && (
+                          <select
+                            aria-label="Pilih Minggu"
+                            value={rekapKeuanganMingguKe}
+                            onChange={(e) => {
+                              setActiveExcelEditor(null)
+                              setRekapKeuanganMingguKe(Number(e.target.value))
+                            }}
+                            style={{
+                              padding: '9px 12px',
+                              borderRadius: '10px',
+                              border: '1px solid rgba(27, 107, 69, 0.25)',
+                              fontWeight: 700,
+                              fontSize: '0.85rem',
+                              background: '#ffffff',
+                            }}
+                          >
+                            {weekDefs.map((w) => (
+                              <option key={w.mingguKe} value={w.mingguKe}>
+                                {`${w.label} / ${Math.min(
+                                  w.startDay,
+                                  daysInSelectedMonth
+                                )}–${Math.max(
+                                  Math.min(w.startDay, daysInSelectedMonth),
+                                  w.endDay
+                                )} ${monthName}`}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+
+                        {rekapKeuanganMode === 'harian' && (
+                          <input
+                            type="date"
+                            aria-label="Pilih Kalender Harian"
+                            value={rekapKeuanganDailyDate}
+                            onChange={(e) => {
+                              const val = e.target.value
+                              setActiveExcelEditor(null)
+                              setRekapKeuanganDailyDate(val)
+                              const parts = val.split('-')
+                              if (parts.length === 3) {
+                                const y = Number(parts[0])
+                                const m = Number(parts[1]) - 1
+                                if (!Number.isNaN(y)) setRekapKeuanganYear(y)
+                                if (!Number.isNaN(m) && m >= 0 && m <= 11) {
+                                  setRekapKeuanganMonth(m)
+                                }
+                              }
+                            }}
+                            style={{
+                              padding: '8px 12px',
+                              borderRadius: '10px',
+                              border: '1px solid rgba(27, 107, 69, 0.25)',
+                              fontWeight: 700,
+                              fontSize: '0.85rem',
+                              background: '#ffffff',
+                            }}
+                          />
+                        )}
+                      </div>
+
+                      {/* 4 KARTU RINGKASAN REALTIME — WARNA SALDO DISAMAKAN, HANYA ANGKA PENGELUARAN MERAH */}
                       <div
                         style={{
                           display: 'grid',
@@ -5728,8 +5736,8 @@ export default function AdminSidebarPage() {
                           style={{
                             padding: '13px 15px',
                             borderRadius: '12px',
-                            background: '#fef2f2',
-                            border: '1px solid #fecaca',
+                            background: '#f0fdf4',
+                            border: '1px solid rgba(22, 163, 74, 0.25)',
                           }}
                         >
                           <span
@@ -5737,7 +5745,7 @@ export default function AdminSidebarPage() {
                               display: 'block',
                               fontSize: '0.75rem',
                               fontWeight: 700,
-                              color: '#991b1b',
+                              color: '#166534',
                             }}
                           >
                             Total Pengeluaran Periode Ini
@@ -5746,7 +5754,7 @@ export default function AdminSidebarPage() {
                             style={{
                               fontSize: '1.14rem',
                               fontWeight: 900,
-                              color: '#b91c1c',
+                              color: '#dc2626',
                             }}
                           >
                             {formatRupiah(totalPengeluaran)}
@@ -5757,8 +5765,8 @@ export default function AdminSidebarPage() {
                           style={{
                             padding: '13px 15px',
                             borderRadius: '12px',
-                            background: '#fffbeb',
-                            border: '1px solid #fde68a',
+                            background: '#f0fdf4',
+                            border: '1px solid rgba(22, 163, 74, 0.25)',
                           }}
                         >
                           <span
@@ -5766,7 +5774,7 @@ export default function AdminSidebarPage() {
                               display: 'block',
                               fontSize: '0.75rem',
                               fontWeight: 700,
-                              color: '#92400e',
+                              color: '#166534',
                             }}
                           >
                             Saldo Kas Periode Ini
@@ -5775,7 +5783,7 @@ export default function AdminSidebarPage() {
                             style={{
                               fontSize: '1.14rem',
                               fontWeight: 900,
-                              color: '#b45309',
+                              color: '#0f4a2a',
                             }}
                           >
                             {formatRupiah(saldoAkhirPeriode)}
@@ -5786,7 +5794,7 @@ export default function AdminSidebarPage() {
                           style={{
                             padding: '13px 15px',
                             borderRadius: '12px',
-                            background: '#ecfdf5',
+                            background: '#f0fdf4',
                             border: '1.5px solid #15803d',
                           }}
                         >
@@ -5795,7 +5803,7 @@ export default function AdminSidebarPage() {
                               display: 'block',
                               fontSize: '0.75rem',
                               fontWeight: 800,
-                              color: '#0f4a2a',
+                              color: '#166534',
                             }}
                           >
                             Total Kas Masjid Realtime
@@ -5804,7 +5812,7 @@ export default function AdminSidebarPage() {
                             style={{
                               fontSize: '1.18rem',
                               fontWeight: 900,
-                              color: '#064e3b',
+                              color: '#0f4a2a',
                             }}
                           >
                             {formatRupiah(totalKasRealtime)}
@@ -5823,16 +5831,16 @@ export default function AdminSidebarPage() {
                         gap: '10px',
                         padding: '12px 16px',
                         borderRadius: '14px',
-                        background: excelEditMode ? '#fffbeb' : '#ffffff',
-                        border: excelEditMode
-                          ? '1.5px solid #f59e0b'
+                        background: isExcelTableActive ? '#f0fdf4' : '#ffffff',
+                        border: isExcelTableActive
+                          ? '1.5px solid #15803d'
                           : '1px solid rgba(27, 107, 69, 0.18)',
                         boxShadow: '0 4px 14px rgba(15, 23, 42, 0.04)',
                       }}
                     >
                       <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#1f2937' }}>
-                        {excelEditMode
-                          ? '✎ Mode Edit Tabel Aktif: Klik baris/sel mana saja pada tabel di bawah (Pemasukan atau Pengeluaran, baik terisi maupun kosong) untuk memunculkan menu input/edit.'
+                        {isExcelTableActive
+                          ? '✎ Mode Edit Tabel (Excel) Aktif pada Laporan Bulanan: Klik baris/sel mana saja pada tabel di bawah untuk input/edit (Laporan Mingguan & Harian menyesuaikan otomatis).'
                           : 'Preview Surat Laporan BKU Masjid Al-Jihad Karawang'}
                       </div>
 
@@ -5841,22 +5849,30 @@ export default function AdminSidebarPage() {
                           type="button"
                           onClick={() => {
                             setActiveExcelEditor(null)
-                            setExcelEditMode((prev) => !prev)
+                            if (!isExcelTableActive) {
+                              if (rekapKeuanganMode !== 'bulanan') {
+                                setRekapKeuanganMode('bulanan')
+                              }
+                              setExcelEditMode(true)
+                              setShowExcelTutorialModal(true)
+                            } else {
+                              setExcelEditMode(false)
+                            }
                           }}
                           style={{
                             padding: '9px 15px',
                             borderRadius: '10px',
-                            border: excelEditMode
-                              ? '2px solid #b45309'
+                            border: isExcelTableActive
+                              ? '2px solid #0f4a2a'
                               : '1px solid rgba(27, 107, 69, 0.3)',
-                            background: excelEditMode ? '#fef3c7' : '#f0fdf4',
-                            color: excelEditMode ? '#92400e' : '#0f4a2a',
+                            background: isExcelTableActive ? '#dcfce7' : '#f0fdf4',
+                            color: '#0f4a2a',
                             fontWeight: 800,
                             fontSize: '0.83rem',
                             cursor: 'pointer',
                           }}
                         >
-                          {excelEditMode
+                          {isExcelTableActive
                             ? '✓ Selesai Mode Edit Tabel'
                             : '✎ Mode Edit Tabel (Excel)'}
                         </button>
@@ -6114,17 +6130,17 @@ export default function AdminSidebarPage() {
                                     : `${monthPrefix}-01`
 
                               const isEditingMasuk =
-                                excelEditMode &&
+                                isExcelTableActive &&
                                 activeExcelEditor?.rowNo === row.rowNo &&
                                 activeExcelEditor?.side === 'masuk'
 
                               const isEditingKeluar =
-                                excelEditMode &&
+                                isExcelTableActive &&
                                 activeExcelEditor?.rowNo === row.rowNo &&
                                 activeExcelEditor?.side === 'keluar'
 
                               const openMasukEditor = () => {
-                                if (!excelEditMode || isEditingMasuk) return
+                                if (!isExcelTableActive || isEditingMasuk) return
                                 setActiveExcelEditor({
                                   rowNo: row.rowNo,
                                   side: 'masuk',
@@ -6136,7 +6152,7 @@ export default function AdminSidebarPage() {
                               }
 
                               const openKeluarEditor = () => {
-                                if (!excelEditMode || isEditingKeluar) return
+                                if (!isExcelTableActive || isEditingKeluar) return
                                 setActiveExcelEditor({
                                   rowNo: row.rowNo,
                                   side: 'keluar',
@@ -6327,7 +6343,7 @@ export default function AdminSidebarPage() {
                                       <td
                                         onClick={openMasukEditor}
                                         title={
-                                          excelEditMode
+                                          isExcelTableActive
                                             ? 'Klik untuk input / edit Pemasukan di baris ini'
                                             : undefined
                                         }
@@ -6338,21 +6354,21 @@ export default function AdminSidebarPage() {
                                           color: '#111827',
                                           borderRight: '1px solid #4b5563',
                                           whiteSpace: 'nowrap',
-                                          cursor: excelEditMode ? 'cell' : 'default',
+                                          cursor: isExcelTableActive ? 'cell' : 'default',
                                         }}
                                       >
                                         {row.tglMasuk}
                                       </td>
                                       <td
                                         onClick={() => {
-                                          if (excelEditMode) {
+                                          if (isExcelTableActive) {
                                             openMasukEditor()
                                           } else if (row.itemMasuk) {
                                             setPreviewKeuanganItem(row.itemMasuk)
                                           }
                                         }}
                                         title={
-                                          excelEditMode
+                                          isExcelTableActive
                                             ? 'Klik untuk input / edit Pemasukan di baris ini'
                                             : row.itemMasuk
                                               ? 'Klik untuk preview rincian'
@@ -6362,7 +6378,7 @@ export default function AdminSidebarPage() {
                                           padding: '5px 10px',
                                           color: row.uraianMasuk ? '#111827' : '#9ca3af',
                                           borderRight: '1px solid #4b5563',
-                                          cursor: excelEditMode
+                                          cursor: isExcelTableActive
                                             ? 'cell'
                                             : row.itemMasuk
                                               ? 'pointer'
@@ -6375,7 +6391,7 @@ export default function AdminSidebarPage() {
                                       <td
                                         onClick={openMasukEditor}
                                         title={
-                                          excelEditMode
+                                          isExcelTableActive
                                             ? 'Klik untuk input / edit Pemasukan di baris ini'
                                             : undefined
                                         }
@@ -6383,7 +6399,7 @@ export default function AdminSidebarPage() {
                                           padding: '5px 10px',
                                           borderRight: '2px solid #111827',
                                           whiteSpace: 'nowrap',
-                                          cursor: excelEditMode ? 'cell' : 'default',
+                                          cursor: isExcelTableActive ? 'cell' : 'default',
                                         }}
                                       >
                                         {row.jumlahMasuk !== null ? (
@@ -6562,7 +6578,7 @@ export default function AdminSidebarPage() {
                                       <td
                                         onClick={openKeluarEditor}
                                         title={
-                                          excelEditMode
+                                          isExcelTableActive
                                             ? 'Klik untuk input / edit Pengeluaran di baris ini'
                                             : undefined
                                         }
@@ -6573,21 +6589,21 @@ export default function AdminSidebarPage() {
                                           color: '#111827',
                                           borderRight: '1px solid #4b5563',
                                           whiteSpace: 'nowrap',
-                                          cursor: excelEditMode ? 'cell' : 'default',
+                                          cursor: isExcelTableActive ? 'cell' : 'default',
                                         }}
                                       >
                                         {row.tglKeluar}
                                       </td>
                                       <td
                                         onClick={() => {
-                                          if (excelEditMode) {
+                                          if (isExcelTableActive) {
                                             openKeluarEditor()
                                           } else if (row.itemKeluar) {
                                             setPreviewKeuanganItem(row.itemKeluar)
                                           }
                                         }}
                                         title={
-                                          excelEditMode
+                                          isExcelTableActive
                                             ? 'Klik untuk input / edit Pengeluaran di baris ini'
                                             : row.itemKeluar
                                               ? 'Klik untuk preview rincian'
@@ -6597,7 +6613,7 @@ export default function AdminSidebarPage() {
                                           padding: '5px 10px',
                                           color: row.uraianKeluar ? '#111827' : '#9ca3af',
                                           borderRight: '1px solid #4b5563',
-                                          cursor: excelEditMode
+                                          cursor: isExcelTableActive
                                             ? 'cell'
                                             : row.itemKeluar
                                               ? 'pointer'
@@ -6610,14 +6626,14 @@ export default function AdminSidebarPage() {
                                       <td
                                         onClick={openKeluarEditor}
                                         title={
-                                          excelEditMode
+                                          isExcelTableActive
                                             ? 'Klik untuk input / edit Pengeluaran di baris ini'
                                             : undefined
                                         }
                                         style={{
                                           padding: '5px 10px',
                                           whiteSpace: 'nowrap',
-                                          cursor: excelEditMode ? 'cell' : 'default',
+                                          cursor: isExcelTableActive ? 'cell' : 'default',
                                         }}
                                       >
                                         {row.jumlahKeluar !== null ? (
@@ -6982,6 +6998,133 @@ export default function AdminSidebarPage() {
                   </>
                 )
               })()}
+
+              {/* POP-UP TUTORIAL MODE EDIT TABEL (EXCEL) */}
+              {showExcelTutorialModal && (
+                <div
+                  style={{
+                    position: 'fixed',
+                    inset: 0,
+                    background: 'rgba(15, 23, 42, 0.68)',
+                    backdropFilter: 'blur(4px)',
+                    zIndex: 9996,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '16px',
+                  }}
+                  onClick={() => setShowExcelTutorialModal(false)}
+                >
+                  <div
+                    style={{
+                      background: '#ffffff',
+                      borderRadius: '18px',
+                      width: '100%',
+                      maxWidth: '500px',
+                      padding: '24px',
+                      boxShadow: '0 24px 60px rgba(0, 0, 0, 0.32)',
+                      border: '1px solid rgba(27, 107, 69, 0.22)',
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        marginBottom: '12px',
+                      }}
+                    >
+                      <h3
+                        style={{
+                          margin: 0,
+                          fontSize: '1.08rem',
+                          fontWeight: 900,
+                          color: '#0f4a2a',
+                        }}
+                      >
+                        Panduan Mode Edit Tabel (Excel)
+                      </h3>
+                      <button
+                        type="button"
+                        aria-label="Tutup Panduan"
+                        onClick={() => setShowExcelTutorialModal(false)}
+                        style={{
+                          border: 'none',
+                          background: '#f3f4f6',
+                          borderRadius: '8px',
+                          width: '32px',
+                          height: '32px',
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        ✕
+                      </button>
+                    </div>
+
+                    <div
+                      style={{
+                        display: 'grid',
+                        gap: '10px',
+                        fontSize: '0.86rem',
+                        color: '#1f2937',
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      <div
+                        style={{
+                          padding: '10px 12px',
+                          borderRadius: '10px',
+                          background: '#f0fdf4',
+                          border: '1px solid rgba(22, 163, 74, 0.25)',
+                        }}
+                      >
+                        <strong>1. Khusus Tabel Laporan Bulanan:</strong> Perubahan langsung
+                        diterapkan ke BKU Bulanan. Data pada <strong>Laporan Mingguan</strong>,{' '}
+                        <strong>Laporan Harian</strong>, dan <strong>Display My.DKM</strong> akan
+                        otomatis menyesuaikan.
+                      </div>
+                      <div
+                        style={{
+                          padding: '10px 12px',
+                          borderRadius: '10px',
+                          background: '#f8fafc',
+                          border: '1px solid #e2e8f0',
+                        }}
+                      >
+                        <strong>2. Klik Sel / Baris Mana Saja:</strong> Klik kolom{' '}
+                        <strong>Pemasukan</strong>, kolom <strong>Pengeluaran</strong>, baris
+                        kosong untuk menambah data baru, atau nominal{' '}
+                        <strong>Saldo Bulan Sebelumnya</strong> untuk menyesuaikannya.
+                      </div>
+                      <div
+                        style={{
+                          padding: '10px 12px',
+                          borderRadius: '10px',
+                          background: '#f8fafc',
+                          border: '1px solid #e2e8f0',
+                        }}
+                      >
+                        <strong>3. Simpan Cepat:</strong> Isi <em>Tanggal</em>, <em>Uraian</em>,
+                        dan <em>Nominal</em> pada menu edit yang muncul di sel tersebut, lalu klik{' '}
+                        <strong>✓ Simpan</strong> (atau tekan tombol <strong>Enter</strong>).
+                        Klik <strong>Batal</strong> / tekan <strong>Esc</strong> untuk menutup
+                        sel tanpa menyimpan.
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowExcelTutorialModal(false)}
+                      className={styles.submitBtn}
+                      style={{ marginTop: '16px', width: '100%' }}
+                    >
+                      Mengerti, Mulai Edit Tabel
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* POP-UP MODAL INPUT PENGELUARAN / PEMASUKAN BKU */}
               {showInputKeuanganModal && (

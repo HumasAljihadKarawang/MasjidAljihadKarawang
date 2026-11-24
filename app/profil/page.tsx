@@ -417,26 +417,26 @@ export default function ProfilPage() {
                   style={{
                     padding: '16px 18px',
                     borderRadius: '14px',
-                    background: '#fef2f2',
-                    border: '1px solid #fecaca',
+                    background: '#f0fdf4',
+                    border: '1px solid rgba(22, 163, 74, 0.25)',
                   }}
                 >
                   <div
                     style={{
                       fontSize: '0.76rem',
                       fontWeight: 800,
-                      color: '#991b1b',
+                      color: '#166534',
                       marginBottom: '4px',
                     }}
                   >
                     PENGELUARAN 1 MINGGU TERAKHIR
                   </div>
-                  <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#b91c1c' }}>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#dc2626' }}>
                     {formatRupiah(
                       pengeluaran1Minggu.reduce((acc, i) => acc + (Number(i.nominal) || 0), 0)
                     )}
                   </div>
-                  <div style={{ fontSize: '0.74rem', color: '#6b7280', marginTop: '3px' }}>
+                  <div style={{ fontSize: '0.74rem', color: '#4b5563', marginTop: '3px' }}>
                     {`${pengeluaran1Minggu.length} transaksi tercatat`}
                   </div>
                 </div>
@@ -445,26 +445,26 @@ export default function ProfilPage() {
                   style={{
                     padding: '16px 18px',
                     borderRadius: '14px',
-                    background: '#fffbeb',
-                    border: '1px solid #fde68a',
+                    background: '#f0fdf4',
+                    border: '1px solid rgba(22, 163, 74, 0.25)',
                   }}
                 >
                   <div
                     style={{
                       fontSize: '0.76rem',
                       fontWeight: 800,
-                      color: '#92400e',
+                      color: '#166534',
                       marginBottom: '4px',
                     }}
                   >
                     PENGELUARAN 1 BULAN TERAKHIR
                   </div>
-                  <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#b45309' }}>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#dc2626' }}>
                     {formatRupiah(
                       pengeluaran1Bulan.reduce((acc, i) => acc + (Number(i.nominal) || 0), 0)
                     )}
                   </div>
-                  <div style={{ fontSize: '0.74rem', color: '#6b7280', marginTop: '3px' }}>
+                  <div style={{ fontSize: '0.74rem', color: '#4b5563', marginTop: '3px' }}>
                     {`${pengeluaran1Bulan.length} transaksi tercatat`}
                   </div>
                 </div>
