@@ -465,7 +465,7 @@ export default function AdminSidebarPage() {
 
     const scrollTimer = window.setTimeout(() => {
       const el = document.querySelector(selector) as HTMLElement | null
-      if (el) {
+      if (el && !activeExcelEditor) {
         el.scrollIntoView({ behavior: 'smooth', block: 'center' })
       }
       updateRect()
@@ -481,7 +481,13 @@ export default function AdminSidebarPage() {
       window.removeEventListener('resize', updateRect)
       window.removeEventListener('scroll', updateRect, true)
     }
-  }, [excelTutorialStep, rekapKeuanganMode, rekapKeuanganMonth, rekapKeuanganYear])
+  }, [
+    excelTutorialStep,
+    rekapKeuanganMode,
+    rekapKeuanganMonth,
+    rekapKeuanganYear,
+    activeExcelEditor,
+  ])
 
   // Preload modul AI saat membuka tab Studio Poster agar saat upload langsung responsif
   const aiModulePromiseRef = useRef<Promise<unknown> | null>(null)
@@ -6322,6 +6328,7 @@ export default function AdminSidebarPage() {
                                   {/* SISI KIRI: PEMASUKAN */}
                                   {isEditingMasuk && activeExcelEditor ? (
                                     <td
+                                      data-excel-tour={idx === 0 ? 'pemasukan-cell' : undefined}
                                       colSpan={3}
                                       style={{
                                         padding: '6px 8px',
@@ -6559,6 +6566,7 @@ export default function AdminSidebarPage() {
                                   {/* SISI KANAN: PENGELUARAN */}
                                   {isEditingKeluar && activeExcelEditor ? (
                                     <td
+                                      data-excel-tour={idx === 0 ? 'pengeluaran-cell' : undefined}
                                       colSpan={3}
                                       style={{
                                         padding: '6px 8px',
@@ -7217,10 +7225,10 @@ export default function AdminSidebarPage() {
                         position: 'fixed',
                         inset: 0,
                         zIndex: 9998,
+                        pointerEvents: 'none',
                       }}
-                      onClick={() => setExcelTutorialStep(null)}
                     >
-                      {/* Area Spotlight yang Menyorot Elemen Target */}
+                      {/* Area Spotlight yang Menyorot Elemen Target (tembus klik & ketik langsung) */}
                       {hasRect && excelTourRect ? (
                         <div
                           style={{
@@ -7231,7 +7239,7 @@ export default function AdminSidebarPage() {
                             height: excelTourRect.height + 10,
                             borderRadius: '12px',
                             boxShadow:
-                              '0 0 0 9999px rgba(15, 23, 42, 0.74), 0 0 0 3px #4ade80, 0 0 26px rgba(74, 222, 128, 0.7)',
+                              '0 0 0 9999px rgba(15, 23, 42, 0.45), 0 0 0 3px #4ade80, 0 0 26px rgba(74, 222, 128, 0.75)',
                             pointerEvents: 'none',
                             transition: 'all 0.28s cubic-bezier(0.22, 1, 0.36, 1)',
                           }}
@@ -7241,15 +7249,14 @@ export default function AdminSidebarPage() {
                           style={{
                             position: 'fixed',
                             inset: 0,
-                            background: 'rgba(15, 23, 42, 0.74)',
+                            background: 'rgba(15, 23, 42, 0.45)',
                             pointerEvents: 'none',
                           }}
                         />
                       )}
 
-                      {/* Bubble Chat Panduan Interaktif */}
+                      {/* Bubble Chat Panduan Interaktif (hanya bubble yang menangkap klik, tabel tetap bisa diketik & disentuh) */}
                       <div
-                        onClick={(e) => e.stopPropagation()}
                         style={{
                           position: 'fixed',
                           top: `${bubbleTop}px`,
@@ -7258,10 +7265,11 @@ export default function AdminSidebarPage() {
                           background: '#ffffff',
                           borderRadius: '18px',
                           padding: '18px 18px 16px',
-                          boxShadow: '0 22px 55px rgba(0, 0, 0, 0.38)',
+                          boxShadow: '0 22px 55px rgba(0, 0, 0, 0.35)',
                           border: '2px solid #15803d',
                           transition: 'all 0.28s cubic-bezier(0.22, 1, 0.36, 1)',
                           zIndex: 9999,
+                          pointerEvents: 'auto',
                         }}
                       >
                         {/* Ekor Panah Bubble Chat ke Elemen Target */}
