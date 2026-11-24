@@ -5814,7 +5814,7 @@ export default function AdminSidebarPage() {
                         )}
                       </div>
 
-                      {/* 4 KARTU RINGKASAN REALTIME — SHAPE BERBEDA AGAR KENTARA, FONT HITAM KECUALI ANGKA PENGELUARAN MERAH */}
+                      {/* 4 KARTU RINGKASAN REALTIME — SHAPE KONSISTEN, FONT HITAM KECUALI ANGKA PENGELUARAN MERAH */}
                       <div
                         style={{
                           display: 'grid',
@@ -5829,7 +5829,6 @@ export default function AdminSidebarPage() {
                             borderRadius: '14px',
                             background: '#f8fafc',
                             border: '1px solid #cbd5e1',
-                            borderLeft: '5px solid #15803d',
                             boxShadow: '0 2px 10px rgba(15, 23, 42, 0.04)',
                           }}
                         >
@@ -5858,10 +5857,9 @@ export default function AdminSidebarPage() {
                         <div
                           style={{
                             padding: '13px 16px',
-                            borderRadius: '4px 18px 18px 4px',
-                            background: '#ffffff',
+                            borderRadius: '14px',
+                            background: '#f8fafc',
                             border: '1px solid #cbd5e1',
-                            borderLeft: '5px solid #dc2626',
                             boxShadow: '0 2px 10px rgba(15, 23, 42, 0.04)',
                           }}
                         >
@@ -5890,10 +5888,9 @@ export default function AdminSidebarPage() {
                         <div
                           style={{
                             padding: '13px 16px',
-                            borderRadius: '10px',
-                            background: '#f1f5f9',
+                            borderRadius: '14px',
+                            background: '#f8fafc',
                             border: '1px solid #cbd5e1',
-                            borderTop: '4px solid #0f4a2a',
                             boxShadow: '0 2px 10px rgba(15, 23, 42, 0.04)',
                           }}
                         >
@@ -5922,10 +5919,10 @@ export default function AdminSidebarPage() {
                         <div
                           style={{
                             padding: '13px 16px',
-                            borderRadius: '20px 6px 20px 6px',
-                            background: 'linear-gradient(135deg, #dcfce7 0%, #f0fdf4 100%)',
-                            border: '2px solid #15803d',
-                            boxShadow: '0 6px 18px rgba(21, 128, 61, 0.14)',
+                            borderRadius: '14px',
+                            background: '#f8fafc',
+                            border: '1px solid #cbd5e1',
+                            boxShadow: '0 2px 10px rgba(15, 23, 42, 0.04)',
                           }}
                         >
                           <span
@@ -5952,7 +5949,7 @@ export default function AdminSidebarPage() {
                           </span>
                           <strong
                             style={{
-                              fontSize: '1.2rem',
+                              fontSize: '1.16rem',
                               fontWeight: 900,
                               color: '#111827',
                             }}
