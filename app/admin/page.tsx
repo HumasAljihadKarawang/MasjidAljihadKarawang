@@ -638,6 +638,7 @@ export default function AdminSidebarPage() {
     "Permohonan Menjadi Imam & Khotib Sholat Jum'at"
   )
   const [autoUndanganTanggal, setAutoUndanganTanggal] = useState('2026-11-27')
+  const [autoUndanganJumatOnly, setAutoUndanganJumatOnly] = useState(true)
   const [autoUndanganTelp, setAutoUndanganTelp] = useState('')
   const [autoWaShareHint, setAutoWaShareHint] = useState('')
   const [showAutoUndanganModal, setShowAutoUndanganModal] = useState(false)
@@ -10405,14 +10406,75 @@ export default function AdminSidebarPage() {
                         )}
                       </div>
 
+                      <div className={styles.formGroup}>
+                        <label
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            padding: '9px 12px',
+                            borderRadius: '10px',
+                            background: autoUndanganJumatOnly ? '#f0fdf4' : '#f8fafc',
+                            border: autoUndanganJumatOnly
+                              ? '1px solid #15803d'
+                              : '1px solid #cbd5e1',
+                            cursor: 'pointer',
+                            marginBottom: 0,
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={autoUndanganJumatOnly}
+                            onChange={(e) => {
+                              const checked = e.target.checked
+                              setAutoUndanganJumatOnly(checked)
+                              if (checked && autoUndanganTanggal) {
+                                const d = new Date(`${autoUndanganTanggal}T12:00:00`)
+                                if (!Number.isNaN(d.getTime()) && d.getDay() !== 5) {
+                                  const diff = (5 - d.getDay() + 7) % 7
+                                  d.setDate(d.getDate() + diff)
+                                  setAutoUndanganTanggal(d.toISOString().slice(0, 10))
+                                }
+                              }
+                            }}
+                            style={{ width: 'auto', margin: 0 }}
+                          />
+                          <span style={{ fontWeight: 800, color: '#0f4a2a', fontSize: '0.84rem' }}>
+                            Surat Undangan Jum&apos;at (Filter kalender khusus hari Jum&apos;at)
+                          </span>
+                        </label>
+                      </div>
+
                       <div className={styles.twoCols}>
                         <div className={styles.formGroup}>
-                          <label>Tanggal</label>
+                          <label>
+                            {autoUndanganJumatOnly
+                              ? "Tanggal (Khusus Hari Jum'at)"
+                              : 'Tanggal'}
+                          </label>
                           <input
                             type="date"
                             required
+                            min={autoUndanganJumatOnly ? '2020-01-03' : undefined}
+                            step={autoUndanganJumatOnly ? 7 : undefined}
                             value={autoUndanganTanggal}
-                            onChange={(e) => setAutoUndanganTanggal(e.target.value)}
+                            onChange={(e) => {
+                              const val = e.target.value
+                              if (!val) {
+                                setAutoUndanganTanggal('')
+                                return
+                              }
+                              if (autoUndanganJumatOnly) {
+                                const d = new Date(`${val}T12:00:00`)
+                                if (!Number.isNaN(d.getTime()) && d.getDay() !== 5) {
+                                  const diff = (5 - d.getDay() + 7) % 7
+                                  d.setDate(d.getDate() + diff)
+                                  setAutoUndanganTanggal(d.toISOString().slice(0, 10))
+                                  return
+                                }
+                              }
+                              setAutoUndanganTanggal(val)
+                            }}
                           />
                         </div>
 
