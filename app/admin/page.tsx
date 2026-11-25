@@ -5040,7 +5040,7 @@ export default function AdminSidebarPage() {
                         onChange={(e) => setShowIdHolidaysAdmin(e.target.checked)}
                         style={{ width: 'auto', margin: 0 }}
                       />
-                      <span>Tanggal Merah Indonesia</span>
+                      <span>Tampilkan Kalender Indonesia</span>
                     </label>
                     <span
                       style={{
