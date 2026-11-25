@@ -274,6 +274,28 @@ export default function AdminSidebarPage() {
   const [previewPengajuanAdmin, setPreviewPengajuanAdmin] = useState<PengajuanKalenderItem | null>(
     null
   )
+  const [kegiatanSearchQuery, setKegiatanSearchQuery] = useState('')
+  const [kegiatanKategoriFilter, setKegiatanKategoriFilter] = useState('Semua')
+  const [pengajuanSearchQuery, setPengajuanSearchQuery] = useState('')
+  const [pengajuanStatusFilter, setPengajuanStatusFilter] = useState<
+    'Semua' | 'Menunggu' | 'Disetujui' | 'Ditolak'
+  >('Semua')
+
+  const handleDeletePengajuanAdmin = async (pgjId: string) => {
+    const nextPgj = pengajuanKalenderList.filter((p) => p.id !== pgjId)
+    setPengajuanKalenderList(nextPgj)
+    masjidStore.savePengajuanKalender(nextPgj)
+    if (previewPengajuanAdmin?.id === pgjId) {
+      setPreviewPengajuanAdmin(null)
+    }
+    if (getActiveSupabaseConfig().isConfigured) {
+      try {
+        await getSupabaseClient().from('pengajuan_kalender').delete().eq('id', pgjId)
+      } catch {
+        // ignore
+      }
+    }
+  }
   const [showAsetAdminModal, setShowAsetAdminModal] = useState(false)
   const [selectedAsetQtyAdmin, setSelectedAsetQtyAdmin] = useState<Record<string, number>>({})
   const [manualAsetExtraAdmin, setManualAsetExtraAdmin] = useState('')
@@ -3951,26 +3973,98 @@ export default function AdminSidebarPage() {
                       )}
                     </div>
 
-                    {displayedKegiatanMasjidList.length === 0 ? (
-                      <div
+                    {/* Bar Pencarian & Filterisasi Daftar Kegiatan Terdekat */}
+                    <div
+                      style={{
+                        display: 'flex',
+                        gap: '8px',
+                        flexWrap: 'wrap',
+                        marginBottom: '12px',
+                      }}
+                    >
+                      <input
+                        type="text"
+                        placeholder="Cari kegiatan, pemateri, atau area masjid..."
+                        value={kegiatanSearchQuery}
+                        onChange={(e) => setKegiatanSearchQuery(e.target.value)}
                         style={{
-                          padding: '22px 16px',
-                          textAlign: 'center',
+                          flex: 1,
+                          minWidth: '200px',
+                          padding: '8px 12px',
+                          borderRadius: '9px',
+                          border: '1px solid rgba(27, 107, 69, 0.25)',
+                          fontSize: '0.83rem',
+                          background: '#ffffff',
+                        }}
+                      />
+                      <select
+                        aria-label="Filter Kategori Kegiatan"
+                        value={kegiatanKategoriFilter}
+                        onChange={(e) => setKegiatanKategoriFilter(e.target.value)}
+                        style={{
+                          padding: '8px 12px',
+                          borderRadius: '9px',
+                          border: '1px solid rgba(27, 107, 69, 0.25)',
+                          fontSize: '0.83rem',
+                          fontWeight: 700,
                           background: '#f8faf8',
-                          borderRadius: '12px',
-                          border: '1px dashed rgba(27, 107, 69, 0.25)',
-                          color: '#4a6355',
-                          fontSize: '0.86rem',
-                          fontWeight: 600,
+                          color: '#0f4a2a',
                         }}
                       >
-                        {adminKalSelectedDate
-                          ? `Belum ada kegiatan masjid yang terjadwal pada tanggal ${adminKalSelectedDate}.`
-                          : 'Belum ada kegiatan masjid terdekat yang aktif.'}
-                      </div>
-                    ) : (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
-                        {displayedKegiatanMasjidList.map((kal, idx) => {
+                        <option value="Semua">Semua Kategori</option>
+                        {Array.from(
+                          new Set(
+                            displayedKegiatanMasjidList
+                              .map((k) => k.kategori)
+                              .filter(Boolean)
+                          )
+                        ).map((kat) => (
+                          <option key={kat} value={kat}>
+                            {kat}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {(() => {
+                      const q = kegiatanSearchQuery.trim().toLowerCase()
+                      const filteredKegiatan = displayedKegiatanMasjidList.filter((kal) => {
+                        const matchKat =
+                          kegiatanKategoriFilter === 'Semua' ||
+                          kal.kategori === kegiatanKategoriFilter
+                        const matchQ =
+                          !q ||
+                          kal.judul.toLowerCase().includes(q) ||
+                          (kal.pemateri || '').toLowerCase().includes(q) ||
+                          (kal.ruangan || '').toLowerCase().includes(q) ||
+                          kal.tanggal.includes(q)
+                        return matchKat && matchQ
+                      })
+                      if (filteredKegiatan.length === 0) {
+                        return (
+                          <div
+                            style={{
+                              padding: '22px 16px',
+                              textAlign: 'center',
+                              background: '#f8faf8',
+                              borderRadius: '12px',
+                              border: '1px dashed rgba(27, 107, 69, 0.25)',
+                              color: '#4a6355',
+                              fontSize: '0.86rem',
+                              fontWeight: 600,
+                            }}
+                          >
+                            {q || kegiatanKategoriFilter !== 'Semua'
+                              ? 'Tidak ada kegiatan yang cocok dengan pencarian atau filter.'
+                              : adminKalSelectedDate
+                                ? `Belum ada kegiatan masjid yang terjadwal pada tanggal ${adminKalSelectedDate}.`
+                                : 'Belum ada kegiatan masjid terdekat yang aktif.'}
+                          </div>
+                        )
+                      }
+                      return (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
+                          {filteredKegiatan.map((kal, idx) => {
                           const conflicts = findScheduleConflicts(
                             kal,
                             effectiveAdminAgendas,
@@ -4122,8 +4216,9 @@ export default function AdminSidebarPage() {
                             </div>
                           )
                         })}
-                      </div>
-                    )}
+                        </div>
+                      )
+                    })()}
                   </div>
                 ) : (
                   <div>
@@ -4131,13 +4226,82 @@ export default function AdminSidebarPage() {
                       Pengajuan Jadwal dari Pengguna (
                       {pengajuanKalenderList.filter((p) => p.status === 'Menunggu').length} Menunggu)
                     </h2>
-                    {pengajuanKalenderList.length === 0 ? (
-                      <p className={styles.panelSub} style={{ marginBottom: 0 }}>
-                        Belum ada pengajuan jadwal dari halaman kalender pengguna.
-                      </p>
-                    ) : (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        {pengajuanKalenderList.map((pgj) => (
+
+                    {/* Bar Pencarian & Filterisasi List Pengajuan */}
+                    <div
+                      style={{
+                        display: 'flex',
+                        gap: '8px',
+                        flexWrap: 'wrap',
+                        marginBottom: '12px',
+                      }}
+                    >
+                      <input
+                        type="text"
+                        placeholder="Cari nama kegiatan, penanggung jawab, atau tempat..."
+                        value={pengajuanSearchQuery}
+                        onChange={(e) => setPengajuanSearchQuery(e.target.value)}
+                        style={{
+                          flex: 1,
+                          minWidth: '200px',
+                          padding: '8px 12px',
+                          borderRadius: '9px',
+                          border: '1px solid rgba(27, 107, 69, 0.25)',
+                          fontSize: '0.83rem',
+                          background: '#ffffff',
+                        }}
+                      />
+                      <select
+                        aria-label="Filter Status Pengajuan"
+                        value={pengajuanStatusFilter}
+                        onChange={(e) =>
+                          setPengajuanStatusFilter(
+                            e.target.value as 'Semua' | 'Menunggu' | 'Disetujui' | 'Ditolak'
+                          )
+                        }
+                        style={{
+                          padding: '8px 12px',
+                          borderRadius: '9px',
+                          border: '1px solid rgba(27, 107, 69, 0.25)',
+                          fontSize: '0.83rem',
+                          fontWeight: 700,
+                          background: '#f8faf8',
+                          color: '#0f4a2a',
+                        }}
+                      >
+                        <option value="Semua">Semua Status</option>
+                        <option value="Menunggu">Menunggu</option>
+                        <option value="Disetujui">Disetujui</option>
+                        <option value="Ditolak">Ditolak</option>
+                      </select>
+                    </div>
+
+                    {(() => {
+                      const pq = pengajuanSearchQuery.trim().toLowerCase()
+                      const filteredPengajuan = pengajuanKalenderList.filter((pgj) => {
+                        const matchStatus =
+                          pengajuanStatusFilter === 'Semua' ||
+                          pgj.status === pengajuanStatusFilter
+                        const matchQ =
+                          !pq ||
+                          pgj.namaKegiatan.toLowerCase().includes(pq) ||
+                          pgj.penanggungJawab.toLowerCase().includes(pq) ||
+                          pgj.tempatKegiatan.toLowerCase().includes(pq) ||
+                          pgj.tanggal.includes(pq)
+                        return matchStatus && matchQ
+                      })
+                      if (filteredPengajuan.length === 0) {
+                        return (
+                          <p className={styles.panelSub} style={{ marginBottom: 0 }}>
+                            {pq || pengajuanStatusFilter !== 'Semua'
+                              ? 'Tidak ada pengajuan jadwal yang cocok dengan pencarian atau filter.'
+                              : 'Belum ada pengajuan jadwal dari halaman kalender pengguna.'}
+                          </p>
+                        )
+                      }
+                      return (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          {filteredPengajuan.map((pgj) => (
                           <div
                             key={pgj.id}
                             onClick={() => setPreviewPengajuanAdmin(pgj)}
@@ -4193,7 +4357,7 @@ export default function AdminSidebarPage() {
                                     color: '#0369a1',
                                   }}
                                 >
-                                  Ada Poster
+                                  Poster ✓
                                 </span>
                               )}
                             </div>
@@ -4298,11 +4462,24 @@ export default function AdminSidebarPage() {
                                   </button>
                                 </>
                               )}
+
+                              <button
+                                type="button"
+                                className={styles.deleteBtn}
+                                style={{ padding: '4px 10px', fontSize: '0.74rem' }}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleDeletePengajuanAdmin(pgj.id)
+                                }}
+                              >
+                                Hapus
+                              </button>
                             </div>
                           </div>
                         ))}
-                      </div>
-                    )}
+                        </div>
+                      )
+                    })()}
                   </div>
                 )}
               </div>
@@ -6018,7 +6195,7 @@ export default function AdminSidebarPage() {
                                 boxShadow: '0 6px 16px rgba(21, 128, 61, 0.25)',
                               }}
                             >
-                              {`Unduh Laporan ${selectedWeekDef.label}`}
+                              {`Unduh Laporan Mingguan`}
                             </button>
                           ) : (
                             <button
