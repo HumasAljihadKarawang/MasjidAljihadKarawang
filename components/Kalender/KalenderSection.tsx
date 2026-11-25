@@ -1991,7 +1991,7 @@ export default function KalenderSection() {
                   cursor: 'pointer',
                 }}
               >
-                Lanjut Mengisi
+                Lanjutkan
               </button>
               <button
                 type="button"
@@ -2012,7 +2012,7 @@ export default function KalenderSection() {
                   cursor: 'pointer',
                 }}
               >
-                Keluar (Jangan Simpan)
+                Keluar
               </button>
             </div>
           </div>

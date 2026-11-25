@@ -10835,7 +10835,7 @@ export default function AdminSidebarPage() {
                   cursor: 'pointer',
                 }}
               >
-                Lanjut Mengisi
+                Lanjutkan
               </button>
               <button
                 type="button"
@@ -10856,7 +10856,7 @@ export default function AdminSidebarPage() {
                   cursor: 'pointer',
                 }}
               >
-                Keluar (Jangan Simpan)
+                Keluar
               </button>
             </div>
           </div>

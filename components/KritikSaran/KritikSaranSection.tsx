@@ -246,7 +246,7 @@ export default function KritikSaranSection() {
                   cursor: 'pointer',
                 }}
               >
-                Lanjut Mengisi
+                Lanjutkan
               </button>
               <button
                 type="button"
@@ -268,7 +268,7 @@ export default function KritikSaranSection() {
                   cursor: 'pointer',
                 }}
               >
-                Keluar (Jangan Simpan)
+                Keluar
               </button>
             </div>
           </div>
