@@ -3257,12 +3257,12 @@ export default function AdminSidebarPage() {
                   ? 'Imam'
                   : perihalKhutbahOpsi === 'Bilal'
                     ? 'Bilal'
-                    : 'Petugas Ibadah Jumat'
+                    : "Petugas Ibadah Jum'at"
 
     const pembuka =
       activeJenis === 'Khutbah Jumat'
-        ? `Sehubungan dengan pelaksanaan kegiatan ibadah Jumat di Masjid Al-Jihad Islamic Center Karawang, kami mohon kesediaan Bapak/Ustadz untuk menjadi ${roleText} pada:`
-        : 'Sehubungan dengan pelaksanaan kegiatan di Masjid Al-Jihad Islamic Center Karawang, bersama surat ini kami mohon kesediaan Bapak/Ibu/Ustadz untuk hadir pada:'
+        ? `Sehubungan dengan pelaksanaan kegiatan Ibadah Jum'at di Masjid Al-Jihad Islamic Center Karawang, kami mohon Kesediaan Bapak/Ustadz untuk menjadi ${roleText} pada:`
+        : 'Sehubungan dengan pelaksanaan kegiatan di Masjid Al-Jihad Islamic Center Karawang, bersama Surat ini kami mohon Kesediaan Bapak/Ibu/Ustadz untuk hadir pada:'
 
     y += 42
     drawWrapped(pembuka, '25px "Times New Roman", serif')
@@ -3279,7 +3279,7 @@ export default function AdminSidebarPage() {
 
     drawKv('Hari / Tanggal', tglFmt, marginX + 46, 185)
     drawKv(
-      activeJenis === 'Khutbah Jumat' ? 'Waktu Jumat' : 'Waktu',
+      activeJenis === 'Khutbah Jumat' ? "Waktu Jum'at" : 'Waktu',
       activeWaktu || '-',
       marginX + 46,
       185
@@ -3289,7 +3289,7 @@ export default function AdminSidebarPage() {
 
     y += 22
     drawWrapped(
-      'Demikian surat permohonan ini kami sampaikan. Atas perhatian dan kehadiran Bapak/Ustadz, kami ucapkan Jazakumullahu Khairan Katsiran.',
+      'Demikian Surat Permohonan ini kami sampaikan. Atas perhatian dan kerjasamanya, kami ucapkan Jazakumullahu Khairan Katsiran.',
       '25px "Times New Roman", serif'
     )
     y += 14
@@ -11241,7 +11241,7 @@ export default function AdminSidebarPage() {
                     </p>
                     <p>
                       {jenisSurat === 'Khutbah Jumat'
-                        ? `Sehubungan dengan pelaksanaan kegiatan ibadah Jumat di Masjid Al-Jihad Islamic Center Karawang, kami mohon kesediaan Bapak/Ustadz untuk menjadi ${
+                        ? `Sehubungan dengan pelaksanaan kegiatan Ibadah Jum'at di Masjid Al-Jihad Islamic Center Karawang, kami mohon Kesediaan Bapak/Ustadz untuk menjadi ${
                             perihalKhutbahOpsi === 'Khotib & Imam'
                               ? 'Khotib & Imam'
                               : perihalKhutbahOpsi === 'Khotib Jumat'
@@ -11250,9 +11250,9 @@ export default function AdminSidebarPage() {
                                   ? 'Imam'
                                   : perihalKhutbahOpsi === 'Bilal'
                                     ? 'Bilal'
-                                    : 'Petugas Ibadah Jumat'
+                                    : "Petugas Ibadah Jum'at"
                           } pada:`
-                        : 'Sehubungan dengan pelaksanaan kegiatan di Masjid Al-Jihad Islamic Center Karawang, bersama surat ini kami mohon kesediaan Bapak/Ibu/Ustadz untuk hadir pada:'}
+                        : 'Sehubungan dengan pelaksanaan kegiatan di Masjid Al-Jihad Islamic Center Karawang, bersama Surat ini kami mohon Kesediaan Bapak/Ibu/Ustadz untuk hadir pada:'}
                     </p>
 
                     <div className={styles.suratScheduleTable}>
@@ -11271,7 +11271,7 @@ export default function AdminSidebarPage() {
                           : '-'}
                       </div>
                       <div>
-                        <strong>{jenisSurat === 'Khutbah Jumat' ? 'Waktu Jumat' : 'Waktu'}</strong>{' '}
+                        <strong>{jenisSurat === 'Khutbah Jumat' ? "Waktu Jum'at" : 'Waktu'}</strong>{' '}
                         : {waktuSuratAcara}
                       </div>
                       <div>
@@ -11283,8 +11283,8 @@ export default function AdminSidebarPage() {
                     </div>
 
                     <p>
-                      Demikian surat permohonan ini kami sampaikan. Atas perhatian dan kehadiran
-                      Bapak/Ustadz, kami ucapkan <em>Jazakumullahu Khairan Katsiran</em>.
+                      Demikian Surat Permohonan ini kami sampaikan. Atas perhatian dan kerjasamanya,
+                      kami ucapkan <em>Jazakumullahu Khairan Katsiran</em>.
                     </p>
                     <p>
                       <em>Wassalamu&apos;alaikum Warahmatullahi Wabarakatuh.</em>
