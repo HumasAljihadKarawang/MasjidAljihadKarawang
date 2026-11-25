@@ -707,6 +707,8 @@ export default function AdminSidebarPage() {
   const [autoUndanganSyncing, setAutoUndanganSyncing] = useState(false)
   const [showAutoUndanganModal, setShowAutoUndanganModal] = useState(false)
   const [konfirmasiAutoModal, setKonfirmasiAutoModal] = useState<AutoUndanganItem | null>(null)
+  const [deleteAutoUndanganConfirm, setDeleteAutoUndanganConfirm] =
+    useState<AutoUndanganItem | null>(null)
 
   const ROMAN_MONTHS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII']
 
@@ -849,38 +851,63 @@ export default function AdminSidebarPage() {
   }
 
   const handleUpdateAutoUndanganStatus = async (
-    id: string,
+    targetItem: AutoUndanganItem,
     nextStatus: AutoUndanganStatus
   ) => {
     saveAutoUndanganList(
-      autoUndanganList.map((x) => (x.id === id ? { ...x, status: nextStatus } : x))
+      autoUndanganList.map((x) =>
+        x.id === targetItem.id || x.noSurat === targetItem.noSurat
+          ? { ...x, status: nextStatus }
+          : x
+      )
     )
     if (getActiveSupabaseConfig().isConfigured) {
       const sb = getSupabaseClient()
       try {
-        await sb.from('surat_undangan_otomatis').update({ status: nextStatus }).eq('id', id)
+        await sb
+          .from('surat_undangan_otomatis')
+          .update({ status: nextStatus })
+          .eq('id', targetItem.id)
       } catch {
         // ignore
       }
       try {
-        await sb.from('kritik_saran').update({ status: nextStatus }).eq('id', id)
+        await sb
+          .from('kritik_saran')
+          .update({ status: nextStatus })
+          .eq('id', targetItem.id)
+        await sb
+          .from('kritik_saran')
+          .update({ status: nextStatus })
+          .eq('kategori', '__AUTO_UNDANGAN__')
+          .ilike('pesan', `%${targetItem.noSurat}%`)
       } catch {
         // ignore
       }
     }
   }
 
-  const handleDeleteAutoUndangan = async (id: string) => {
-    saveAutoUndanganList(autoUndanganList.filter((x) => x.id !== id))
+  const handleDeleteAutoUndangan = async (targetItem: AutoUndanganItem) => {
+    saveAutoUndanganList(
+      autoUndanganList.filter(
+        (x) => x.id !== targetItem.id && x.noSurat !== targetItem.noSurat
+      )
+    )
     if (getActiveSupabaseConfig().isConfigured) {
       const sb = getSupabaseClient()
       try {
-        await sb.from('surat_undangan_otomatis').delete().eq('id', id)
+        await sb.from('surat_undangan_otomatis').delete().eq('id', targetItem.id)
+        await sb.from('surat_undangan_otomatis').delete().eq('no_surat', targetItem.noSurat)
       } catch {
         // ignore
       }
       try {
-        await sb.from('kritik_saran').delete().eq('id', id)
+        await sb.from('kritik_saran').delete().eq('id', targetItem.id)
+        await sb
+          .from('kritik_saran')
+          .delete()
+          .eq('kategori', '__AUTO_UNDANGAN__')
+          .ilike('pesan', `%${targetItem.noSurat}%`)
       } catch {
         // ignore
       }
@@ -9035,27 +9062,6 @@ export default function AdminSidebarPage() {
                         <div style={{ display: 'flex', gap: '8px' }}>
                           <button
                             type="button"
-                            onClick={() => setJenisTransaksiKeu('Pengeluaran')}
-                            style={{
-                              flex: 1,
-                              padding: '9px',
-                              borderRadius: '9px',
-                              border:
-                                jenisTransaksiKeu === 'Pengeluaran'
-                                  ? '2px solid #dc2626'
-                                  : '1px solid #d1d5db',
-                              background:
-                                jenisTransaksiKeu === 'Pengeluaran' ? '#fef2f2' : '#ffffff',
-                              color:
-                                jenisTransaksiKeu === 'Pengeluaran' ? '#991b1b' : '#374151',
-                              fontWeight: 800,
-                              cursor: 'pointer',
-                            }}
-                          >
-                            Pengeluaran
-                          </button>
-                          <button
-                            type="button"
                             onClick={() => setJenisTransaksiKeu('Pemasukan')}
                             style={{
                               flex: 1,
@@ -9074,6 +9080,27 @@ export default function AdminSidebarPage() {
                             }}
                           >
                             Pemasukan
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setJenisTransaksiKeu('Pengeluaran')}
+                            style={{
+                              flex: 1,
+                              padding: '9px',
+                              borderRadius: '9px',
+                              border:
+                                jenisTransaksiKeu === 'Pengeluaran'
+                                  ? '2px solid #dc2626'
+                                  : '1px solid #d1d5db',
+                              background:
+                                jenisTransaksiKeu === 'Pengeluaran' ? '#fef2f2' : '#ffffff',
+                              color:
+                                jenisTransaksiKeu === 'Pengeluaran' ? '#991b1b' : '#374151',
+                              fontWeight: 800,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            Pengeluaran
                           </button>
                         </div>
                       </div>
@@ -10223,6 +10250,7 @@ export default function AdminSidebarPage() {
                     type="button"
                     onClick={() => setSuratTabMode('otomatis')}
                     style={{
+                      position: 'relative',
                       padding: '9px 16px',
                       borderRadius: '10px',
                       border:
@@ -10236,7 +10264,31 @@ export default function AdminSidebarPage() {
                       cursor: 'pointer',
                     }}
                   >
-                    {`Surat Undangan Otomatis (${autoUndanganList.length})`}
+                    Surat Undangan Otomatis
+                    {autoUndanganList.length > 0 && (
+                      <span
+                        style={{
+                          position: 'absolute',
+                          top: '-7px',
+                          right: '-7px',
+                          minWidth: '20px',
+                          height: '20px',
+                          padding: '0 6px',
+                          borderRadius: '999px',
+                          background: '#dc2626',
+                          color: '#ffffff',
+                          fontSize: '0.68rem',
+                          fontWeight: 900,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          boxShadow: '0 2px 6px rgba(220, 38, 38, 0.35)',
+                          border: '2px solid #ffffff',
+                        }}
+                      >
+                        {autoUndanganList.length}
+                      </span>
+                    )}
                   </button>
                 </div>
               </div>
@@ -11014,7 +11066,7 @@ export default function AdminSidebarPage() {
                                   type="button"
                                   className={styles.deleteBtn}
                                   style={{ padding: '6px 10px', fontSize: '0.76rem' }}
-                                  onClick={() => handleDeleteAutoUndangan(item.id)}
+                                  onClick={() => setDeleteAutoUndanganConfirm(item)}
                                 >
                                   Hapus
                                 </button>
@@ -11045,29 +11097,32 @@ export default function AdminSidebarPage() {
                                       /[^a-zA-Z0-9]+/g,
                                       '-'
                                     )}-${item.tanggal}.png`
-                                    const imgFile = new File([imgBlob], fileName, {
-                                      type: 'image/png',
-                                    })
+                                    const waPhone = normalizeWaPhone(item.noTelp)
 
-                                    if (
-                                      typeof navigator !== 'undefined' &&
-                                      navigator.canShare &&
-                                      navigator.canShare({ files: [imgFile] })
-                                    ) {
-                                      try {
-                                        await navigator.share({
-                                          files: [imgFile],
-                                          title: item.perihal || 'Surat Undangan Resmi DKM',
-                                          text: waText,
-                                        })
-                                        setAutoWaShareHint(
-                                          `Surat undangan format PNG (${item.noSurat}) dan teks pengantar berhasil dibagikan. Silakan konfirmasi status undangan.`
-                                        )
-                                        setKonfirmasiAutoModal(item)
-                                        return
-                                      } catch (err) {
-                                        if (err instanceof Error && err.name === 'AbortError') {
+                                    if (!waPhone) {
+                                      const imgFile = new File([imgBlob], fileName, {
+                                        type: 'image/png',
+                                      })
+                                      if (
+                                        typeof navigator !== 'undefined' &&
+                                        navigator.canShare &&
+                                        navigator.canShare({ files: [imgFile] })
+                                      ) {
+                                        try {
+                                          await navigator.share({
+                                            files: [imgFile],
+                                            title: item.perihal || 'Surat Undangan Resmi DKM',
+                                            text: waText,
+                                          })
+                                          setAutoWaShareHint(
+                                            `Surat undangan format PNG (${item.noSurat}) dan teks pengantar berhasil dibagikan.`
+                                          )
+                                          setKonfirmasiAutoModal(item)
                                           return
+                                        } catch (err) {
+                                          if (err instanceof Error && err.name === 'AbortError') {
+                                            return
+                                          }
                                         }
                                       }
                                     }
@@ -11092,14 +11147,13 @@ export default function AdminSidebarPage() {
                                     a.click()
                                     URL.revokeObjectURL(url)
 
-                                    const waPhone = normalizeWaPhone(item.noTelp)
                                     const waUrl = waPhone
                                       ? `https://wa.me/${waPhone}?text=${encodeURIComponent(waText)}`
                                       : `https://wa.me/?text=${encodeURIComponent(waText)}`
                                     window.open(waUrl, '_blank', 'noopener,noreferrer')
 
                                     setAutoWaShareHint(
-                                      `Surat undangan format PNG (${item.noSurat}) disalin ke clipboard & diunduh, serta WA ke ${item.noTelp} dibuka. Silakan konfirmasi status undangan.`
+                                      `Langsung diarahkan ke WA ${item.noTelp || 'tujuan'} dengan teks pengantar. Foto PNG (${item.noSurat}) sudah disalin ke clipboard (tekan Ctrl+V di chat WA) & diunduh, lalu tinggal klik Kirim.`
                                     )
                                     setKonfirmasiAutoModal(item)
                                   }}
@@ -11443,6 +11497,85 @@ export default function AdminSidebarPage() {
                 </div>
               )}
 
+              {/* POP-UP KONFIRMASI HAPUS GLOBAL SURAT UNDANGAN OTOMATIS */}
+              {deleteAutoUndanganConfirm && (
+                <div
+                  style={{
+                    position: 'fixed',
+                    inset: 0,
+                    background: 'rgba(15, 23, 42, 0.72)',
+                    backdropFilter: 'blur(4px)',
+                    zIndex: 9997,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '16px',
+                  }}
+                  onClick={() => setDeleteAutoUndanganConfirm(null)}
+                >
+                  <div
+                    style={{
+                      background: '#ffffff',
+                      borderRadius: '18px',
+                      width: '100%',
+                      maxWidth: '430px',
+                      padding: '24px',
+                      boxShadow: '0 24px 60px rgba(0, 0, 0, 0.34)',
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <h3 style={{ margin: '0 0 8px', fontSize: '1.05rem', fontWeight: 900, color: '#991b1b' }}>
+                      Konfirmasi Hapus Surat Undangan
+                    </h3>
+                    <p style={{ margin: '0 0 18px', fontSize: '0.86rem', color: '#374151', lineHeight: 1.5 }}>
+                      Apakah Anda yakin ingin menghapus surat undangan{' '}
+                      <strong>{deleteAutoUndanganConfirm.noSurat}</strong> untuk{' '}
+                      <strong>{deleteAutoUndanganConfirm.nama}</strong> secara permanen (terhapus di seluruh perangkat)?
+                    </p>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <button
+                        type="button"
+                        onClick={() => setDeleteAutoUndanganConfirm(null)}
+                        style={{
+                          flex: 1,
+                          padding: '10px 14px',
+                          borderRadius: '10px',
+                          border: '1px solid #d1d5db',
+                          background: '#f9fafb',
+                          color: '#374151',
+                          fontWeight: 800,
+                          fontSize: '0.84rem',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Batal
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const target = deleteAutoUndanganConfirm
+                          setDeleteAutoUndanganConfirm(null)
+                          await handleDeleteAutoUndangan(target)
+                        }}
+                        style={{
+                          flex: 1,
+                          padding: '10px 14px',
+                          borderRadius: '10px',
+                          border: 'none',
+                          background: '#dc2626',
+                          color: '#ffffff',
+                          fontWeight: 800,
+                          fontSize: '0.84rem',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Ya, Hapus Permanen
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* POP-UP KONFIRMASI ADMIN STATUS UNDANGAN OTOMATIS (DENGAN INDIKATOR STATUS & TANPA STIKER) */}
               {konfirmasiAutoModal &&
                 (() => {
@@ -11460,7 +11593,7 @@ export default function AdminSidebarPage() {
                     st === 'Belum Dikirim' ? 0 : st === 'Sudah Dikirim' ? 1 : 2
 
                   const updateAutoStatus = (nextStatus: AutoUndanganStatus) => {
-                    handleUpdateAutoUndanganStatus(konfirmasiAutoModal.id, nextStatus)
+                    handleUpdateAutoUndanganStatus(konfirmasiAutoModal, nextStatus)
                     setKonfirmasiAutoModal(null)
                   }
 
