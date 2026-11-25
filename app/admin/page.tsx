@@ -728,6 +728,8 @@ export default function AdminSidebarPage() {
   const [selectedAutoUndanganIds, setSelectedAutoUndanganIds] = useState<string[]>([])
   const [waBulkSending, setWaBulkSending] = useState(false)
   const [waBulkProgress, setWaBulkProgress] = useState('')
+  const [waBulkDelayLeft, setWaBulkDelayLeft] = useState(0)
+  const [shareWaChoiceItem, setShareWaChoiceItem] = useState<AutoUndanganItem | null>(null)
 
   const ROMAN_MONTHS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII']
 
@@ -1009,6 +1011,80 @@ export default function AdminSidebarPage() {
     await handleUpdateAutoUndanganStatus(item, 'Sudah Dikirim')
   }
 
+  const sendAutoUndanganManual = async (item: AutoUndanganItem) => {
+    const isKhutbah = /khotib|khatib|imam|bilal|jumat|jum'at/i.test(item.perihal)
+    const jenisTarget: 'Khutbah Jumat' | 'Umum' = isKhutbah ? 'Khutbah Jumat' : 'Umum'
+    const waText = getSuratWaText({
+      kepada: item.nama,
+      perihal: item.perihal,
+      tanggal: item.tanggal,
+      noSurat: item.noSurat,
+      jenisSurat: jenisTarget,
+    })
+    const imgBlob = await buildSuratImageBlob({
+      noSurat: item.noSurat,
+      perihal: item.perihal,
+      kepada: item.nama,
+      tanggal: item.tanggal,
+      waktu: isKhutbah ? '11:36 WIB' : waktuSuratAcara,
+      agenda: item.perihal,
+      jenisSurat: jenisTarget,
+    })
+    const fileName = `Surat-Undangan-${item.nama.replace(/[^a-zA-Z0-9]+/g, '-')}-${item.tanggal}.png`
+    const waPhone = normalizeWaPhone(item.noTelp)
+
+    if (!waPhone) {
+      const imgFile = new File([imgBlob], fileName, { type: 'image/png' })
+      if (
+        typeof navigator !== 'undefined' &&
+        navigator.canShare &&
+        navigator.canShare({ files: [imgFile] })
+      ) {
+        try {
+          await navigator.share({
+            files: [imgFile],
+            title: item.perihal || 'Surat Undangan Resmi DKM',
+            text: waText,
+          })
+          setAutoWaShareHint(
+            `Surat undangan format PNG (${item.noSurat}) dan teks pengantar berhasil dibagikan.`
+          )
+          setKonfirmasiAutoModal(item)
+          return
+        } catch (err) {
+          if (err instanceof Error && err.name === 'AbortError') {
+            return
+          }
+        }
+      }
+    }
+
+    try {
+      if (typeof ClipboardItem !== 'undefined' && navigator.clipboard?.write) {
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': imgBlob })])
+      }
+    } catch {
+      // ignore clipboard fallback
+    }
+
+    const url = URL.createObjectURL(imgBlob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = fileName
+    a.click()
+    URL.revokeObjectURL(url)
+
+    const waUrl = waPhone
+      ? `https://wa.me/${waPhone}?text=${encodeURIComponent(waText)}`
+      : `https://wa.me/?text=${encodeURIComponent(waText)}`
+    window.open(waUrl, '_blank', 'noopener,noreferrer')
+
+    setAutoWaShareHint(
+      `Langsung diarahkan ke WA ${item.noTelp || 'tujuan'} dengan teks pengantar. Foto PNG (${item.noSurat}) sudah disalin ke clipboard (tekan Ctrl+V di chat WA) & diunduh, lalu tinggal klik Kirim.`
+    )
+    setKonfirmasiAutoModal(item)
+  }
+
   const handleBulkSendWaLocal = async (itemsToSend: AutoUndanganItem[]) => {
     if (waBulkSending || itemsToSend.length === 0) return
     const status = await checkWaLocalStatus(false)
@@ -1033,12 +1109,14 @@ export default function AdminSidebarPage() {
     }
 
     setWaBulkSending(true)
+    setWaBulkDelayLeft(0)
     let successCount = 0
     const failedNames: string[] = []
     const sentIds: string[] = []
 
     for (let i = 0; i < validItems.length; i += 1) {
       const current = validItems[i]
+      setWaBulkDelayLeft(0)
       setWaBulkProgress(`Mengirim ${i + 1}/${validItems.length}: ${current.nama}...`)
       try {
         await sendAutoUndanganViaWaLocal(current)
@@ -1050,12 +1128,21 @@ export default function AdminSidebarPage() {
         )
       }
       if (i < validItems.length - 1) {
-        await new Promise((resolve) => window.setTimeout(resolve, 4500))
+        const nextItem = validItems[i + 1]
+        for (let sec = 10; sec >= 1; sec -= 1) {
+          setWaBulkDelayLeft(sec)
+          setWaBulkProgress(
+            `Menunggu jeda aman ${sec} detik sebelum mengirim ke ${nextItem.nama} (${i + 2}/${validItems.length})...`
+          )
+          await new Promise((resolve) => window.setTimeout(resolve, 1000))
+        }
+        setWaBulkDelayLeft(0)
       }
     }
 
     setSelectedAutoUndanganIds((prev) => prev.filter((id) => !sentIds.includes(id)))
     setWaBulkSending(false)
+    setWaBulkDelayLeft(0)
     setWaBulkProgress('')
     const summaryParts = [`${successCount} surat berhasil dikirim otomatis via WA Lokal.`]
     if (skippedCount > 0) summaryParts.push(`${skippedCount} dilewati (no. WA kosong).`)
@@ -11342,8 +11429,14 @@ export default function AdminSidebarPage() {
 
                       {autoUndanganList.length > 0 && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                          {!waLocalStatus.connected && (
+                            <span style={{ fontSize: '0.71rem', color: '#64748b', fontWeight: 700 }}>
+                              Kirim Banyak aktif setelah Server WA Sender terhubung (jeda 10 dtk/khotib)
+                            </span>
+                          )}
                           <button
                             type="button"
+                            disabled={!waLocalStatus.connected || waBulkSending}
                             onClick={() => {
                               const aq = autoUndanganSearchQuery.trim().toLowerCase()
                               const visibleIds = autoUndanganList
@@ -11370,18 +11463,18 @@ export default function AdminSidebarPage() {
                               padding: '5px 10px',
                               borderRadius: '7px',
                               border: '1px solid rgba(27, 107, 69, 0.25)',
-                              background: '#ffffff',
-                              color: '#14532d',
+                              background: !waLocalStatus.connected || waBulkSending ? '#f1f5f9' : '#ffffff',
+                              color: !waLocalStatus.connected || waBulkSending ? '#94a3b8' : '#14532d',
                               fontSize: '0.74rem',
                               fontWeight: 800,
-                              cursor: 'pointer',
+                              cursor: !waLocalStatus.connected || waBulkSending ? 'not-allowed' : 'pointer',
                             }}
                           >
                             {selectedAutoUndanganIds.length > 0 ? 'Batal Pilih' : 'Pilih Semua'}
                           </button>
                           <button
                             type="button"
-                            disabled={selectedAutoUndanganIds.length === 0 || waBulkSending}
+                            disabled={!waLocalStatus.connected || selectedAutoUndanganIds.length === 0 || waBulkSending}
                             onClick={() => {
                               const selectedItems = autoUndanganList.filter((it) =>
                                 selectedAutoUndanganIds.includes(it.id)
@@ -11393,25 +11486,77 @@ export default function AdminSidebarPage() {
                               borderRadius: '8px',
                               border: 'none',
                               background:
-                                selectedAutoUndanganIds.length === 0 || waBulkSending
+                                !waLocalStatus.connected || selectedAutoUndanganIds.length === 0 || waBulkSending
                                   ? '#cbd5e1'
                                   : 'linear-gradient(135deg, #25D366, #128C7E)',
                               color: '#ffffff',
                               fontSize: '0.76rem',
                               fontWeight: 800,
                               cursor:
-                                selectedAutoUndanganIds.length === 0 || waBulkSending
+                                !waLocalStatus.connected || selectedAutoUndanganIds.length === 0 || waBulkSending
                                   ? 'not-allowed'
                                   : 'pointer',
                             }}
                           >
                             {waBulkSending
-                              ? waBulkProgress || 'Mengirim...'
-                              : `Kirim Terpilih via WA Lokal (${selectedAutoUndanganIds.length})`}
+                              ? waBulkDelayLeft > 0
+                                ? `Jeda ${waBulkDelayLeft}d...`
+                                : 'Mengirim...'
+                              : `Kirim Terpilih (${selectedAutoUndanganIds.length})`}
                           </button>
                         </div>
                       )}
                     </div>
+
+                    {waBulkSending && (
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: '10px',
+                          flexWrap: 'wrap',
+                          padding: '10px 14px',
+                          borderRadius: '10px',
+                          background: waBulkDelayLeft > 0 ? '#fffbeb' : '#ecfdf5',
+                          border:
+                            waBulkDelayLeft > 0
+                              ? '1px solid rgba(217, 119, 6, 0.38)'
+                              : '1px solid rgba(22, 163, 74, 0.38)',
+                          marginBottom: '12px',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span
+                            style={{
+                              width: '10px',
+                              height: '10px',
+                              borderRadius: '999px',
+                              background: waBulkDelayLeft > 0 ? '#d97706' : '#16a34a',
+                              display: 'inline-block',
+                            }}
+                          />
+                          <strong style={{ fontSize: '0.8rem', color: '#0f172a' }}>
+                            {waBulkProgress || 'Memproses pengiriman WA Lokal...'}
+                          </strong>
+                        </div>
+                        {waBulkDelayLeft > 0 && (
+                          <span
+                            style={{
+                              padding: '3px 10px',
+                              borderRadius: '999px',
+                              background: '#fef3c7',
+                              color: '#92400e',
+                              fontSize: '0.75rem',
+                              fontWeight: 800,
+                              border: '1px solid rgba(217, 119, 6, 0.35)',
+                            }}
+                          >
+                            Jeda aman per khotib: {waBulkDelayLeft} detik
+                          </span>
+                        )}
+                      </div>
+                    )}
 
                     {/* Menu Pencarian & Filter Status Surat Undangan Otomatis */}
                     <div
@@ -11543,6 +11688,7 @@ export default function AdminSidebarPage() {
                                 <input
                                   type="checkbox"
                                   aria-label={`Pilih ${item.nama}`}
+                                  disabled={!waLocalStatus.connected || waBulkSending}
                                   checked={selectedAutoUndanganIds.includes(item.id)}
                                   onChange={(e) => {
                                     const checked = e.target.checked
@@ -11557,7 +11703,11 @@ export default function AdminSidebarPage() {
                                     width: '16px',
                                     height: '16px',
                                     accentColor: '#15803d',
-                                    cursor: 'pointer',
+                                    cursor:
+                                      !waLocalStatus.connected || waBulkSending
+                                        ? 'not-allowed'
+                                        : 'pointer',
+                                    opacity: !waLocalStatus.connected || waBulkSending ? 0.45 : 1,
                                     flexShrink: 0,
                                   }}
                                 />
@@ -11659,114 +11809,9 @@ export default function AdminSidebarPage() {
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={async () => {
-                                    const waPhone = normalizeWaPhone(item.noTelp)
-                                    if (waPhone) {
-                                      const localStat = waLocalStatus.connected
-                                        ? waLocalStatus
-                                        : await checkWaLocalStatus(true)
-                                      if (localStat.connected) {
-                                        try {
-                                          setAutoWaShareHint(
-                                            `Mengirim surat PNG + teks pengantar ke WA ${item.nama} via WA Lokal...`
-                                          )
-                                          await sendAutoUndanganViaWaLocal(item)
-                                          setAutoWaShareHint(
-                                            `Berhasil! Surat PNG (${item.noSurat}) & teks pengantar terkirim otomatis ke WA ${item.nama}.`
-                                          )
-                                          return
-                                        } catch (err) {
-                                          setAutoWaShareHint(
-                                            `Gagal kirim via WA Lokal (${err instanceof Error ? err.message : 'error'}), beralih ke mode manual.`
-                                          )
-                                        }
-                                      }
-                                    }
-
-                                    const isKhutbah = /khotib|khatib|imam|bilal|jumat|jum'at/i.test(
-                                      item.perihal
-                                    )
-                                    const jenisTarget: 'Khutbah Jumat' | 'Umum' = isKhutbah
-                                      ? 'Khutbah Jumat'
-                                      : 'Umum'
-                                    const waText = getSuratWaText({
-                                      kepada: item.nama,
-                                      perihal: item.perihal,
-                                      tanggal: item.tanggal,
-                                      noSurat: item.noSurat,
-                                      jenisSurat: jenisTarget,
-                                    })
-                                    const imgBlob = await buildSuratImageBlob({
-                                      noSurat: item.noSurat,
-                                      perihal: item.perihal,
-                                      kepada: item.nama,
-                                      tanggal: item.tanggal,
-                                      waktu: isKhutbah ? '11:36 WIB' : waktuSuratAcara,
-                                      agenda: item.perihal,
-                                      jenisSurat: jenisTarget,
-                                    })
-                                    const fileName = `Surat-Undangan-${item.nama.replace(
-                                      /[^a-zA-Z0-9]+/g,
-                                      '-'
-                                    )}-${item.tanggal}.png`
-
-                                    if (!waPhone) {
-                                      const imgFile = new File([imgBlob], fileName, {
-                                        type: 'image/png',
-                                      })
-                                      if (
-                                        typeof navigator !== 'undefined' &&
-                                        navigator.canShare &&
-                                        navigator.canShare({ files: [imgFile] })
-                                      ) {
-                                        try {
-                                          await navigator.share({
-                                            files: [imgFile],
-                                            title: item.perihal || 'Surat Undangan Resmi DKM',
-                                            text: waText,
-                                          })
-                                          setAutoWaShareHint(
-                                            `Surat undangan format PNG (${item.noSurat}) dan teks pengantar berhasil dibagikan.`
-                                          )
-                                          setKonfirmasiAutoModal(item)
-                                          return
-                                        } catch (err) {
-                                          if (err instanceof Error && err.name === 'AbortError') {
-                                            return
-                                          }
-                                        }
-                                      }
-                                    }
-
-                                    try {
-                                      if (
-                                        typeof ClipboardItem !== 'undefined' &&
-                                        navigator.clipboard?.write
-                                      ) {
-                                        await navigator.clipboard.write([
-                                          new ClipboardItem({ 'image/png': imgBlob }),
-                                        ])
-                                      }
-                                    } catch {
-                                      // ignore clipboard fallback
-                                    }
-
-                                    const url = URL.createObjectURL(imgBlob)
-                                    const a = document.createElement('a')
-                                    a.href = url
-                                    a.download = fileName
-                                    a.click()
-                                    URL.revokeObjectURL(url)
-
-                                    const waUrl = waPhone
-                                      ? `https://wa.me/${waPhone}?text=${encodeURIComponent(waText)}`
-                                      : `https://wa.me/?text=${encodeURIComponent(waText)}`
-                                    window.open(waUrl, '_blank', 'noopener,noreferrer')
-
-                                    setAutoWaShareHint(
-                                      `Langsung diarahkan ke WA ${item.noTelp || 'tujuan'} dengan teks pengantar. Foto PNG (${item.noSurat}) sudah disalin ke clipboard (tekan Ctrl+V di chat WA) & diunduh, lalu tinggal klik Kirim.`
-                                    )
-                                    setKonfirmasiAutoModal(item)
+                                  onClick={() => {
+                                    void checkWaLocalStatus(true)
+                                    setShareWaChoiceItem(item)
                                   }}
                                   style={{
                                     display: 'inline-flex',
@@ -11792,6 +11837,151 @@ export default function AdminSidebarPage() {
                         </div>
                       )
                     })()}
+                  </div>
+                </div>
+              )}
+
+              {/* POP-UP PILIHAN METODE SHARE WA (OTOMATIS / MANUAL / BATAL) */}
+              {shareWaChoiceItem && (
+                <div
+                  onDoubleClick={(e) => {
+                    if (e.target === e.currentTarget) setShareWaChoiceItem(null)
+                  }}
+                  style={{
+                    position: 'fixed',
+                    inset: 0,
+                    background: 'rgba(15, 23, 42, 0.68)',
+                    backdropFilter: 'blur(4px)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '16px',
+                    zIndex: 9999,
+                  }}
+                >
+                  <div
+                    style={{
+                      width: '100%',
+                      maxWidth: '420px',
+                      background: '#ffffff',
+                      borderRadius: '18px',
+                      padding: '22px',
+                      boxShadow: '0 24px 60px rgba(0, 0, 0, 0.28)',
+                      border: '1px solid rgba(27, 107, 69, 0.2)',
+                    }}
+                  >
+                    <h3 style={{ margin: '0 0 6px', fontSize: '1.05rem', fontWeight: 900, color: '#0f4a2a' }}>
+                      Pilih Metode Kirim WhatsApp
+                    </h3>
+                    <p style={{ margin: '0 0 12px', fontSize: '0.82rem', color: '#475569', lineHeight: 1.5 }}>
+                      Tujuan: <strong>{shareWaChoiceItem.nama}</strong> ({shareWaChoiceItem.noSurat})
+                      <br />
+                      No. WA: <strong>{shareWaChoiceItem.noTelp || 'Belum diisi'}</strong>
+                    </p>
+
+                    <div
+                      style={{
+                        padding: '8px 11px',
+                        borderRadius: '9px',
+                        background: waLocalStatus.connected ? '#ecfdf5' : '#fef3c7',
+                        border: waLocalStatus.connected
+                          ? '1px solid rgba(22, 163, 74, 0.3)'
+                          : '1px solid rgba(217, 119, 6, 0.3)',
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        color: waLocalStatus.connected ? '#166534' : '#92400e',
+                        marginBottom: '14px',
+                      }}
+                    >
+                      {waLocalStatus.connected
+                        ? `● Server WA Sender Lokal tersambung (${waLocalStatus.phone ? `+${waLocalStatus.phone}` : 'Siap'})`
+                        : '○ Server WA Sender Lokal belum tersambung (mode Otomatis terkunci)'}
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '9px' }}>
+                      <button
+                        type="button"
+                        disabled={
+                          !waLocalStatus.connected || !normalizeWaPhone(shareWaChoiceItem.noTelp)
+                        }
+                        onClick={async () => {
+                          const target = shareWaChoiceItem
+                          setShareWaChoiceItem(null)
+                          try {
+                            setAutoWaShareHint(
+                              `Mengirim surat PNG + teks pengantar ke WA ${target.nama} via WA Lokal...`
+                            )
+                            await sendAutoUndanganViaWaLocal(target)
+                            setAutoWaShareHint(
+                              `Berhasil! Surat PNG (${target.noSurat}) & teks pengantar terkirim otomatis ke WA ${target.nama}.`
+                            )
+                          } catch (err) {
+                            setAutoWaShareHint(
+                              `Gagal kirim otomatis: ${err instanceof Error ? err.message : 'error'}`
+                            )
+                          }
+                        }}
+                        style={{
+                          width: '100%',
+                          padding: '10px 14px',
+                          borderRadius: '10px',
+                          border: 'none',
+                          background:
+                            waLocalStatus.connected && normalizeWaPhone(shareWaChoiceItem.noTelp)
+                              ? 'linear-gradient(135deg, #25D366, #128C7E)'
+                              : '#cbd5e1',
+                          color: '#ffffff',
+                          fontSize: '0.85rem',
+                          fontWeight: 800,
+                          cursor:
+                            waLocalStatus.connected && normalizeWaPhone(shareWaChoiceItem.noTelp)
+                              ? 'pointer'
+                              : 'not-allowed',
+                        }}
+                      >
+                        Otomatis (via WA Sender Lokal)
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const target = shareWaChoiceItem
+                          setShareWaChoiceItem(null)
+                          await sendAutoUndanganManual(target)
+                        }}
+                        style={{
+                          width: '100%',
+                          padding: '10px 14px',
+                          borderRadius: '10px',
+                          border: '1px solid rgba(27, 107, 69, 0.35)',
+                          background: '#f0fdf4',
+                          color: '#0f4a2a',
+                          fontSize: '0.85rem',
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Manual (Buka WA Web / Aplikasi)
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setShareWaChoiceItem(null)}
+                        style={{
+                          width: '100%',
+                          padding: '9px 14px',
+                          borderRadius: '10px',
+                          border: '1px solid #e2e8f0',
+                          background: '#ffffff',
+                          color: '#64748b',
+                          fontSize: '0.83rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Batal
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
