@@ -637,6 +637,7 @@ export default function AdminSidebarPage() {
   const [autoUndanganTanggal, setAutoUndanganTanggal] = useState('2026-11-27')
   const [autoUndanganTelp, setAutoUndanganTelp] = useState('')
   const [autoWaShareHint, setAutoWaShareHint] = useState('')
+  const [showAutoUndanganModal, setShowAutoUndanganModal] = useState(false)
   const [konfirmasiAutoModal, setKonfirmasiAutoModal] = useState<AutoUndanganItem | null>(null)
 
   const ROMAN_MONTHS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII']
@@ -9906,162 +9907,9 @@ export default function AdminSidebarPage() {
               </div>
               </div>
 
-              {/* KLASIFIKASI 2: SURAT UNDANGAN OTOMATIS (FORM SIMPEL 4 INPUT + MENU LIST + SHARE WA LANGSUNG + KONFIRMASI STATUS) */}
+              {/* KLASIFIKASI 2: SURAT UNDANGAN OTOMATIS (MENU LIST + POP-UP INPUT + SHARE WA LANGSUNG + KONFIRMASI STATUS) */}
               {suratTabMode === 'otomatis' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  {/* Form Input Simpel Undangan Otomatis */}
-                  <div className={styles.panelCard}>
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        flexWrap: 'wrap',
-                        gap: '8px',
-                        marginBottom: '12px',
-                      }}
-                    >
-                      <div>
-                        <h2 className={styles.panelTitle} style={{ margin: 0 }}>
-                          Buat Surat Undangan Otomatis
-                        </h2>
-                        <span style={{ fontSize: '0.78rem', color: '#4b5563', fontWeight: 600 }}>
-                          {`Nomor Seri Berikutnya: ${noSurat} (Sinkron otomatis dengan Manual, Kajian, Khutbah & Bilal)`}
-                        </span>
-                      </div>
-                      {lastUsedNoSurat && (
-                        <span
-                          style={{
-                            fontSize: '0.75rem',
-                            fontWeight: 700,
-                            padding: '4px 10px',
-                            borderRadius: '999px',
-                            background: '#f0fdf4',
-                            color: '#166534',
-                            border: '1px solid rgba(22, 163, 74, 0.25)',
-                          }}
-                        >
-                          {`Terakhir: ${lastUsedNoSurat.nomor}`}
-                        </span>
-                      )}
-                    </div>
-
-                    <form
-                      onSubmit={(e) => {
-                        e.preventDefault()
-                        if (!autoUndanganNama.trim() || !autoUndanganPerihal.trim() || !autoUndanganTanggal) {
-                          return
-                        }
-                        const assignedNo = noSurat
-                        const newItem: AutoUndanganItem = {
-                          id: `auto-und-${Date.now()}`,
-                          noSurat: assignedNo,
-                          nama: autoUndanganNama.trim(),
-                          perihal: autoUndanganPerihal.trim(),
-                          tanggal: autoUndanganTanggal,
-                          noTelp: autoUndanganTelp.trim(),
-                          status: 'Belum Dikirim',
-                          createdAt: new Date().toISOString(),
-                        }
-                        saveAutoUndanganList([newItem, ...autoUndanganList])
-                        saveKhatibContact(autoUndanganNama, autoUndanganTelp)
-                        recordLastUsedNoSurat(assignedNo, autoUndanganTanggal)
-                        setAutoUndanganNama('')
-                        setAutoUndanganTelp('')
-                      }}
-                      style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
-                        gap: '12px',
-                        alignItems: 'end',
-                      }}
-                    >
-                      <div className={styles.formGroup} style={{ marginBottom: 0 }}>
-                        <label>Nama Penerima / Khotib / Bilal</label>
-                        <input
-                          type="text"
-                          required
-                          list="khatib-contact-list"
-                          placeholder="Contoh: KH. Ahmad Fauzan, S.Ag."
-                          value={autoUndanganNama}
-                          onChange={(e) => {
-                            const val = e.target.value
-                            setAutoUndanganNama(val)
-                            const knownPhone =
-                              khatibContacts[val] ||
-                              kalenderList.find((k) => k.pemateri === val && k.noTeleponPj)
-                                ?.noTeleponPj ||
-                              pengajuanKalenderList.find(
-                                (p) => p.penanggungJawab === val && p.noTeleponPj
-                              )?.noTeleponPj
-                            if (knownPhone) {
-                              setAutoUndanganTelp(knownPhone)
-                            }
-                          }}
-                        />
-                        <datalist id="khatib-contact-list">
-                          {Array.from(
-                            new Set([
-                              ...Object.keys(khatibContacts),
-                              ...kalenderList.map((k) => k.pemateri).filter(Boolean),
-                              ...pengajuanKalenderList.map((p) => p.penanggungJawab).filter(Boolean),
-                            ])
-                          ).map((nm) => (
-                            <option key={nm} value={nm} />
-                          ))}
-                        </datalist>
-                      </div>
-
-                      <div className={styles.formGroup} style={{ marginBottom: 0 }}>
-                        <label>Perihal Undangan</label>
-                        <input
-                          type="text"
-                          required
-                          list="perihal-undangan-presets"
-                          placeholder="Khotib / Bilal / Kajian..."
-                          value={autoUndanganPerihal}
-                          onChange={(e) => setAutoUndanganPerihal(e.target.value)}
-                        />
-                        <datalist id="perihal-undangan-presets">
-                          <option value="Permohonan Menjadi Khotib & Imam Sholat Jum'at" />
-                          <option value="Permohonan Menjadi Khotib Sholat Jum'at" />
-                          <option value="Permohonan Menjadi Imam Sholat Jum'at" />
-                          <option value="Permohonan Menjadi Bilal Sholat Jum'at" />
-                          <option value="Permohonan Menjadi Pemateri Kajian Pekanan" />
-                        </datalist>
-                      </div>
-
-                      <div className={styles.formGroup} style={{ marginBottom: 0 }}>
-                        <label>Tanggal</label>
-                        <input
-                          type="date"
-                          required
-                          value={autoUndanganTanggal}
-                          onChange={(e) => setAutoUndanganTanggal(e.target.value)}
-                        />
-                      </div>
-
-                      <div className={styles.formGroup} style={{ marginBottom: 0 }}>
-                        <label>No. Telepon (HP Khotib)</label>
-                        <input
-                          type="tel"
-                          required
-                          placeholder="0812xxxxxxxx"
-                          value={autoUndanganTelp}
-                          onChange={(e) => setAutoUndanganTelp(e.target.value)}
-                        />
-                      </div>
-
-                      <button
-                        type="submit"
-                        className={styles.submitBtn}
-                        style={{ marginTop: 0, height: '42px' }}
-                      >
-                        + Tambah ke List Undangan
-                      </button>
-                    </form>
-                  </div>
-
                   {/* Menu List Undangan Otomatis */}
                   <div className={styles.panelCard}>
                     <div
@@ -10070,34 +9918,56 @@ export default function AdminSidebarPage() {
                         alignItems: 'center',
                         justifyContent: 'space-between',
                         flexWrap: 'wrap',
-                        gap: '8px',
+                        gap: '10px',
                         marginBottom: '12px',
                       }}
                     >
-                      <h2 className={styles.panelTitle} style={{ margin: 0 }}>
-                        {`Daftar Surat Undangan Otomatis (${autoUndanganList.length})`}
-                      </h2>
-                      {autoWaShareHint && (
-                        <span
-                          style={{
-                            fontSize: '0.78rem',
-                            fontWeight: 700,
-                            color: '#166534',
-                            background: '#f0fdf4',
-                            padding: '5px 10px',
-                            borderRadius: '8px',
-                            border: '1px solid rgba(22, 163, 74, 0.25)',
-                          }}
-                        >
-                          {autoWaShareHint}
+                      <div>
+                        <h2 className={styles.panelTitle} style={{ margin: 0 }}>
+                          {`Daftar Surat Undangan Otomatis (${autoUndanganList.length})`}
+                        </h2>
+                        <span style={{ fontSize: '0.78rem', color: '#4b5563', fontWeight: 600 }}>
+                          {`Nomor Seri Berikutnya: ${noSurat}${lastUsedNoSurat ? ` • Terakhir: ${lastUsedNoSurat.nomor}` : ''}`}
                         </span>
-                      )}
+                      </div>
+
+                      <button
+                        type="button"
+                        className={styles.submitBtn}
+                        onClick={() => setShowAutoUndanganModal(true)}
+                        style={{
+                          width: 'auto',
+                          marginTop: 0,
+                          padding: '9px 16px',
+                          fontSize: '0.84rem',
+                        }}
+                      >
+                        + Buat Undangan Otomatis
+                      </button>
                     </div>
+
+                    {autoWaShareHint && (
+                      <div
+                        style={{
+                          fontSize: '0.78rem',
+                          fontWeight: 700,
+                          color: '#166534',
+                          background: '#f0fdf4',
+                          padding: '8px 12px',
+                          borderRadius: '8px',
+                          border: '1px solid rgba(22, 163, 74, 0.25)',
+                          marginBottom: '12px',
+                        }}
+                      >
+                        {autoWaShareHint}
+                      </div>
+                    )}
 
                     {autoUndanganList.length === 0 ? (
                       <p className={styles.panelSub} style={{ marginBottom: 0 }}>
-                        Belum ada daftar undangan otomatis. Isi Nama, Perihal, Tanggal, dan No. HP
-                        Khotib di atas untuk membuat undangan siap kirim WA.
+                        Belum ada daftar undangan otomatis. Klik tombol{' '}
+                        <strong>+ Buat Undangan Otomatis</strong> di pojok kanan atas untuk
+                        membuat undangan siap kirim WA.
                       </p>
                     ) : (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -10308,6 +10178,231 @@ export default function AdminSidebarPage() {
                         })}
                       </div>
                     )}
+                  </div>
+                </div>
+              )}
+
+              {/* POP-UP INPUT BUAT SURAT UNDANGAN OTOMATIS */}
+              {showAutoUndanganModal && (
+                <div
+                  style={{
+                    position: 'fixed',
+                    inset: 0,
+                    background: 'rgba(15, 23, 42, 0.68)',
+                    backdropFilter: 'blur(4px)',
+                    zIndex: 9995,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '16px',
+                  }}
+                  onClick={() => {
+                    const hasInput = Boolean(
+                      autoUndanganNama.trim() || autoUndanganTelp.trim()
+                    )
+                    if (!hasInput) {
+                      setShowAutoUndanganModal(false)
+                      return
+                    }
+                    setUnsavedConfirmModal({
+                      contextLabel: 'Input Surat Undangan Otomatis',
+                      onDiscard: () => {
+                        setShowAutoUndanganModal(false)
+                        setAutoUndanganNama('')
+                        setAutoUndanganTelp('')
+                      },
+                    })
+                  }}
+                >
+                  <div
+                    style={{
+                      background: '#ffffff',
+                      borderRadius: '18px',
+                      width: '100%',
+                      maxWidth: '520px',
+                      maxHeight: '90vh',
+                      overflowY: 'auto',
+                      padding: '24px',
+                      boxShadow: '0 24px 60px rgba(0, 0, 0, 0.32)',
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        marginBottom: '8px',
+                      }}
+                    >
+                      <h3
+                        style={{
+                          margin: 0,
+                          fontSize: '1.08rem',
+                          fontWeight: 900,
+                          color: '#0f4a2a',
+                        }}
+                      >
+                        Buat Surat Undangan Otomatis
+                      </h3>
+                      <button
+                        type="button"
+                        aria-label="Tutup Pop-up"
+                        onClick={() => {
+                          const hasInput = Boolean(
+                            autoUndanganNama.trim() || autoUndanganTelp.trim()
+                          )
+                          if (!hasInput) {
+                            setShowAutoUndanganModal(false)
+                            return
+                          }
+                          setUnsavedConfirmModal({
+                            contextLabel: 'Input Surat Undangan Otomatis',
+                            onDiscard: () => {
+                              setShowAutoUndanganModal(false)
+                              setAutoUndanganNama('')
+                              setAutoUndanganTelp('')
+                            },
+                          })
+                        }}
+                        style={{
+                          border: 'none',
+                          background: '#f3f4f6',
+                          borderRadius: '8px',
+                          width: '32px',
+                          height: '32px',
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                    <p
+                      style={{
+                        margin: '0 0 14px',
+                        fontSize: '0.78rem',
+                        color: '#4b5563',
+                        fontWeight: 600,
+                      }}
+                    >
+                      {`Nomor Seri Otomatis: ${noSurat} (Sinkron dengan Manual, Kajian, Khutbah & Bilal)`}
+                    </p>
+
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault()
+                        if (
+                          !autoUndanganNama.trim() ||
+                          !autoUndanganPerihal.trim() ||
+                          !autoUndanganTanggal
+                        ) {
+                          return
+                        }
+                        const assignedNo = noSurat
+                        const newItem: AutoUndanganItem = {
+                          id: `auto-und-${Date.now()}`,
+                          noSurat: assignedNo,
+                          nama: autoUndanganNama.trim(),
+                          perihal: autoUndanganPerihal.trim(),
+                          tanggal: autoUndanganTanggal,
+                          noTelp: autoUndanganTelp.trim(),
+                          status: 'Belum Dikirim',
+                          createdAt: new Date().toISOString(),
+                        }
+                        saveAutoUndanganList([newItem, ...autoUndanganList])
+                        saveKhatibContact(autoUndanganNama, autoUndanganTelp)
+                        recordLastUsedNoSurat(assignedNo, autoUndanganTanggal)
+                        setAutoUndanganNama('')
+                        setAutoUndanganTelp('')
+                        setShowAutoUndanganModal(false)
+                      }}
+                    >
+                      <div className={styles.formGroup}>
+                        <label>Nama Penerima / Khotib / Bilal</label>
+                        <input
+                          type="text"
+                          required
+                          autoFocus
+                          list="khatib-contact-list"
+                          placeholder="Contoh: KH. Ahmad Fauzan, S.Ag."
+                          value={autoUndanganNama}
+                          onChange={(e) => {
+                            const val = e.target.value
+                            setAutoUndanganNama(val)
+                            const knownPhone =
+                              khatibContacts[val] ||
+                              kalenderList.find((k) => k.pemateri === val && k.noTeleponPj)
+                                ?.noTeleponPj ||
+                              pengajuanKalenderList.find(
+                                (p) => p.penanggungJawab === val && p.noTeleponPj
+                              )?.noTeleponPj
+                            if (knownPhone) {
+                              setAutoUndanganTelp(knownPhone)
+                            }
+                          }}
+                        />
+                        <datalist id="khatib-contact-list">
+                          {Array.from(
+                            new Set([
+                              ...Object.keys(khatibContacts),
+                              ...kalenderList.map((k) => k.pemateri).filter(Boolean),
+                              ...pengajuanKalenderList
+                                .map((p) => p.penanggungJawab)
+                                .filter(Boolean),
+                            ])
+                          ).map((nm) => (
+                            <option key={nm} value={nm} />
+                          ))}
+                        </datalist>
+                      </div>
+
+                      <div className={styles.formGroup}>
+                        <label>Perihal Undangan</label>
+                        <input
+                          type="text"
+                          required
+                          list="perihal-undangan-presets"
+                          placeholder="Khotib / Bilal / Kajian..."
+                          value={autoUndanganPerihal}
+                          onChange={(e) => setAutoUndanganPerihal(e.target.value)}
+                        />
+                        <datalist id="perihal-undangan-presets">
+                          <option value="Permohonan Menjadi Khotib & Imam Sholat Jum'at" />
+                          <option value="Permohonan Menjadi Khotib Sholat Jum'at" />
+                          <option value="Permohonan Menjadi Imam Sholat Jum'at" />
+                          <option value="Permohonan Menjadi Bilal Sholat Jum'at" />
+                          <option value="Permohonan Menjadi Pemateri Kajian Pekanan" />
+                        </datalist>
+                      </div>
+
+                      <div className={styles.twoCols}>
+                        <div className={styles.formGroup}>
+                          <label>Tanggal</label>
+                          <input
+                            type="date"
+                            required
+                            value={autoUndanganTanggal}
+                            onChange={(e) => setAutoUndanganTanggal(e.target.value)}
+                          />
+                        </div>
+
+                        <div className={styles.formGroup}>
+                          <label>No. Telepon (HP Khotib)</label>
+                          <input
+                            type="tel"
+                            required
+                            placeholder="0812xxxxxxxx"
+                            value={autoUndanganTelp}
+                            onChange={(e) => setAutoUndanganTelp(e.target.value)}
+                          />
+                        </div>
+                      </div>
+
+                      <button type="submit" className={styles.submitBtn}>
+                        + Simpan &amp; Masukkan ke List Undangan
+                      </button>
+                    </form>
                   </div>
                 </div>
               )}
