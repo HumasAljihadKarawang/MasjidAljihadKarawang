@@ -13,6 +13,11 @@ if not exist "node_modules" (
   echo.
 )
 
+REM Hentikan proses lama di port 3099 jika ada agar tidak bentrok
+for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":3099 " ^| findstr "LISTENING"') do (
+  taskkill /F /PID %%a >nul 2>&1
+)
+
 set "STARTUP_DIR=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup"
 set "VBS_FILE=%STARTUP_DIR%\WA-Sender-DKM-AlJihad.vbs"
 set "WORK_DIR=%~dp0"
@@ -21,7 +26,7 @@ if "%WORK_DIR:~-1%"=="\" set "WORK_DIR=%WORK_DIR:~0,-1%"
 > "%VBS_FILE%" (
   echo Set WshShell = CreateObject("WScript.Shell"^)
   echo WshShell.CurrentDirectory = "%WORK_DIR%"
-  echo WshShell.Run "cmd /c node server.js", 0, False
+  echo WshShell.Run "cmd /c ""%WORK_DIR%\wa-watchdog.bat""", 0, False
 )
 
 echo [OK] Auto-start berhasil dipasang di:
@@ -29,10 +34,9 @@ echo      %VBS_FILE%
 echo.
 echo [INFO] Menyalakan WA Sender di background sekarang...
 wscript.exe "%VBS_FILE%"
-timeout /t 2 /nobreak >nul
+timeout /t 3 /nobreak >nul
 echo.
-echo [SELESAI] WA Sender sekarang berjalan otomatis di background!
-echo           Silakan buka Web Admin -> Surat Undangan Otomatis.
-echo           QR Code akan muncul langsung di halaman Web Admin.
+echo [SELESAI] WA Sender sekarang berjalan otomatis di background (auto-restart aktif)!
+echo           Silakan refresh Web Admin, status akan otomatis terdeteksi.
 echo.
 pause

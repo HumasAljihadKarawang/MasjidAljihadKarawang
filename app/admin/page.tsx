@@ -967,7 +967,7 @@ export default function AdminSidebarPage() {
     }
     try {
       const controller = new AbortController()
-      const timer = window.setTimeout(() => controller.abort(), 3000)
+      const timer = window.setTimeout(() => controller.abort(), 5000)
       const res = await fetch(`${targetUrl}/status`, {
         method: 'GET',
         signal: controller.signal,
@@ -1015,6 +1015,11 @@ export default function AdminSidebarPage() {
       setAutoWaShareHint('Gagal memutuskan sesi WA Sender.')
     }
   }
+
+  useEffect(() => {
+    if (suratTabMode !== 'otomatis') return
+    void checkWaLocalStatus(true)
+  }, [suratTabMode, selectedWaDeviceId, waDevices])
 
   useEffect(() => {
     if (!waLocalStatus.online || waLocalStatus.connected) return

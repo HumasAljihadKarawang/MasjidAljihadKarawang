@@ -16,6 +16,14 @@ const {
 const PORT = 3099;
 const AUTH_DIR = path.join(__dirname, 'auth_info');
 
+process.on('uncaughtException', (err) => {
+  console.error('[UNCAUGHT EXCEPTION]', err?.message || err);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[UNHANDLED REJECTION]', reason);
+});
+
 const app = express();
 
 // Allow requests from both localhost and HTTPS Vercel origin + Chrome Private Network Access
