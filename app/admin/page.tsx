@@ -10127,6 +10127,32 @@ export default function AdminSidebarPage() {
                                       /[^a-zA-Z0-9]+/g,
                                       '-'
                                     )}-${item.tanggal}.png`
+                                    const imgFile = new File([imgBlob], fileName, {
+                                      type: 'image/png',
+                                    })
+
+                                    if (
+                                      typeof navigator !== 'undefined' &&
+                                      navigator.canShare &&
+                                      navigator.canShare({ files: [imgFile] })
+                                    ) {
+                                      try {
+                                        await navigator.share({
+                                          files: [imgFile],
+                                          title: item.perihal || 'Surat Undangan Resmi DKM',
+                                          text: waText,
+                                        })
+                                        setAutoWaShareHint(
+                                          `Surat undangan format PNG (${item.noSurat}) dan teks pengantar berhasil dibagikan. Silakan konfirmasi status undangan.`
+                                        )
+                                        setKonfirmasiAutoModal(item)
+                                        return
+                                      } catch (err) {
+                                        if (err instanceof Error && err.name === 'AbortError') {
+                                          return
+                                        }
+                                      }
+                                    }
 
                                     try {
                                       if (
@@ -10155,7 +10181,7 @@ export default function AdminSidebarPage() {
                                     window.open(waUrl, '_blank', 'noopener,noreferrer')
 
                                     setAutoWaShareHint(
-                                      `Foto undangan (${item.noSurat}) disalin ke clipboard & diunduh, serta WA ke ${item.noTelp} dibuka. Silakan konfirmasi status undangan.`
+                                      `Surat undangan format PNG (${item.noSurat}) disalin ke clipboard & diunduh, serta WA ke ${item.noTelp} dibuka. Silakan konfirmasi status undangan.`
                                     )
                                     setKonfirmasiAutoModal(item)
                                   }}
@@ -10498,140 +10524,323 @@ export default function AdminSidebarPage() {
                 </div>
               )}
 
-              {/* POP-UP KONFIRMASI ADMIN STATUS UNDANGAN OTOMATIS (SUDAH DIKIRIM / DITERIMA / DITOLAK) */}
-              {konfirmasiAutoModal && (
-                <div
-                  style={{
-                    position: 'fixed',
-                    inset: 0,
-                    background: 'rgba(15, 23, 42, 0.68)',
-                    backdropFilter: 'blur(4px)',
-                    zIndex: 9996,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: '16px',
-                  }}
-                  onClick={() => setKonfirmasiAutoModal(null)}
-                >
-                  <div
-                    style={{
-                      background: '#ffffff',
-                      borderRadius: '18px',
-                      width: '100%',
-                      maxWidth: '460px',
-                      padding: '24px',
-                      boxShadow: '0 24px 60px rgba(0, 0, 0, 0.32)',
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                  >
+              {/* POP-UP KONFIRMASI ADMIN STATUS UNDANGAN OTOMATIS (DENGAN INDIKATOR STATUS & TANPA STIKER) */}
+              {konfirmasiAutoModal &&
+                (() => {
+                  const st = konfirmasiAutoModal.status
+                  const statusBadgeStyle =
+                    st === 'Diterima'
+                      ? { bg: '#dcfce7', fg: '#166534', dot: '#16a34a', border: '#86efac' }
+                      : st === 'Ditolak'
+                        ? { bg: '#fee2e2', fg: '#991b1b', dot: '#dc2626', border: '#fca5a5' }
+                        : st === 'Sudah Dikirim'
+                          ? { bg: '#dbeafe', fg: '#1e40af', dot: '#2563eb', border: '#93c5fd' }
+                          : { bg: '#fef3c7', fg: '#92400e', dot: '#d97706', border: '#fde68a' }
+
+                  const currentStepIndex =
+                    st === 'Belum Dikirim' ? 0 : st === 'Sudah Dikirim' ? 1 : 2
+
+                  const updateAutoStatus = (nextStatus: AutoUndanganStatus) => {
+                    saveAutoUndanganList(
+                      autoUndanganList.map((x) =>
+                        x.id === konfirmasiAutoModal.id ? { ...x, status: nextStatus } : x
+                      )
+                    )
+                    setKonfirmasiAutoModal(null)
+                  }
+
+                  return (
                     <div
                       style={{
+                        position: 'fixed',
+                        inset: 0,
+                        background: 'rgba(15, 23, 42, 0.68)',
+                        backdropFilter: 'blur(4px)',
+                        zIndex: 9996,
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'space-between',
-                        marginBottom: '10px',
+                        justifyContent: 'center',
+                        padding: '16px',
                       }}
+                      onClick={() => setKonfirmasiAutoModal(null)}
                     >
-                      <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 900, color: '#0f4a2a' }}>
-                        Konfirmasi Status Undangan
-                      </h3>
-                      <button
-                        type="button"
-                        aria-label="Tutup Konfirmasi"
-                        onClick={() => setKonfirmasiAutoModal(null)}
+                      <div
                         style={{
-                          border: 'none',
-                          background: '#f3f4f6',
-                          borderRadius: '8px',
-                          width: '30px',
-                          height: '30px',
-                          fontWeight: 800,
-                          cursor: 'pointer',
+                          background: '#ffffff',
+                          borderRadius: '18px',
+                          width: '100%',
+                          maxWidth: '520px',
+                          maxHeight: '90vh',
+                          overflowY: 'auto',
+                          padding: '24px',
+                          boxShadow: '0 24px 60px rgba(0, 0, 0, 0.32)',
                         }}
+                        onClick={(e) => e.stopPropagation()}
                       >
-                        ✕
-                      </button>
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            marginBottom: '12px',
+                          }}
+                        >
+                          <div>
+                            <h3
+                              style={{
+                                margin: 0,
+                                fontSize: '1.08rem',
+                                fontWeight: 900,
+                                color: '#0f4a2a',
+                              }}
+                            >
+                              Kelola &amp; Konfirmasi Status Undangan
+                            </h3>
+                            <span style={{ fontSize: '0.76rem', color: '#4b5563', fontWeight: 600 }}>
+                              Perbarui progres pengiriman dan respon penerima undangan
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setKonfirmasiAutoModal(null)}
+                            style={{
+                              border: '1px solid #d1d5db',
+                              background: '#f9fafb',
+                              color: '#374151',
+                              borderRadius: '8px',
+                              padding: '5px 11px',
+                              fontSize: '0.78rem',
+                              fontWeight: 800,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            Tutup
+                          </button>
+                        </div>
+
+                        {/* Ringkasan Penerima + Indikator Status Saat Ini */}
+                        <div
+                          style={{
+                            padding: '13px 15px',
+                            borderRadius: '12px',
+                            background: '#f8faf8',
+                            border: '1px solid rgba(27, 107, 69, 0.16)',
+                            marginBottom: '14px',
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              gap: '8px',
+                              flexWrap: 'wrap',
+                              marginBottom: '6px',
+                            }}
+                          >
+                            <span
+                              style={{
+                                fontSize: '0.74rem',
+                                fontWeight: 800,
+                                color: '#0f4a2a',
+                              }}
+                            >
+                              {konfirmasiAutoModal.noSurat}
+                            </span>
+                            <span
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                fontSize: '0.75rem',
+                                fontWeight: 800,
+                                padding: '3px 11px',
+                                borderRadius: '999px',
+                                background: statusBadgeStyle.bg,
+                                color: statusBadgeStyle.fg,
+                                border: `1px solid ${statusBadgeStyle.border}`,
+                              }}
+                            >
+                              <span
+                                style={{
+                                  width: '8px',
+                                  height: '8px',
+                                  borderRadius: '999px',
+                                  background: statusBadgeStyle.dot,
+                                  display: 'inline-block',
+                                }}
+                              />
+                              {`Status Sekarang: ${st}`}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: '0.92rem', fontWeight: 800, color: '#111827' }}>
+                            {konfirmasiAutoModal.nama}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: '0.8rem',
+                              color: '#4b5563',
+                              fontWeight: 600,
+                              marginTop: '2px',
+                            }}
+                          >
+                            {`${konfirmasiAutoModal.perihal} • ${konfirmasiAutoModal.tanggal} • WA: ${konfirmasiAutoModal.noTelp}`}
+                          </div>
+                        </div>
+
+                        {/* Indikator Progres 3 Tahap */}
+                        <div
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(3, 1fr)',
+                            gap: '8px',
+                            marginBottom: '16px',
+                          }}
+                        >
+                          {[
+                            { idx: 0, title: '1. Belum Dikirim' },
+                            { idx: 1, title: '2. Sudah Dikirim' },
+                            {
+                              idx: 2,
+                              title:
+                                st === 'Ditolak'
+                                  ? '3. Ditolak'
+                                  : st === 'Diterima'
+                                    ? '3. Diterima'
+                                    : '3. Konfirmasi Akhir',
+                            },
+                          ].map((step) => {
+                            const isReached = currentStepIndex >= step.idx
+                            const isCurrent = currentStepIndex === step.idx
+                            const activeBg =
+                              step.idx === 2 && st === 'Ditolak'
+                                ? '#dc2626'
+                                : step.idx === 2 && st === 'Diterima'
+                                  ? '#15803d'
+                                  : '#0f4a2a'
+                            return (
+                              <div key={step.idx} style={{ textAlign: 'center' }}>
+                                <div
+                                  style={{
+                                    height: '6px',
+                                    borderRadius: '999px',
+                                    background: isReached ? activeBg : '#e5e7eb',
+                                    marginBottom: '5px',
+                                    transition: 'background 0.2s ease',
+                                  }}
+                                />
+                                <span
+                                  style={{
+                                    fontSize: '0.71rem',
+                                    fontWeight: isCurrent ? 900 : 700,
+                                    color: isCurrent
+                                      ? activeBg
+                                      : isReached
+                                        ? '#111827'
+                                        : '#9ca3af',
+                                  }}
+                                >
+                                  {step.title}
+                                </span>
+                              </div>
+                            )
+                          })}
+                        </div>
+
+                        {/* Pilihan Pembaruan Status (Tanpa Stiker) */}
+                        <div style={{ display: 'grid', gap: '8px' }}>
+                          <button
+                            type="button"
+                            onClick={() => updateAutoStatus('Sudah Dikirim')}
+                            style={{
+                              textAlign: 'left',
+                              padding: '11px 14px',
+                              borderRadius: '11px',
+                              border:
+                                st === 'Sudah Dikirim'
+                                  ? '2px solid #2563eb'
+                                  : '1px solid #bfdbfe',
+                              background: st === 'Sudah Dikirim' ? '#dbeafe' : '#eff6ff',
+                              color: '#1e40af',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            <div style={{ fontWeight: 800, fontSize: '0.86rem' }}>
+                              Sudah Dikirim ke WhatsApp
+                            </div>
+                            <div style={{ fontSize: '0.75rem', opacity: 0.88, marginTop: '2px' }}>
+                              Undangan format PNG dan teks pengantar sudah dikirimkan ke penerima
+                            </div>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => updateAutoStatus('Diterima')}
+                            style={{
+                              textAlign: 'left',
+                              padding: '11px 14px',
+                              borderRadius: '11px',
+                              border:
+                                st === 'Diterima' ? '2px solid #16a34a' : '1px solid #bbf7d0',
+                              background: st === 'Diterima' ? '#dcfce7' : '#f0fdf4',
+                              color: '#166534',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            <div style={{ fontWeight: 800, fontSize: '0.86rem' }}>
+                              Diterima (Bersedia Hadir)
+                            </div>
+                            <div style={{ fontSize: '0.75rem', opacity: 0.88, marginTop: '2px' }}>
+                              Khotib / Imam / Bilal / Pemateri telah mengonfirmasi bersedia hadir
+                            </div>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => updateAutoStatus('Ditolak')}
+                            style={{
+                              textAlign: 'left',
+                              padding: '11px 14px',
+                              borderRadius: '11px',
+                              border:
+                                st === 'Ditolak' ? '2px solid #dc2626' : '1px solid #fecaca',
+                              background: st === 'Ditolak' ? '#fee2e2' : '#fef2f2',
+                              color: '#991b1b',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            <div style={{ fontWeight: 800, fontSize: '0.86rem' }}>
+                              Ditolak / Berhalangan
+                            </div>
+                            <div style={{ fontSize: '0.75rem', opacity: 0.88, marginTop: '2px' }}>
+                              Penerima berhalangan hadir sehingga perlu penjadwalan pengganti
+                            </div>
+                          </button>
+
+                          {st !== 'Belum Dikirim' && (
+                            <button
+                              type="button"
+                              onClick={() => updateAutoStatus('Belum Dikirim')}
+                              style={{
+                                textAlign: 'center',
+                                padding: '9px 14px',
+                                borderRadius: '10px',
+                                border: '1px solid #d1d5db',
+                                background: '#f9fafb',
+                                color: '#374151',
+                                fontWeight: 700,
+                                fontSize: '0.8rem',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              Kembalikan ke Status Belum Dikirim
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                    <p style={{ margin: '0 0 14px', fontSize: '0.84rem', color: '#374151', lineHeight: 1.5 }}>
-                      Tandai status undangan untuk <strong>{konfirmasiAutoModal.nama}</strong> ({konfirmasiAutoModal.noSurat}) agar mudah membedakan mana yang sudah dikirim, diterima, atau ditolak:
-                    </p>
-                    <div style={{ display: 'grid', gap: '8px' }}>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          saveAutoUndanganList(
-                            autoUndanganList.map((x) =>
-                              x.id === konfirmasiAutoModal.id
-                                ? { ...x, status: 'Sudah Dikirim' }
-                                : x
-                            )
-                          )
-                          setKonfirmasiAutoModal(null)
-                        }}
-                        style={{
-                          padding: '10px 14px',
-                          borderRadius: '10px',
-                          border: '1px solid #93c5fd',
-                          background: '#eff6ff',
-                          color: '#1e40af',
-                          fontWeight: 800,
-                          fontSize: '0.85rem',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        ✓ Sudah Dikirim ke WhatsApp
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          saveAutoUndanganList(
-                            autoUndanganList.map((x) =>
-                              x.id === konfirmasiAutoModal.id ? { ...x, status: 'Diterima' } : x
-                            )
-                          )
-                          setKonfirmasiAutoModal(null)
-                        }}
-                        style={{
-                          padding: '10px 14px',
-                          borderRadius: '10px',
-                          border: '1px solid #86efac',
-                          background: '#f0fdf4',
-                          color: '#166534',
-                          fontWeight: 800,
-                          fontSize: '0.85rem',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        ✓ Diterima (Penerima Bersedia)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          saveAutoUndanganList(
-                            autoUndanganList.map((x) =>
-                              x.id === konfirmasiAutoModal.id ? { ...x, status: 'Ditolak' } : x
-                            )
-                          )
-                          setKonfirmasiAutoModal(null)
-                        }}
-                        style={{
-                          padding: '10px 14px',
-                          borderRadius: '10px',
-                          border: '1px solid #fca5a5',
-                          background: '#fef2f2',
-                          color: '#991b1b',
-                          fontWeight: 800,
-                          fontSize: '0.85rem',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        ✕ Ditolak / Berhalangan
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
+                  )
+                })()}
             </div>
 
             {/* MENU 8: UPLOAD KITAB EL JIHAD */}
