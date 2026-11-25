@@ -776,6 +776,17 @@ export default function AdminSidebarPage() {
     return `62${digits}`
   }
 
+  const formatIndoLocalPhone = (raw: string) => {
+    const digits = String(raw || '').replace(/\D/g, '')
+    if (!digits) return ''
+    if (digits.startsWith('00620')) return `0${digits.slice(5)}`
+    if (digits.startsWith('0062')) return `0${digits.slice(4)}`
+    if (digits.startsWith('620')) return `0${digits.slice(3)}`
+    if (digits.startsWith('62')) return `0${digits.slice(2)}`
+    if (digits.startsWith('8')) return `0${digits}`
+    return digits
+  }
+
   useEffect(() => {
     try {
       const savedByYear = window.localStorage.getItem('aljihad_no_surat_by_year_v2')
@@ -1174,7 +1185,7 @@ export default function AdminSidebarPage() {
 
   const saveKhatibContact = (nama: string, telp: string) => {
     const cleanName = nama.trim()
-    const cleanTelp = telp.trim()
+    const cleanTelp = formatIndoLocalPhone(telp)
     if (!cleanName || !cleanTelp) return
     const next = { ...khatibContacts, [cleanName]: cleanTelp }
     setKhatibContacts(next)
@@ -12082,10 +12093,15 @@ export default function AdminSidebarPage() {
                           <input
                             type="tel"
                             required
-                            placeholder="0812xxxxxxxx"
+                            placeholder="085846489344 (bisa paste +62 / tanda -)"
                             value={autoUndanganTelp}
-                            onChange={(e) => setAutoUndanganTelp(e.target.value)}
+                            onChange={(e) =>
+                              setAutoUndanganTelp(formatIndoLocalPhone(e.target.value))
+                            }
                           />
+                          <small style={{ color: '#4b5563', fontSize: '0.71rem', marginTop: '3px', display: 'block' }}>
+                            Tempel format apa saja (contoh: +62 858-4648-9344), otomatis jadi 085846489344.
+                          </small>
                         </div>
                       </div>
 
