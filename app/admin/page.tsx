@@ -703,6 +703,56 @@ export default function AdminSidebarPage() {
     }
   }
 
+  const handleCreateAutoUndangan = async (newItem: AutoUndanganItem) => {
+    saveAutoUndanganList([newItem, ...autoUndanganList])
+    if (getActiveSupabaseConfig().isConfigured) {
+      try {
+        await getSupabaseClient().from('surat_undangan_otomatis').insert({
+          id: newItem.id,
+          no_surat: newItem.noSurat,
+          nama: newItem.nama,
+          perihal: newItem.perihal,
+          tanggal: newItem.tanggal,
+          no_telp: newItem.noTelp,
+          status: newItem.status,
+          created_at: newItem.createdAt,
+        })
+      } catch {
+        // tabel surat_undangan_otomatis opsional jika belum dibuat di Supabase
+      }
+    }
+  }
+
+  const handleUpdateAutoUndanganStatus = async (
+    id: string,
+    nextStatus: AutoUndanganStatus
+  ) => {
+    saveAutoUndanganList(
+      autoUndanganList.map((x) => (x.id === id ? { ...x, status: nextStatus } : x))
+    )
+    if (getActiveSupabaseConfig().isConfigured) {
+      try {
+        await getSupabaseClient()
+          .from('surat_undangan_otomatis')
+          .update({ status: nextStatus })
+          .eq('id', id)
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  const handleDeleteAutoUndangan = async (id: string) => {
+    saveAutoUndanganList(autoUndanganList.filter((x) => x.id !== id))
+    if (getActiveSupabaseConfig().isConfigured) {
+      try {
+        await getSupabaseClient().from('surat_undangan_otomatis').delete().eq('id', id)
+      } catch {
+        // ignore
+      }
+    }
+  }
+
   const saveKhatibContact = (nama: string, telp: string) => {
     const cleanName = nama.trim()
     const cleanTelp = telp.trim()
@@ -912,6 +962,28 @@ export default function AdminSidebarPage() {
         }
       } catch {
         // tabel pengajuan_kalender opsional jika belum dibuat di Supabase
+      }
+
+      try {
+        const autoUndRes = await sb
+          .from('surat_undangan_otomatis')
+          .select('*')
+          .order('created_at', { ascending: false })
+        if (!autoUndRes.error && autoUndRes.data && autoUndRes.data.length > 0) {
+          const mappedAuto: AutoUndanganItem[] = autoUndRes.data.map((d) => ({
+            id: d.id,
+            noSurat: d.no_surat,
+            nama: d.nama,
+            perihal: d.perihal,
+            tanggal: d.tanggal,
+            noTelp: d.no_telp || '',
+            status: (d.status || 'Belum Dikirim') as AutoUndanganStatus,
+            createdAt: d.created_at,
+          }))
+          saveAutoUndanganList(mappedAuto)
+        }
+      } catch {
+        // tabel surat_undangan_otomatis opsional jika belum dibuat di Supabase
       }
 
       if (rRes.data && rRes.data.length > 0) {
@@ -10092,11 +10164,7 @@ export default function AdminSidebarPage() {
                                   type="button"
                                   className={styles.deleteBtn}
                                   style={{ padding: '6px 10px', fontSize: '0.76rem' }}
-                                  onClick={() =>
-                                    saveAutoUndanganList(
-                                      autoUndanganList.filter((x) => x.id !== item.id)
-                                    )
-                                  }
+                                  onClick={() => handleDeleteAutoUndangan(item.id)}
                                 >
                                   Hapus
                                 </button>
@@ -10340,7 +10408,7 @@ export default function AdminSidebarPage() {
                           status: 'Belum Dikirim',
                           createdAt: new Date().toISOString(),
                         }
-                        saveAutoUndanganList([newItem, ...autoUndanganList])
+                        handleCreateAutoUndangan(newItem)
                         saveKhatibContact(autoUndanganNama, autoUndanganTelp)
                         recordLastUsedNoSurat(assignedNo, autoUndanganTanggal)
                         setAutoUndanganNama('')
@@ -10541,11 +10609,7 @@ export default function AdminSidebarPage() {
                     st === 'Belum Dikirim' ? 0 : st === 'Sudah Dikirim' ? 1 : 2
 
                   const updateAutoStatus = (nextStatus: AutoUndanganStatus) => {
-                    saveAutoUndanganList(
-                      autoUndanganList.map((x) =>
-                        x.id === konfirmasiAutoModal.id ? { ...x, status: nextStatus } : x
-                      )
-                    )
+                    handleUpdateAutoUndanganStatus(konfirmasiAutoModal.id, nextStatus)
                     setKonfirmasiAutoModal(null)
                   }
 
