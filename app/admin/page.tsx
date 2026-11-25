@@ -712,6 +712,22 @@ export default function AdminSidebarPage() {
   const [konfirmasiAutoModal, setKonfirmasiAutoModal] = useState<AutoUndanganItem | null>(null)
   const [deleteAutoUndanganConfirm, setDeleteAutoUndanganConfirm] =
     useState<AutoUndanganItem | null>(null)
+  const [waLocalStatus, setWaLocalStatus] = useState<{
+    checking: boolean
+    online: boolean
+    connected: boolean
+    phone?: string | null
+    statusText?: string
+  }>({
+    checking: false,
+    online: false,
+    connected: false,
+    phone: null,
+    statusText: 'Belum dicek',
+  })
+  const [selectedAutoUndanganIds, setSelectedAutoUndanganIds] = useState<string[]>([])
+  const [waBulkSending, setWaBulkSending] = useState(false)
+  const [waBulkProgress, setWaBulkProgress] = useState('')
 
   const ROMAN_MONTHS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII']
 
@@ -890,6 +906,152 @@ export default function AdminSidebarPage() {
     }
   }
 
+  const WA_LOCAL_URL = 'http://127.0.0.1:3099'
+
+  const checkWaLocalStatus = async (silent = false) => {
+    if (!silent) {
+      setWaLocalStatus((prev) => ({ ...prev, checking: true }))
+    }
+    try {
+      const controller = new AbortController()
+      const timer = window.setTimeout(() => controller.abort(), 3000)
+      const res = await fetch(`${WA_LOCAL_URL}/status`, {
+        method: 'GET',
+        signal: controller.signal,
+      })
+      window.clearTimeout(timer)
+      if (!res.ok) throw new Error('Status error')
+      const data = (await res.json()) as {
+        connected?: boolean
+        phone?: string | null
+        statusText?: string
+      }
+      const next = {
+        checking: false,
+        online: true,
+        connected: Boolean(data.connected),
+        phone: data.phone || null,
+        statusText: data.statusText || (data.connected ? 'Terhubung' : 'Menunggu Scan QR'),
+      }
+      setWaLocalStatus(next)
+      return next
+    } catch {
+      const next = {
+        checking: false,
+        online: false,
+        connected: false,
+        phone: null,
+        statusText: 'WA Sender lokal belum dijalankan',
+      }
+      setWaLocalStatus(next)
+      return next
+    }
+  }
+
+  const blobToBase64 = (blob: Blob) =>
+    new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onloadend = () => resolve(String(reader.result || ''))
+      reader.onerror = () => reject(new Error('Gagal membaca file gambar surat'))
+      reader.readAsDataURL(blob)
+    })
+
+  const sendAutoUndanganViaWaLocal = async (item: AutoUndanganItem) => {
+    const waPhone = normalizeWaPhone(item.noTelp)
+    if (!waPhone) {
+      throw new Error(`Nomor WA untuk ${item.nama} masih kosong`)
+    }
+    const isKhutbah = /khotib|khatib|imam|bilal|jumat|jum'at/i.test(item.perihal)
+    const jenisTarget: 'Khutbah Jumat' | 'Umum' = isKhutbah ? 'Khutbah Jumat' : 'Umum'
+    const waText = getSuratWaText({
+      kepada: item.nama,
+      perihal: item.perihal,
+      tanggal: item.tanggal,
+      noSurat: item.noSurat,
+      jenisSurat: jenisTarget,
+    })
+    const imgBlob = await buildSuratImageBlob({
+      noSurat: item.noSurat,
+      perihal: item.perihal,
+      kepada: item.nama,
+      tanggal: item.tanggal,
+      waktu: isKhutbah ? '11:36 WIB' : waktuSuratAcara,
+      agenda: item.perihal,
+      jenisSurat: jenisTarget,
+    })
+    const fileName = `Surat-Undangan-${item.nama.replace(/[^a-zA-Z0-9]+/g, '-')}-${item.tanggal}.png`
+    const imageBase64 = await blobToBase64(imgBlob)
+    const res = await fetch(`${WA_LOCAL_URL}/send-media`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        phone: waPhone,
+        caption: waText,
+        imageBase64,
+        fileName,
+      }),
+    })
+    const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string }
+    if (!res.ok || !data.ok) {
+      throw new Error(data.error || 'Gagal mengirim ke WA Lokal')
+    }
+    await handleUpdateAutoUndanganStatus(item, 'Sudah Dikirim')
+  }
+
+  const handleBulkSendWaLocal = async (itemsToSend: AutoUndanganItem[]) => {
+    if (waBulkSending || itemsToSend.length === 0) return
+    const status = await checkWaLocalStatus(false)
+    if (!status.online) {
+      setAutoWaShareHint(
+        'WA Sender lokal belum aktif. Jalankan file wa-sender/JALANKAN-WA-SENDER.bat di laptop terlebih dahulu.'
+      )
+      return
+    }
+    if (!status.connected) {
+      setAutoWaShareHint(
+        'Server WA Lokal sudah aktif, tetapi WhatsApp belum terhubung. Silakan scan QR di jendela terminal WA Sender.'
+      )
+      return
+    }
+
+    const validItems = itemsToSend.filter((it) => Boolean(normalizeWaPhone(it.noTelp)))
+    const skippedCount = itemsToSend.length - validItems.length
+    if (validItems.length === 0) {
+      setAutoWaShareHint('Tidak ada surat terpilih yang memiliki nomor WhatsApp valid.')
+      return
+    }
+
+    setWaBulkSending(true)
+    let successCount = 0
+    const failedNames: string[] = []
+    const sentIds: string[] = []
+
+    for (let i = 0; i < validItems.length; i += 1) {
+      const current = validItems[i]
+      setWaBulkProgress(`Mengirim ${i + 1}/${validItems.length}: ${current.nama}...`)
+      try {
+        await sendAutoUndanganViaWaLocal(current)
+        successCount += 1
+        sentIds.push(current.id)
+      } catch (err) {
+        failedNames.push(
+          `${current.nama} (${err instanceof Error ? err.message : 'gagal'})`
+        )
+      }
+      if (i < validItems.length - 1) {
+        await new Promise((resolve) => window.setTimeout(resolve, 4500))
+      }
+    }
+
+    setSelectedAutoUndanganIds((prev) => prev.filter((id) => !sentIds.includes(id)))
+    setWaBulkSending(false)
+    setWaBulkProgress('')
+    const summaryParts = [`${successCount} surat berhasil dikirim otomatis via WA Lokal.`]
+    if (skippedCount > 0) summaryParts.push(`${skippedCount} dilewati (no. WA kosong).`)
+    if (failedNames.length > 0) summaryParts.push(`Gagal: ${failedNames.join(', ')}.`)
+    setAutoWaShareHint(summaryParts.join(' '))
+  }
+
   const handleDeleteAutoUndangan = async (targetItem: AutoUndanganItem) => {
     const targetYear = getYearFromDateOrNomor(targetItem.tanggal, targetItem.noSurat)
     const remaining = autoUndanganList.filter(
@@ -969,19 +1131,40 @@ export default function AdminSidebarPage() {
           .from('kritik_saran')
           .delete()
           .eq('kategori', '__AUTO_UNDANGAN__')
+          .ilike('pesan', `%${targetItem.id}%`)
+        await sb
+          .from('kritik_saran')
+          .delete()
+          .eq('kategori', '__AUTO_UNDANGAN__')
+          .ilike('pesan', `%${targetItem.noSurat}%`)
+        // Soft-delete fallback in case Supabase RLS blocks hard DELETE on kritik_saran
+        await sb
+          .from('kritik_saran')
+          .update({ kategori: '__AUTO_UNDANGAN_DELETED__' })
+          .eq('id', targetItem.id)
+        await sb
+          .from('kritik_saran')
+          .update({ kategori: '__AUTO_UNDANGAN_DELETED__' })
+          .eq('kategori', '__AUTO_UNDANGAN__')
+          .ilike('pesan', `%${targetItem.id}%`)
+        await sb
+          .from('kritik_saran')
+          .update({ kategori: '__AUTO_UNDANGAN_DELETED__' })
+          .eq('kategori', '__AUTO_UNDANGAN__')
           .ilike('pesan', `%${targetItem.noSurat}%`)
         for (const ch of changedItems) {
+          const updatedPayload = JSON.stringify({
+            clientId: ch.item.id,
+            noSurat: ch.nextNoSurat,
+            perihal: ch.item.perihal,
+            createdAt: ch.item.createdAt,
+          })
+          await sb.from('kritik_saran').update({ pesan: updatedPayload }).eq('id', ch.item.id)
           await sb
             .from('kritik_saran')
-            .update({
-              pesan: JSON.stringify({
-                clientId: ch.item.id,
-                noSurat: ch.nextNoSurat,
-                perihal: ch.item.perihal,
-                createdAt: ch.item.createdAt,
-              }),
-            })
-            .eq('id', ch.item.id)
+            .update({ pesan: updatedPayload })
+            .eq('kategori', '__AUTO_UNDANGAN__')
+            .ilike('pesan', `%${ch.item.id}%`)
         }
       } catch {
         // ignore
@@ -1216,12 +1399,14 @@ export default function AdminSidebarPage() {
       }
 
       const syncedAutoItems: AutoUndanganItem[] = []
+      let autoSyncSucceeded = false
       try {
         const autoUndRes = await sb
           .from('surat_undangan_otomatis')
           .select('*')
           .order('created_at', { ascending: false })
         if (!autoUndRes.error && autoUndRes.data) {
+          autoSyncSucceeded = true
           autoUndRes.data.forEach((d) => {
             syncedAutoItems.push({
               id: String(d.id),
@@ -1256,9 +1441,12 @@ export default function AdminSidebarPage() {
         masjidStore.saveVideo(mappedR)
       }
 
-      if (ksRes.data && ksRes.data.length > 0) {
+      if (!ksRes.error && ksRes.data) {
+        autoSyncSucceeded = true
         const realKritikRows = ksRes.data.filter(
-          (d) => d.kategori !== '__AUTO_UNDANGAN__'
+          (d) =>
+            d.kategori !== '__AUTO_UNDANGAN__' &&
+            d.kategori !== '__AUTO_UNDANGAN_DELETED__'
         )
         const autoFromKritikRows = ksRes.data.filter(
           (d) => d.kategori === '__AUTO_UNDANGAN__'
@@ -1299,7 +1487,7 @@ export default function AdminSidebarPage() {
         })
       }
 
-      if (syncedAutoItems.length > 0) {
+      if (autoSyncSucceeded) {
         syncedAutoItems.sort((a, b) =>
           String(b.createdAt).localeCompare(String(a.createdAt))
         )
@@ -11078,6 +11266,142 @@ export default function AdminSidebarPage() {
                       </div>
                     </div>
 
+                    {/* Panel Koneksi WA Lokal (Laptop) & Kirim Banyak Sekaligus */}
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '10px',
+                        flexWrap: 'wrap',
+                        padding: '10px 12px',
+                        borderRadius: '10px',
+                        background: waLocalStatus.connected
+                          ? '#ecfdf5'
+                          : waLocalStatus.online
+                            ? '#fffbeb'
+                            : '#f8fafc',
+                        border: waLocalStatus.connected
+                          ? '1px solid rgba(22, 163, 74, 0.32)'
+                          : waLocalStatus.online
+                            ? '1px solid rgba(217, 119, 6, 0.35)'
+                            : '1px solid rgba(100, 116, 139, 0.25)',
+                        marginBottom: '12px',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <span
+                          style={{
+                            width: '9px',
+                            height: '9px',
+                            borderRadius: '999px',
+                            background: waLocalStatus.connected
+                              ? '#16a34a'
+                              : waLocalStatus.online
+                                ? '#d97706'
+                                : '#94a3b8',
+                            display: 'inline-block',
+                          }}
+                        />
+                        <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#0f172a' }}>
+                          {waLocalStatus.connected
+                            ? `WA Lokal Terhubung (${waLocalStatus.phone ? `+${waLocalStatus.phone}` : 'Siap Kirim Otomatis'})`
+                            : waLocalStatus.online
+                              ? 'WA Lokal Aktif — Scan QR di terminal JALANKAN-WA-SENDER.bat'
+                              : 'WA Lokal Belum Aktif (Mode Manual Browser)'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => void checkWaLocalStatus(false)}
+                          disabled={waLocalStatus.checking}
+                          style={{
+                            padding: '4px 10px',
+                            borderRadius: '7px',
+                            border: '1px solid rgba(27, 107, 69, 0.25)',
+                            background: '#ffffff',
+                            color: '#0f4a2a',
+                            fontSize: '0.73rem',
+                            fontWeight: 800,
+                            cursor: waLocalStatus.checking ? 'wait' : 'pointer',
+                          }}
+                        >
+                          {waLocalStatus.checking ? 'Mengecek...' : 'Cek Koneksi WA Lokal'}
+                        </button>
+                      </div>
+
+                      {autoUndanganList.length > 0 && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const aq = autoUndanganSearchQuery.trim().toLowerCase()
+                              const visibleIds = autoUndanganList
+                                .filter((item) => {
+                                  const matchStatus =
+                                    autoUndanganStatusFilter === 'Semua' ||
+                                    item.status === autoUndanganStatusFilter
+                                  const matchQ =
+                                    !aq ||
+                                    item.nama.toLowerCase().includes(aq) ||
+                                    item.noSurat.toLowerCase().includes(aq) ||
+                                    item.perihal.toLowerCase().includes(aq) ||
+                                    item.noTelp.toLowerCase().includes(aq) ||
+                                    item.tanggal.includes(aq)
+                                  return matchStatus && matchQ
+                                })
+                                .map((it) => it.id)
+                              const allSelected =
+                                visibleIds.length > 0 &&
+                                visibleIds.every((id) => selectedAutoUndanganIds.includes(id))
+                              setSelectedAutoUndanganIds(allSelected ? [] : visibleIds)
+                            }}
+                            style={{
+                              padding: '5px 10px',
+                              borderRadius: '7px',
+                              border: '1px solid rgba(27, 107, 69, 0.25)',
+                              background: '#ffffff',
+                              color: '#14532d',
+                              fontSize: '0.74rem',
+                              fontWeight: 800,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            {selectedAutoUndanganIds.length > 0 ? 'Batal Pilih' : 'Pilih Semua'}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={selectedAutoUndanganIds.length === 0 || waBulkSending}
+                            onClick={() => {
+                              const selectedItems = autoUndanganList.filter((it) =>
+                                selectedAutoUndanganIds.includes(it.id)
+                              )
+                              void handleBulkSendWaLocal(selectedItems)
+                            }}
+                            style={{
+                              padding: '6px 12px',
+                              borderRadius: '8px',
+                              border: 'none',
+                              background:
+                                selectedAutoUndanganIds.length === 0 || waBulkSending
+                                  ? '#cbd5e1'
+                                  : 'linear-gradient(135deg, #25D366, #128C7E)',
+                              color: '#ffffff',
+                              fontSize: '0.76rem',
+                              fontWeight: 800,
+                              cursor:
+                                selectedAutoUndanganIds.length === 0 || waBulkSending
+                                  ? 'not-allowed'
+                                  : 'pointer',
+                            }}
+                          >
+                            {waBulkSending
+                              ? waBulkProgress || 'Mengirim...'
+                              : `Kirim Terpilih via WA Lokal (${selectedAutoUndanganIds.length})`}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
                     {/* Menu Pencarian & Filter Status Surat Undangan Otomatis */}
                     <div
                       style={{
@@ -11199,12 +11523,41 @@ export default function AdminSidebarPage() {
                               <div
                                 style={{
                                   display: 'flex',
-                                  flexDirection: 'column',
-                                  gap: '3px',
+                                  alignItems: 'flex-start',
+                                  gap: '10px',
                                   minWidth: '220px',
                                   flex: 1,
                                 }}
                               >
+                                <input
+                                  type="checkbox"
+                                  aria-label={`Pilih ${item.nama}`}
+                                  checked={selectedAutoUndanganIds.includes(item.id)}
+                                  onChange={(e) => {
+                                    const checked = e.target.checked
+                                    setSelectedAutoUndanganIds((prev) =>
+                                      checked
+                                        ? Array.from(new Set([...prev, item.id]))
+                                        : prev.filter((id) => id !== item.id)
+                                    )
+                                  }}
+                                  style={{
+                                    marginTop: '4px',
+                                    width: '16px',
+                                    height: '16px',
+                                    accentColor: '#15803d',
+                                    cursor: 'pointer',
+                                    flexShrink: 0,
+                                  }}
+                                />
+                                <div
+                                  style={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '3px',
+                                    flex: 1,
+                                  }}
+                                >
                                 <div
                                   style={{
                                     display: 'flex',
@@ -11257,6 +11610,7 @@ export default function AdminSidebarPage() {
                                 >
                                   {`${item.perihal} • ${item.tanggal} • WA: ${item.noTelp}`}
                                 </div>
+                                </div>
                               </div>
 
                               {/* Pojok Kanan: Tombol Share WA langsung + Ubah Status + Hapus */}
@@ -11295,6 +11649,29 @@ export default function AdminSidebarPage() {
                                 <button
                                   type="button"
                                   onClick={async () => {
+                                    const waPhone = normalizeWaPhone(item.noTelp)
+                                    if (waPhone) {
+                                      const localStat = waLocalStatus.connected
+                                        ? waLocalStatus
+                                        : await checkWaLocalStatus(true)
+                                      if (localStat.connected) {
+                                        try {
+                                          setAutoWaShareHint(
+                                            `Mengirim surat PNG + teks pengantar ke WA ${item.nama} via WA Lokal...`
+                                          )
+                                          await sendAutoUndanganViaWaLocal(item)
+                                          setAutoWaShareHint(
+                                            `Berhasil! Surat PNG (${item.noSurat}) & teks pengantar terkirim otomatis ke WA ${item.nama}.`
+                                          )
+                                          return
+                                        } catch (err) {
+                                          setAutoWaShareHint(
+                                            `Gagal kirim via WA Lokal (${err instanceof Error ? err.message : 'error'}), beralih ke mode manual.`
+                                          )
+                                        }
+                                      }
+                                    }
+
                                     const isKhutbah = /khotib|khatib|imam|bilal|jumat|jum'at/i.test(
                                       item.perihal
                                     )
@@ -11321,7 +11698,6 @@ export default function AdminSidebarPage() {
                                       /[^a-zA-Z0-9]+/g,
                                       '-'
                                     )}-${item.tanggal}.png`
-                                    const waPhone = normalizeWaPhone(item.noTelp)
 
                                     if (!waPhone) {
                                       const imgFile = new File([imgBlob], fileName, {
