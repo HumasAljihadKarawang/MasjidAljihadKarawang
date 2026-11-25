@@ -916,13 +916,19 @@ export default function AdminSidebarPage() {
     targetItem: AutoUndanganItem,
     nextStatus: AutoUndanganStatus
   ) => {
-    saveAutoUndanganList(
-      autoUndanganList.map((x) =>
+    setAutoUndanganList((prev) => {
+      const next = prev.map((x) =>
         x.id === targetItem.id || x.noSurat === targetItem.noSurat
           ? { ...x, status: nextStatus }
           : x
       )
-    )
+      try {
+        window.localStorage.setItem('aljihad_auto_undangan_v1', JSON.stringify(next))
+      } catch {
+        // ignore storage error
+      }
+      return next
+    })
     if (getActiveSupabaseConfig().isConfigured) {
       const sb = getSupabaseClient()
       try {
@@ -1264,10 +1270,21 @@ export default function AdminSidebarPage() {
         await sendAutoUndanganViaWaLocal(current)
         successCount += 1
         sentIds.push(current.id)
-      } catch (err) {
-        failedNames.push(
-          `${current.nama} (${err instanceof Error ? err.message : 'gagal'})`
-        )
+      } catch (firstErr) {
+        // Coba ulang 1 kali setelah 4 detik jika koneksi WA sempat reconnect sesaat
+        try {
+          setWaBulkProgress(
+            `Menghubungkan ulang & mencoba lagi kirim ke ${current.nama} (${i + 1}/${validItems.length})...`
+          )
+          await new Promise((resolve) => window.setTimeout(resolve, 4000))
+          await sendAutoUndanganViaWaLocal(current)
+          successCount += 1
+          sentIds.push(current.id)
+        } catch (err) {
+          failedNames.push(
+            `${current.nama} (${err instanceof Error ? err.message : firstErr instanceof Error ? firstErr.message : 'gagal'})`
+          )
+        }
       }
       setWaBulkStats({ done: i + 1, total: validItems.length })
       if (i < validItems.length - 1) {

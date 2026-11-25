@@ -195,6 +195,13 @@ app.post('/logout', async (_req, res) => {
 
 app.post('/send-media', async (req, res) => {
   try {
+    // Jika Baileys sedang reconnect sesaat, tunggu maksimal 6 detik agar tidak gagal di tengah kirim massal
+    if (!sock || !connectionState.connected) {
+      for (let w = 0; w < 12; w += 1) {
+        if (sock && connectionState.connected) break;
+        await new Promise((r) => setTimeout(r, 500));
+      }
+    }
     if (!sock || !connectionState.connected) {
       return res.status(503).json({
         ok: false,
@@ -237,7 +244,7 @@ app.post('/send-media', async (req, res) => {
   }
 });
 
-app.listen(PORT, '0.0.0.0', () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
   console.log('======================================================');
   console.log('  WA SENDER LOKAL - MASJID AL-JIHAD KARAWANG');
   console.log(`  Server aktif di http://127.0.0.1:${PORT}`);
@@ -246,4 +253,12 @@ app.listen(PORT, '0.0.0.0', () => {
   startWhatsApp().catch((err) => {
     console.error('Gagal memulai WhatsApp socket:', err);
   });
+});
+
+server.on('error', (err) => {
+  if (err && err.code === 'EADDRINUSE') {
+    console.log(`[INFO] Port ${PORT} sudah dipakai proses lain. Menutup duplikat...`);
+    process.exit(0);
+  }
+  console.error('[SERVER ERROR]', err);
 });

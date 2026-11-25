@@ -13,7 +13,8 @@ if not exist "node_modules" (
   echo.
 )
 
-REM Hentikan proses lama di port 3099 jika ada agar tidak bentrok
+REM Hentikan semua watchdog & node server.js lama agar tidak bentrok (code 440)
+powershell -NoProfile -Command "Get-CimInstance Win32_Process | Where-Object { ($_.Name -eq 'cmd.exe' -and $_.CommandLine -like '*wa-watchdog.bat*') -or ($_.Name -eq 'node.exe' -and $_.CommandLine -like '*server.js*') } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }" >nul 2>&1
 for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":3099 " ^| findstr "LISTENING"') do (
   taskkill /F /PID %%a >nul 2>&1
 )
