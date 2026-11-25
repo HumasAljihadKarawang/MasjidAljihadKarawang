@@ -231,7 +231,10 @@ export default function AdminSidebarPage() {
   const [kategoriPengeluaran, setKategoriPengeluaran] = useState('Operasional & Listrik/Air')
   const [uraianPengeluaran, setUraianPengeluaran] = useState('')
   const [nominalPengeluaran, setNominalPengeluaran] = useState('')
-  const [pjPengeluaran, setPjPengeluaran] = useState('Dr.K.H Asep Khareul Faizin,MM')
+  const [pjPengeluaranOpsi, setPjPengeluaranOpsi] = useState<
+    'Bendahara Umum' | 'Pengurus DKM' | 'Lainnya'
+  >('Bendahara Umum')
+  const [pjPengeluaran, setPjPengeluaran] = useState('Bendahara Umum')
   const [metodePengeluaran, setMetodePengeluaran] = useState<
     'Tunai (Kas DKM)' | 'Transfer Bank' | 'QRIS'
   >('Tunai (Kas DKM)')
@@ -2572,30 +2575,63 @@ export default function AdminSidebarPage() {
     renderPosterCanvas()
   }, [renderPosterCanvas])
 
-  // Template teks WhatsApp simple & formal tanpa stiker untuk pengantar lampiran foto/PDF
+  const DEFAULT_WA_SURAT_TEMPLATE = [
+    "*Assalamu'alaikum Warahmatullahi Wabarakatuh*",
+    '',
+    'Yth. *{nama}*,',
+    'Dengan hormat, bersama pesan ini kami sampaikan surat undangan resmi dari DKM Masjid Al-Jihad Islamic Center Karawang ({perihal}) sebagaimana terlampir.',
+    '',
+    'Mohon kesediaan {sapaan} untuk berkenan memeriksa rincian undangan tersebut. Atas perhatian dan kehadirannya kami ucapkan _Jazakumullahu Khairan Katsiran_.',
+    '',
+    "*Wassalamu'alaikum Warahmatullahi Wabarakatuh*",
+    '_DKM Masjid Al-Jihad Karawang_',
+  ].join('\n')
+
+  const [waSuratTemplate, setWaSuratTemplate] = useState<string>(DEFAULT_WA_SURAT_TEMPLATE)
+
+  useEffect(() => {
+    try {
+      const savedTpl = window.localStorage.getItem('aljihad_wa_template_v1')
+      if (savedTpl) setWaSuratTemplate(savedTpl)
+    } catch {
+      // ignore
+    }
+  }, [])
+
+  const updateWaSuratTemplate = (nextTpl: string) => {
+    setWaSuratTemplate(nextTpl)
+    try {
+      window.localStorage.setItem('aljihad_wa_template_v1', nextTpl)
+    } catch {
+      // ignore
+    }
+  }
+
+  // Template teks WhatsApp simple & formal (bisa diedit sendiri oleh admin + variabel otomatis terlihat)
   const getSuratWaText = (overrides?: {
     kepada?: string
     perihal?: string
+    tanggal?: string
+    noSurat?: string
     jenisSurat?: 'Khutbah Jumat' | 'Umum'
   }) => {
     const targetJenis = overrides?.jenisSurat ?? jenisSurat
     const targetKepada = overrides?.kepada ?? kepadaSurat
     const targetPerihal = overrides?.perihal ?? perihalSurat
+    const targetTanggal = overrides?.tanggal ?? tanggalSuratAcara
+    const targetNomor = overrides?.noSurat ?? noSurat
     const isKhutbah =
       targetJenis === 'Khutbah Jumat' ||
       /khotib|khatib|imam|bilal|jumat|jum'at/i.test(targetPerihal)
     const sapaan = isKhutbah ? 'Bapak/Ustadz' : 'Bapak/Ibu/Ustadz'
-    return [
-      "*Assalamu'alaikum Warahmatullahi Wabarakatuh*",
-      '',
-      `Yth. *${targetKepada || sapaan}*,`,
-      `Dengan hormat, bersama pesan ini kami sampaikan surat undangan resmi dari DKM Masjid Al-Jihad Islamic Center Karawang (${targetPerihal || 'Undangan Resmi'}) sebagaimana terlampir.`,
-      '',
-      `Mohon kesediaan ${sapaan} untuk berkenan memeriksa rincian undangan tersebut. Atas perhatian dan kehadirannya kami ucapkan _Jazakumullahu Khairan Katsiran_.`,
-      '',
-      "*Wassalamu'alaikum Warahmatullahi Wabarakatuh*",
-      '_DKM Masjid Al-Jihad Karawang_',
-    ].join('\n')
+    const tglLabel = targetTanggal ? formatTanggalIndo(targetTanggal) : '-'
+
+    return (waSuratTemplate || DEFAULT_WA_SURAT_TEMPLATE)
+      .replace(/\{nama\}/gi, targetKepada || sapaan)
+      .replace(/\{perihal\}/gi, targetPerihal || 'Undangan Resmi')
+      .replace(/\{sapaan\}/gi, sapaan)
+      .replace(/\{tanggal\}/gi, tglLabel)
+      .replace(/\{nomor\}/gi, targetNomor || '-')
   }
 
   // Render kertas surat undangan A4 (1240x1754px) ke Canvas untuk output PDF & Share Foto WA
@@ -9319,13 +9355,37 @@ export default function AdminSidebarPage() {
 
                       <div className={styles.formGroup}>
                         <label>Penanggung Jawab / Pencatat</label>
-                        <input
-                          type="text"
-                          required
-                          value={pjPengeluaran}
-                          onChange={(e) => setPjPengeluaran(e.target.value)}
-                          placeholder="Contoh: Bendahara DKM Al-Jihad"
-                        />
+                        <select
+                          value={pjPengeluaranOpsi}
+                          onChange={(e) => {
+                            const opsi = e.target.value as
+                              | 'Bendahara Umum'
+                              | 'Pengurus DKM'
+                              | 'Lainnya'
+                            setPjPengeluaranOpsi(opsi)
+                            if (opsi === 'Bendahara Umum') {
+                              setPjPengeluaran('Bendahara Umum')
+                            } else if (opsi === 'Pengurus DKM') {
+                              setPjPengeluaran('Pengurus DKM')
+                            } else {
+                              setPjPengeluaran('')
+                            }
+                          }}
+                        >
+                          <option value="Bendahara Umum">Bendahara Umum</option>
+                          <option value="Pengurus DKM">Pengurus DKM</option>
+                          <option value="Lainnya">Input Manual (Lainnya)</option>
+                        </select>
+                        {pjPengeluaranOpsi === 'Lainnya' && (
+                          <input
+                            type="text"
+                            required
+                            value={pjPengeluaran}
+                            onChange={(e) => setPjPengeluaran(e.target.value)}
+                            placeholder="Ketik nama penanggung jawab..."
+                            style={{ marginTop: '8px' }}
+                          />
+                        )}
                       </div>
 
                       <div className={styles.formGroup}>
@@ -10831,28 +10891,118 @@ export default function AdminSidebarPage() {
                     border: '1px solid rgba(27, 107, 69, 0.2)',
                   }}
                 >
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '8px',
+                      flexWrap: 'wrap',
+                      marginBottom: '8px',
+                    }}
+                  >
+                    <strong
+                      style={{
+                        color: '#0f4a2a',
+                        fontSize: '0.88rem',
+                      }}
+                    >
+                      Template Pesan Pengantar WhatsApp (Bisa Diedit Sendiri)
+                    </strong>
+                    <button
+                      type="button"
+                      onClick={() => updateWaSuratTemplate(DEFAULT_WA_SURAT_TEMPLATE)}
+                      style={{
+                        border: '1px solid rgba(27, 107, 69, 0.25)',
+                        background: '#ffffff',
+                        color: '#14532d',
+                        borderRadius: '7px',
+                        padding: '3px 9px',
+                        fontSize: '0.72rem',
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Reset Default
+                    </button>
+                  </div>
+
+                  {/* Tag Variabel Otomatis yang Terlihat & Bisa Diklik untuk Disisipkan */}
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      flexWrap: 'wrap',
+                      marginBottom: '8px',
+                    }}
+                  >
+                    <span style={{ fontSize: '0.72rem', color: '#4b5563', fontWeight: 700 }}>
+                      Kalimat otomatis:
+                    </span>
+                    {['{nama}', '{perihal}', '{sapaan}', '{tanggal}', '{nomor}'].map((tag) => (
+                      <button
+                        key={tag}
+                        type="button"
+                        onClick={() => updateWaSuratTemplate(`${waSuratTemplate} ${tag}`)}
+                        style={{
+                          border: '1px solid #86efac',
+                          background: '#dcfce7',
+                          color: '#166534',
+                          borderRadius: '6px',
+                          padding: '2px 7px',
+                          fontSize: '0.71rem',
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {tag}
+                      </button>
+                    ))}
+                  </div>
+
+                  <textarea
+                    rows={7}
+                    value={waSuratTemplate}
+                    onChange={(e) => updateWaSuratTemplate(e.target.value)}
+                    placeholder="Edit format pesan pengantar WhatsApp di sini..."
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      borderRadius: '8px',
+                      border: '1px solid rgba(27, 107, 69, 0.28)',
+                      background: '#ffffff',
+                      color: '#1e293b',
+                      fontSize: '0.8rem',
+                      lineHeight: 1.5,
+                      fontFamily: 'inherit',
+                      resize: 'vertical',
+                    }}
+                  />
+
                   <strong
                     style={{
                       display: 'block',
                       color: '#0f4a2a',
-                      fontSize: '0.88rem',
-                      marginBottom: '8px',
+                      fontSize: '0.8rem',
+                      marginTop: '10px',
+                      marginBottom: '5px',
                     }}
                   >
-                    Template Pesan Pengantar WhatsApp (Simple &amp; Formal)
+                    Pratinjau Pesan Otomatis (Siap Kirim ke WA):
                   </strong>
                   <textarea
                     readOnly
-                    rows={8}
+                    rows={6}
                     value={getSuratWaText()}
                     style={{
                       width: '100%',
                       padding: '10px 12px',
                       borderRadius: '8px',
-                      border: '1px solid rgba(27, 107, 69, 0.18)',
-                      background: '#ffffff',
-                      color: '#1e293b',
-                      fontSize: '0.8rem',
+                      border: '1px dashed rgba(27, 107, 69, 0.25)',
+                      background: '#f0fdf4',
+                      color: '#111827',
+                      fontSize: '0.78rem',
                       lineHeight: 1.5,
                       fontFamily: 'inherit',
                       resize: 'vertical',
@@ -11154,6 +11304,8 @@ export default function AdminSidebarPage() {
                                     const waText = getSuratWaText({
                                       kepada: item.nama,
                                       perihal: item.perihal,
+                                      tanggal: item.tanggal,
+                                      noSurat: item.noSurat,
                                       jenisSurat: jenisTarget,
                                     })
                                     const imgBlob = await buildSuratImageBlob({
