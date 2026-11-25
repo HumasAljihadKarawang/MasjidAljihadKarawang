@@ -744,6 +744,7 @@ export default function AdminSidebarPage() {
     total: 0,
   })
   const [shareWaChoiceItem, setShareWaChoiceItem] = useState<AutoUndanganItem | null>(null)
+  const [editAutoUndanganItem, setEditAutoUndanganItem] = useState<AutoUndanganItem | null>(null)
 
   const ROMAN_MONTHS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII']
 
@@ -946,6 +947,70 @@ export default function AdminSidebarPage() {
         // ignore
       }
     }
+  }
+
+  const handleEditAutoUndangan = async (updatedItem: AutoUndanganItem) => {
+    const cleanPhone = formatIndoLocalPhone(updatedItem.noTelp)
+    const cleanItem: AutoUndanganItem = {
+      ...updatedItem,
+      nama: updatedItem.nama.trim(),
+      perihal: updatedItem.perihal.trim(),
+      noSurat: updatedItem.noSurat.trim(),
+      noTelp: cleanPhone,
+    }
+    saveAutoUndanganList(
+      autoUndanganList.map((x) => (x.id === cleanItem.id ? cleanItem : x))
+    )
+    if (cleanItem.nama && cleanItem.noTelp) {
+      saveKhatibContact(cleanItem.nama, cleanItem.noTelp)
+    }
+    if (getActiveSupabaseConfig().isConfigured) {
+      const sb = getSupabaseClient()
+      try {
+        await sb
+          .from('surat_undangan_otomatis')
+          .update({
+            no_surat: cleanItem.noSurat,
+            nama: cleanItem.nama,
+            perihal: cleanItem.perihal,
+            tanggal: cleanItem.tanggal,
+            no_telp: cleanItem.noTelp,
+          })
+          .eq('id', cleanItem.id)
+      } catch {
+        // ignore
+      }
+      try {
+        const updatedPayload = JSON.stringify({
+          clientId: cleanItem.id,
+          noSurat: cleanItem.noSurat,
+          perihal: cleanItem.perihal,
+          createdAt: cleanItem.createdAt,
+        })
+        await sb
+          .from('kritik_saran')
+          .update({
+            nama: cleanItem.nama,
+            kontak: cleanItem.noTelp || '-',
+            tanggal: cleanItem.tanggal,
+            pesan: updatedPayload,
+          })
+          .eq('id', cleanItem.id)
+        await sb
+          .from('kritik_saran')
+          .update({
+            nama: cleanItem.nama,
+            kontak: cleanItem.noTelp || '-',
+            tanggal: cleanItem.tanggal,
+            pesan: updatedPayload,
+          })
+          .eq('kategori', '__AUTO_UNDANGAN__')
+          .ilike('pesan', `%${cleanItem.id}%`)
+      } catch {
+        // ignore
+      }
+    }
+    setAutoWaShareHint(`Data undangan ${cleanItem.nama} (${cleanItem.noSurat}) berhasil diperbarui.`)
   }
 
   const getActiveWaUrl = (overrideDeviceId?: string) => {
@@ -11573,14 +11638,25 @@ export default function AdminSidebarPage() {
                           Alamat Setting
                         </button>
                       </div>
+                    </div>
 
-                      {autoUndanganList.length > 0 && (
+                    {/* Baris Tersendiri: Pilih Semua & Kirim Banyak via WA Sender */}
+                    {autoUndanganList.length > 0 && (
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: '8px',
+                          flexWrap: 'wrap',
+                          padding: '8px 12px',
+                          borderRadius: '10px',
+                          background: '#f8fafc',
+                          border: '1px solid rgba(148, 163, 184, 0.25)',
+                          marginBottom: '12px',
+                        }}
+                      >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                          {!waLocalStatus.connected && (
-                            <span style={{ fontSize: '0.71rem', color: '#64748b', fontWeight: 700 }}>
-                              Kirim Banyak aktif setelah Server WA Sender terhubung (jeda 10 dtk/khotib)
-                            </span>
-                          )}
                           <button
                             type="button"
                             disabled={!waLocalStatus.connected || waBulkSending}
@@ -11607,12 +11683,12 @@ export default function AdminSidebarPage() {
                               setSelectedAutoUndanganIds(allSelected ? [] : visibleIds)
                             }}
                             style={{
-                              padding: '5px 10px',
+                              padding: '5px 11px',
                               borderRadius: '7px',
                               border: '1px solid rgba(27, 107, 69, 0.25)',
                               background: !waLocalStatus.connected || waBulkSending ? '#f1f5f9' : '#ffffff',
                               color: !waLocalStatus.connected || waBulkSending ? '#94a3b8' : '#14532d',
-                              fontSize: '0.74rem',
+                              fontSize: '0.75rem',
                               fontWeight: 800,
                               cursor: !waLocalStatus.connected || waBulkSending ? 'not-allowed' : 'pointer',
                             }}
@@ -11629,7 +11705,7 @@ export default function AdminSidebarPage() {
                               void handleBulkSendWaLocal(selectedItems)
                             }}
                             style={{
-                              padding: '6px 12px',
+                              padding: '6px 13px',
                               borderRadius: '8px',
                               border: 'none',
                               background:
@@ -11652,8 +11728,13 @@ export default function AdminSidebarPage() {
                               : `Kirim Terpilih (${selectedAutoUndanganIds.length})`}
                           </button>
                         </div>
-                      )}
-                    </div>
+                        {!waLocalStatus.connected && (
+                          <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 700 }}>
+                            Aktif setelah Server WA Sender terhubung (jeda acak 10–16 dtk/khotib)
+                          </span>
+                        )}
+                      </div>
+                    )}
 
                     {waBulkSending && (
                       <div
@@ -11950,7 +12031,7 @@ export default function AdminSidebarPage() {
                                 </div>
                               </div>
 
-                              {/* Pojok Kanan: Tombol Share WA langsung + Ubah Status + Hapus */}
+                              {/* Pojok Kanan: Tombol Share WA langsung + Edit + Ubah Status + Hapus */}
                               <div
                                 style={{
                                   display: 'flex',
@@ -11959,6 +12040,22 @@ export default function AdminSidebarPage() {
                                   flexWrap: 'wrap',
                                 }}
                               >
+                                <button
+                                  type="button"
+                                  onClick={() => setEditAutoUndanganItem(item)}
+                                  style={{
+                                    border: '1px solid rgba(100, 116, 139, 0.28)',
+                                    background: '#ffffff',
+                                    color: '#334155',
+                                    borderRadius: '8px',
+                                    padding: '6px 10px',
+                                    fontSize: '0.76rem',
+                                    fontWeight: 800,
+                                    cursor: 'pointer',
+                                  }}
+                                >
+                                  Edit
+                                </button>
                                 <button
                                   type="button"
                                   onClick={() => setKonfirmasiAutoModal(item)}
@@ -12079,10 +12176,10 @@ export default function AdminSidebarPage() {
 
                     {/* 1. Pilih Perangkat: Laptop Saya atau PC DKM */}
                     <div style={{ marginBottom: '14px' }}>
-                      <strong style={{ display: 'block', fontSize: '0.82rem', color: '#0f172a', marginBottom: '7px' }}>
+                      <strong style={{ display: 'block', fontSize: '0.8rem', color: '#475569', marginBottom: '7px' }}>
                         1. Pilih Perangkat WA Sender
                       </strong>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                      <div style={{ display: 'flex', gap: '8px' }}>
                         {waDevices.map((dev) => {
                           const isSelected = dev.id === selectedWaDeviceId
                           return (
@@ -12099,23 +12196,21 @@ export default function AdminSidebarPage() {
                                 void checkWaLocalStatus(false, dev.url)
                               }}
                               style={{
-                                padding: '10px 12px',
-                                borderRadius: '10px',
+                                flex: 1,
+                                padding: '8px 12px',
+                                borderRadius: '9px',
                                 border: isSelected
-                                  ? '2px solid #16a34a'
-                                  : '1px solid rgba(100, 116, 139, 0.3)',
-                                background: isSelected ? '#ecfdf5' : '#ffffff',
-                                color: isSelected ? '#14532d' : '#334155',
-                                fontSize: '0.82rem',
-                                fontWeight: 800,
+                                  ? '1.5px solid #16a34a'
+                                  : '1px solid #cbd5e1',
+                                background: isSelected ? '#f0fdf4' : '#ffffff',
+                                color: isSelected ? '#166534' : '#475569',
+                                fontSize: '0.8rem',
+                                fontWeight: 700,
                                 cursor: 'pointer',
-                                textAlign: 'left',
+                                textAlign: 'center',
                               }}
                             >
-                              <div>{dev.name}</div>
-                              <div style={{ fontSize: '0.7rem', fontWeight: 600, color: '#64748b', marginTop: '2px' }}>
-                                {dev.url}
-                              </div>
+                              {dev.name}
                             </button>
                           )
                         })}
@@ -12229,23 +12324,38 @@ export default function AdminSidebarPage() {
                           />
                         </div>
                       ))}
-                      <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '6px' }}>
+                        <button
+                          type="button"
+                          onClick={() => setShowWaDeviceSettings(false)}
+                          style={{
+                            padding: '7px 14px',
+                            borderRadius: '8px',
+                            border: '1px solid #e2e8f0',
+                            background: '#ffffff',
+                            color: '#64748b',
+                            fontSize: '0.79rem',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Tutup
+                        </button>
                         <button
                           type="button"
                           onClick={() => void checkWaLocalStatus(false)}
                           style={{
-                            flex: 1,
-                            padding: '9px 14px',
-                            borderRadius: '9px',
-                            border: 'none',
-                            background: '#0f4a2a',
-                            color: '#ffffff',
-                            fontSize: '0.82rem',
+                            padding: '7px 14px',
+                            borderRadius: '8px',
+                            border: '1px solid #15803d',
+                            background: '#f0fdf4',
+                            color: '#166534',
+                            fontSize: '0.79rem',
                             fontWeight: 800,
                             cursor: 'pointer',
                           }}
                         >
-                          Simpan &amp; Cek Koneksi
+                          Simpan &amp; Cek
                         </button>
                       </div>
                     </div>
@@ -12310,7 +12420,45 @@ export default function AdminSidebarPage() {
                         : '○ Server WA Sender Lokal belum tersambung (mode Otomatis terkunci)'}
                     </div>
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '9px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px', flexWrap: 'wrap' }}>
+                      <button
+                        type="button"
+                        onClick={() => setShareWaChoiceItem(null)}
+                        style={{
+                          padding: '7px 13px',
+                          borderRadius: '8px',
+                          border: '1px solid #e2e8f0',
+                          background: '#ffffff',
+                          color: '#64748b',
+                          fontSize: '0.8rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Batal
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const target = shareWaChoiceItem
+                          setShareWaChoiceItem(null)
+                          await sendAutoUndanganManual(target)
+                        }}
+                        style={{
+                          padding: '7px 14px',
+                          borderRadius: '8px',
+                          border: '1px solid #cbd5e1',
+                          background: '#f8fafc',
+                          color: '#1e293b',
+                          fontSize: '0.8rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Manual
+                      </button>
+
                       <button
                         type="button"
                         disabled={
@@ -12334,16 +12482,21 @@ export default function AdminSidebarPage() {
                           }
                         }}
                         style={{
-                          width: '100%',
-                          padding: '10px 14px',
-                          borderRadius: '10px',
-                          border: 'none',
+                          padding: '7px 15px',
+                          borderRadius: '8px',
+                          border:
+                            waLocalStatus.connected && normalizeWaPhone(shareWaChoiceItem.noTelp)
+                              ? '1px solid #16a34a'
+                              : '1px solid #e2e8f0',
                           background:
                             waLocalStatus.connected && normalizeWaPhone(shareWaChoiceItem.noTelp)
-                              ? 'linear-gradient(135deg, #25D366, #128C7E)'
-                              : '#cbd5e1',
-                          color: '#ffffff',
-                          fontSize: '0.85rem',
+                              ? '#16a34a'
+                              : '#f1f5f9',
+                          color:
+                            waLocalStatus.connected && normalizeWaPhone(shareWaChoiceItem.noTelp)
+                              ? '#ffffff'
+                              : '#94a3b8',
+                          fontSize: '0.8rem',
                           fontWeight: 800,
                           cursor:
                             waLocalStatus.connected && normalizeWaPhone(shareWaChoiceItem.noTelp)
@@ -12351,49 +12504,162 @@ export default function AdminSidebarPage() {
                               : 'not-allowed',
                         }}
                       >
-                        Otomatis (via WA Sender Lokal)
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          const target = shareWaChoiceItem
-                          setShareWaChoiceItem(null)
-                          await sendAutoUndanganManual(target)
-                        }}
-                        style={{
-                          width: '100%',
-                          padding: '10px 14px',
-                          borderRadius: '10px',
-                          border: '1px solid rgba(27, 107, 69, 0.35)',
-                          background: '#f0fdf4',
-                          color: '#0f4a2a',
-                          fontSize: '0.85rem',
-                          fontWeight: 800,
-                          cursor: 'pointer',
-                        }}
-                      >
-                        Manual (Buka WA Web / Aplikasi)
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setShareWaChoiceItem(null)}
-                        style={{
-                          width: '100%',
-                          padding: '9px 14px',
-                          borderRadius: '10px',
-                          border: '1px solid #e2e8f0',
-                          background: '#ffffff',
-                          color: '#64748b',
-                          fontSize: '0.83rem',
-                          fontWeight: 700,
-                          cursor: 'pointer',
-                        }}
-                      >
-                        Batal
+                        Otomatis
                       </button>
                     </div>
+                  </div>
+                </div>
+              )}
+
+              {/* POP-UP EDIT DATA SURAT UNDANGAN OTOMATIS */}
+              {editAutoUndanganItem && (
+                <div
+                  onDoubleClick={(e) => {
+                    if (e.target === e.currentTarget) setEditAutoUndanganItem(null)
+                  }}
+                  style={{
+                    position: 'fixed',
+                    inset: 0,
+                    background: 'rgba(15, 23, 42, 0.68)',
+                    backdropFilter: 'blur(4px)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '16px',
+                    zIndex: 9999,
+                  }}
+                >
+                  <div
+                    style={{
+                      width: '100%',
+                      maxWidth: '460px',
+                      maxHeight: '90vh',
+                      overflowY: 'auto',
+                      background: '#ffffff',
+                      borderRadius: '18px',
+                      padding: '22px',
+                      boxShadow: '0 24px 60px rgba(0, 0, 0, 0.28)',
+                      border: '1px solid rgba(27, 107, 69, 0.2)',
+                    }}
+                  >
+                    <h3 style={{ margin: '0 0 12px', fontSize: '1.05rem', fontWeight: 900, color: '#0f4a2a' }}>
+                      Edit Surat Undangan Otomatis
+                    </h3>
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault()
+                        const target = editAutoUndanganItem
+                        setEditAutoUndanganItem(null)
+                        void handleEditAutoUndangan(target)
+                      }}
+                      style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}
+                    >
+                      <div className={styles.formGroup}>
+                        <label>Nomor Surat</label>
+                        <input
+                          type="text"
+                          required
+                          value={editAutoUndanganItem.noSurat}
+                          onChange={(e) =>
+                            setEditAutoUndanganItem({
+                              ...editAutoUndanganItem,
+                              noSurat: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                      <div className={styles.formGroup}>
+                        <label>Nama Penerima / Khotib</label>
+                        <input
+                          type="text"
+                          required
+                          value={editAutoUndanganItem.nama}
+                          onChange={(e) =>
+                            setEditAutoUndanganItem({
+                              ...editAutoUndanganItem,
+                              nama: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                      <div className={styles.formGroup}>
+                        <label>Perihal</label>
+                        <input
+                          type="text"
+                          required
+                          value={editAutoUndanganItem.perihal}
+                          onChange={(e) =>
+                            setEditAutoUndanganItem({
+                              ...editAutoUndanganItem,
+                              perihal: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                      <div className={styles.twoCols}>
+                        <div className={styles.formGroup}>
+                          <label>Tanggal</label>
+                          <input
+                            type="date"
+                            required
+                            value={editAutoUndanganItem.tanggal}
+                            onChange={(e) =>
+                              setEditAutoUndanganItem({
+                                ...editAutoUndanganItem,
+                                tanggal: e.target.value,
+                              })
+                            }
+                          />
+                        </div>
+                        <div className={styles.formGroup}>
+                          <label>No. Telepon (HP)</label>
+                          <input
+                            type="tel"
+                            required
+                            value={editAutoUndanganItem.noTelp}
+                            onChange={(e) =>
+                              setEditAutoUndanganItem({
+                                ...editAutoUndanganItem,
+                                noTelp: formatIndoLocalPhone(e.target.value),
+                              })
+                            }
+                          />
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '6px' }}>
+                        <button
+                          type="button"
+                          onClick={() => setEditAutoUndanganItem(null)}
+                          style={{
+                            padding: '7px 14px',
+                            borderRadius: '8px',
+                            border: '1px solid #e2e8f0',
+                            background: '#ffffff',
+                            color: '#64748b',
+                            fontSize: '0.8rem',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Batal
+                        </button>
+                        <button
+                          type="submit"
+                          style={{
+                            padding: '7px 15px',
+                            borderRadius: '8px',
+                            border: '1px solid #15803d',
+                            background: '#16a34a',
+                            color: '#ffffff',
+                            fontSize: '0.8rem',
+                            fontWeight: 800,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Simpan
+                        </button>
+                      </div>
+                    </form>
                   </div>
                 </div>
               )}
