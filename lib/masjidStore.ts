@@ -45,7 +45,14 @@ export interface AgendaKalenderItem {
   jamMulai: string // HH:mm
   jamSelesai: string // HH:mm
   ruangan: string
-  kategori: 'Kajian' | 'Khutbah Jumat' | 'Rapat DKM' | 'Sosial' | 'Pendidikan' | 'PHBI'
+  kategori:
+    | 'Kajian'
+    | 'Khutbah Jumat'
+    | 'Rapat DKM'
+    | 'Sosial'
+    | 'Pendidikan'
+    | 'PHBI'
+    | 'Umroh / Haji'
   keterangan: string
   peminjamanAset?: string
   noTeleponPj?: string

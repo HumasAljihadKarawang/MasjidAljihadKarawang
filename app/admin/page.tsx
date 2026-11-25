@@ -202,6 +202,10 @@ export default function AdminSidebarPage() {
 
   // State Pencatatan & Rekap Laporan Keuangan Masjid (Input per Pengeluaran/Pemasukan + PDF BKU A4 Bulanan/Mingguan/Harian + Edit Tabel Excel)
   const [showInputKeuanganModal, setShowInputKeuanganModal] = useState(false)
+  const [keuanganConfirmMonthModal, setKeuanganConfirmMonthModal] = useState(false)
+  const [keuanganPickDateModal, setKeuanganPickDateModal] = useState(false)
+  const [keuanganReturnToFormAfterPick, setKeuanganReturnToFormAfterPick] = useState(false)
+  const [keuanganConfirmChangeDateModal, setKeuanganConfirmChangeDateModal] = useState(false)
   const [previewKeuanganItem, setPreviewKeuanganItem] = useState<LaporanKeuanganItem | null>(null)
   const [excelEditMode, setExcelEditMode] = useState(false)
   const [showExcelGuidePrompt, setShowExcelGuidePrompt] = useState(false)
@@ -270,11 +274,64 @@ export default function AdminSidebarPage() {
   const [adminKalYear, setAdminKalYear] = useState<number>(() => new Date().getFullYear())
   const [adminKalMonth, setAdminKalMonth] = useState<number>(() => new Date().getMonth())
   const [adminKalSelectedDate, setAdminKalSelectedDate] = useState<string | null>(null)
+  const [showIdHolidaysAdmin, setShowIdHolidaysAdmin] = useState(true)
+
+  const ID_NATIONAL_HOLIDAYS: Record<string, string> = {
+    '2026-01-01': 'Tahun Baru 2026 Masehi',
+    '2026-01-16': "Isra Mi'raj Nabi Muhammad SAW",
+    '2026-02-17': 'Tahun Baru Imlek 2577',
+    '2026-03-19': 'Hari Suci Nyepi',
+    '2026-03-21': 'Idul Fitri 1447 H',
+    '2026-03-22': 'Idul Fitri 1447 H (Hari Ke-2)',
+    '2026-04-03': 'Wafat Yesus Kristus',
+    '2026-04-05': 'Kebangkitan Yesus Kristus',
+    '2026-05-01': 'Hari Buruh Internasional',
+    '2026-05-14': 'Kenaikan Yesus Kristus',
+    '2026-05-27': 'Idul Adha 1447 H',
+    '2026-05-31': 'Hari Raya Waisak 2570 BE',
+    '2026-06-01': 'Hari Lahir Pancasila',
+    '2026-06-16': 'Tahun Baru Islam 1448 H',
+    '2026-08-17': 'HUT Kemerdekaan RI Ke-81',
+    '2026-08-25': 'Maulid Nabi Muhammad SAW',
+    '2026-12-25': 'Hari Raya Natal',
+    '2027-01-01': 'Tahun Baru 2027 Masehi',
+    '2027-01-05': "Isra Mi'raj Nabi Muhammad SAW",
+    '2027-02-06': 'Tahun Baru Imlek 2578',
+    '2027-03-09': 'Hari Suci Nyepi',
+    '2027-03-10': 'Idul Fitri 1448 H',
+    '2027-03-11': 'Idul Fitri 1448 H (Hari Ke-2)',
+    '2027-03-26': 'Wafat Yesus Kristus',
+    '2027-03-28': 'Kebangkitan Yesus Kristus',
+    '2027-05-01': 'Hari Buruh Internasional',
+    '2027-05-06': 'Kenaikan Yesus Kristus',
+    '2027-05-17': 'Idul Adha 1448 H',
+    '2027-05-20': 'Hari Raya Waisak 2571 BE',
+    '2027-06-01': 'Hari Lahir Pancasila',
+    '2027-06-06': 'Tahun Baru Islam 1449 H',
+    '2027-08-14': 'Maulid Nabi Muhammad SAW',
+    '2027-08-17': 'HUT Kemerdekaan RI Ke-82',
+    '2027-12-25': 'Hari Raya Natal',
+  }
+
+  const getIdHolidayLabel = (dateIso: string) => {
+    if (ID_NATIONAL_HOLIDAYS[dateIso]) return ID_NATIONAL_HOLIDAYS[dateIso]
+    const mmdd = dateIso.slice(5)
+    if (mmdd === '01-01') return 'Tahun Baru Masehi'
+    if (mmdd === '05-01') return 'Hari Buruh Internasional'
+    if (mmdd === '06-01') return 'Hari Lahir Pancasila'
+    if (mmdd === '08-17') return 'HUT Kemerdekaan RI'
+    if (mmdd === '12-25') return 'Hari Raya Natal'
+    return ''
+  }
   const [previewKegiatanAdmin, setPreviewKegiatanAdmin] = useState<AgendaKalenderItem | null>(null)
   const [previewPengajuanAdmin, setPreviewPengajuanAdmin] = useState<PengajuanKalenderItem | null>(
     null
   )
   const [kegiatanSearchQuery, setKegiatanSearchQuery] = useState('')
+  const [kegiatanBulanFilter, setKegiatanBulanFilter] = useState('Semua')
+  const [kegiatanWaktuFilter, setKegiatanWaktuFilter] = useState<
+    'Semua' | 'Pagi' | 'Siang' | 'Sore' | 'Malam'
+  >('Semua')
   const [kegiatanKategoriFilter, setKegiatanKategoriFilter] = useState('Semua')
   const [pengajuanSearchQuery, setPengajuanSearchQuery] = useState('')
   const [pengajuanStatusFilter, setPengajuanStatusFilter] = useState<
@@ -608,10 +665,12 @@ export default function AdminSidebarPage() {
     reader.readAsDataURL(file)
   }
 
-  // 7. State Surat Undangan Resmi DKM (Klasifikasi Manual & Otomatis dengan Nomor Seri Sinkron)
+  // 7. State Surat Undangan Resmi DKM (Klasifikasi Manual & Otomatis dengan Nomor Seri Terpisah Per Tahun 2026 & 2027)
   const [suratTabMode, setSuratTabMode] = useState<'manual' | 'otomatis'>('manual')
-  const [noSurat, setNoSurat] = useState('045/DKM-ALJIHAD/KRW/XI/2026')
+  const [noSurat, setNoSurat] = useState('001/DKM-ALJIHAD/KRW/XI/2026')
   const [waShareHint, setWaShareHint] = useState('')
+  type YearNoSuratInfo = { lastSeq: number; lastNomor: string; waktu: string }
+  const [noSuratByYear, setNoSuratByYear] = useState<Record<string, YearNoSuratInfo>>({})
   const [lastUsedNoSurat, setLastUsedNoSurat] = useState<{
     nomor: string
     waktu: string
@@ -651,6 +710,32 @@ export default function AdminSidebarPage() {
 
   const ROMAN_MONTHS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII']
 
+  const getYearFromDateOrNomor = (refTanggalIso?: string, nomor?: string) => {
+    if (refTanggalIso) {
+      const m = String(refTanggalIso).match(/^(\d{4})-/)
+      if (m) return m[1]
+    }
+    if (nomor) {
+      const m = String(nomor).match(/\/(\d{4})$/)
+      if (m) return m[1]
+    }
+    return String(new Date().getFullYear())
+  }
+
+  const getNextNoSuratForDate = (
+    refTanggalIso?: string,
+    byYearOverride?: Record<string, YearNoSuratInfo>
+  ) => {
+    const dt = refTanggalIso ? new Date(`${refTanggalIso}T12:00:00`) : new Date()
+    const validDt = Number.isNaN(dt.getTime()) ? new Date() : dt
+    const yr = String(validDt.getFullYear())
+    const roman = ROMAN_MONTHS[validDt.getMonth()] || 'XI'
+    const map = byYearOverride ?? noSuratByYear
+    const lastSeq = map[yr]?.lastSeq ?? 0
+    const nextSeqStr = String(lastSeq + 1).padStart(3, '0')
+    return `${nextSeqStr}/DKM-ALJIHAD/KRW/${roman}/${yr}`
+  }
+
   const buildNextNoSurat = (currentNomor: string, refTanggalIso?: string) => {
     const match = String(currentNomor || '').match(/^(\d+)/)
     const seq = match ? Number(match[1]) + 1 : 1
@@ -672,13 +757,17 @@ export default function AdminSidebarPage() {
 
   useEffect(() => {
     try {
-      const savedNo = window.localStorage.getItem('aljihad_last_no_surat_v1')
-      if (savedNo) {
-        const parsed = JSON.parse(savedNo) as { nomor: string; waktu: string }
-        setLastUsedNoSurat(parsed)
-        if (parsed?.nomor) {
-          setNoSurat(buildNextNoSurat(parsed.nomor))
+      const savedByYear = window.localStorage.getItem('aljihad_no_surat_by_year_v2')
+      if (savedByYear) {
+        const parsedMap = JSON.parse(savedByYear) as Record<string, YearNoSuratInfo>
+        if (parsedMap && typeof parsedMap === 'object') {
+          setNoSuratByYear(parsedMap)
+          setNoSurat(getNextNoSuratForDate('2026-11-20', parsedMap))
         }
+      }
+      const savedNo = window.localStorage.getItem('aljihad_last_no_surat_v2')
+      if (savedNo) {
+        setLastUsedNoSurat(JSON.parse(savedNo) as { nomor: string; waktu: string })
       }
       const savedAuto = window.localStorage.getItem('aljihad_auto_undangan_v1')
       if (savedAuto) {
@@ -813,20 +902,35 @@ export default function AdminSidebarPage() {
 
   const recordLastUsedNoSurat = (nomor: string, refTanggalIso?: string) => {
     if (!nomor.trim()) return
+    const waktuNow = new Date().toLocaleString('id-ID', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
     const entry = {
       nomor: nomor.trim(),
-      waktu: new Date().toLocaleString('id-ID', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
+      waktu: waktuNow,
     }
+    const yr = getYearFromDateOrNomor(refTanggalIso, nomor.trim())
+    const seqMatch = nomor.trim().match(/^(\d+)/)
+    const seqNum = seqMatch ? Number(seqMatch[1]) : 1
+
+    const nextMap: Record<string, YearNoSuratInfo> = {
+      ...noSuratByYear,
+      [yr]: {
+        lastSeq: Math.max(noSuratByYear[yr]?.lastSeq ?? 0, seqNum),
+        lastNomor: nomor.trim(),
+        waktu: waktuNow,
+      },
+    }
+    setNoSuratByYear(nextMap)
     setLastUsedNoSurat(entry)
-    setNoSurat(buildNextNoSurat(entry.nomor, refTanggalIso))
+    setNoSurat(getNextNoSuratForDate(refTanggalIso, nextMap))
     try {
-      window.localStorage.setItem('aljihad_last_no_surat_v1', JSON.stringify(entry))
+      window.localStorage.setItem('aljihad_no_surat_by_year_v2', JSON.stringify(nextMap))
+      window.localStorage.setItem('aljihad_last_no_surat_v2', JSON.stringify(entry))
     } catch {
       // ignore storage error
     }
@@ -1098,16 +1202,23 @@ export default function AdminSidebarPage() {
           String(b.createdAt).localeCompare(String(a.createdAt))
         )
         saveAutoUndanganList(syncedAutoItems)
-        // Sinkronkan juga nomor seri surat & kontak khatib antar perangkat
-        let maxSeq = 0
-        let latestNomor = ''
+        // Sinkronkan nomor seri surat per tahun (2026 & 2027 terpisah, masing-masing mulai dari 001) & kontak khatib antar perangkat
+        const perYearMax: Record<string, YearNoSuratInfo> = {}
         const contactPatch: Record<string, string> = {}
         syncedAutoItems.forEach((it) => {
+          const yr = getYearFromDateOrNomor(it.tanggal, it.noSurat)
           const m = String(it.noSurat || '').match(/^(\d+)/)
           const seq = m ? Number(m[1]) : 0
-          if (seq > maxSeq) {
-            maxSeq = seq
-            latestNomor = it.noSurat
+          if (!perYearMax[yr] || seq > perYearMax[yr].lastSeq) {
+            perYearMax[yr] = {
+              lastSeq: seq,
+              lastNomor: it.noSurat,
+              waktu: new Date().toLocaleString('id-ID', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+              }),
+            }
           }
           if (it.nama && it.noTelp) {
             contactPatch[it.nama] = it.noTelp
@@ -1127,11 +1238,24 @@ export default function AdminSidebarPage() {
             return merged
           })
         }
-        if (latestNomor) {
-          setNoSurat((prev) => {
-            const pm = String(prev || '').match(/^(\d+)/)
-            const prevSeq = pm ? Number(pm[1]) : 0
-            return maxSeq >= prevSeq ? buildNextNoSurat(latestNomor) : prev
+        if (Object.keys(perYearMax).length > 0) {
+          setNoSuratByYear((prev) => {
+            const merged: Record<string, YearNoSuratInfo> = { ...prev }
+            Object.entries(perYearMax).forEach(([yr, info]) => {
+              if (!merged[yr] || info.lastSeq > merged[yr].lastSeq) {
+                merged[yr] = info
+              }
+            })
+            try {
+              window.localStorage.setItem(
+                'aljihad_no_surat_by_year_v2',
+                JSON.stringify(merged)
+              )
+            } catch {
+              // ignore
+            }
+            setNoSurat(getNextNoSuratForDate(tanggalSuratAcara, merged))
+            return merged
           })
         }
       }
@@ -4169,7 +4293,7 @@ export default function AdminSidebarPage() {
                       )}
                     </div>
 
-                    {/* Bar Pencarian & Filterisasi Daftar Kegiatan Terdekat */}
+                    {/* Bar Pencarian & Filterisasi Daftar Kegiatan Terdekat (Bulan, Waktu, Kategori) */}
                     <div
                       style={{
                         display: 'flex',
@@ -4185,7 +4309,7 @@ export default function AdminSidebarPage() {
                         onChange={(e) => setKegiatanSearchQuery(e.target.value)}
                         style={{
                           flex: 1,
-                          minWidth: '200px',
+                          minWidth: '180px',
                           padding: '8px 12px',
                           borderRadius: '9px',
                           border: '1px solid rgba(27, 107, 69, 0.25)',
@@ -4194,11 +4318,56 @@ export default function AdminSidebarPage() {
                         }}
                       />
                       <select
+                        aria-label="Filter Bulan Kegiatan"
+                        value={kegiatanBulanFilter}
+                        onChange={(e) => setKegiatanBulanFilter(e.target.value)}
+                        style={{
+                          padding: '8px 10px',
+                          borderRadius: '9px',
+                          border: '1px solid rgba(27, 107, 69, 0.25)',
+                          fontSize: '0.83rem',
+                          fontWeight: 700,
+                          background: '#f8faf8',
+                          color: '#0f4a2a',
+                        }}
+                      >
+                        <option value="Semua">Semua Bulan</option>
+                        {NAMA_BULAN_ADMIN.map((bln, mIdx) => (
+                          <option key={bln} value={String(mIdx + 1).padStart(2, '0')}>
+                            {bln}
+                          </option>
+                        ))}
+                      </select>
+                      <select
+                        aria-label="Filter Waktu Kegiatan"
+                        value={kegiatanWaktuFilter}
+                        onChange={(e) =>
+                          setKegiatanWaktuFilter(
+                            e.target.value as 'Semua' | 'Pagi' | 'Siang' | 'Sore' | 'Malam'
+                          )
+                        }
+                        style={{
+                          padding: '8px 10px',
+                          borderRadius: '9px',
+                          border: '1px solid rgba(27, 107, 69, 0.25)',
+                          fontSize: '0.83rem',
+                          fontWeight: 700,
+                          background: '#f8faf8',
+                          color: '#0f4a2a',
+                        }}
+                      >
+                        <option value="Semua">Semua Waktu</option>
+                        <option value="Pagi">Pagi (04:00–11:59)</option>
+                        <option value="Siang">Siang (12:00–14:59)</option>
+                        <option value="Sore">Sore (15:00–17:59)</option>
+                        <option value="Malam">Malam (18:00–23:59)</option>
+                      </select>
+                      <select
                         aria-label="Filter Kategori Kegiatan"
                         value={kegiatanKategoriFilter}
                         onChange={(e) => setKegiatanKategoriFilter(e.target.value)}
                         style={{
-                          padding: '8px 12px',
+                          padding: '8px 10px',
                           borderRadius: '9px',
                           border: '1px solid rgba(27, 107, 69, 0.25)',
                           fontSize: '0.83rem',
@@ -4209,11 +4378,12 @@ export default function AdminSidebarPage() {
                       >
                         <option value="Semua">Semua Kategori</option>
                         {Array.from(
-                          new Set(
-                            displayedKegiatanMasjidList
+                          new Set([
+                            'Umroh / Haji',
+                            ...displayedKegiatanMasjidList
                               .map((k) => k.kategori)
-                              .filter(Boolean)
-                          )
+                              .filter(Boolean),
+                          ])
                         ).map((kat) => (
                           <option key={kat} value={kat}>
                             {kat}
@@ -4228,13 +4398,23 @@ export default function AdminSidebarPage() {
                         const matchKat =
                           kegiatanKategoriFilter === 'Semua' ||
                           kal.kategori === kegiatanKategoriFilter
+                        const matchBulan =
+                          kegiatanBulanFilter === 'Semua' ||
+                          kal.tanggal.slice(5, 7) === kegiatanBulanFilter
+                        const startHour = Number(String(kal.jamMulai || '00:00').split(':')[0])
+                        const matchWaktu =
+                          kegiatanWaktuFilter === 'Semua' ||
+                          (kegiatanWaktuFilter === 'Pagi' && startHour >= 4 && startHour < 12) ||
+                          (kegiatanWaktuFilter === 'Siang' && startHour >= 12 && startHour < 15) ||
+                          (kegiatanWaktuFilter === 'Sore' && startHour >= 15 && startHour < 18) ||
+                          (kegiatanWaktuFilter === 'Malam' && (startHour >= 18 || startHour < 4))
                         const matchQ =
                           !q ||
                           kal.judul.toLowerCase().includes(q) ||
                           (kal.pemateri || '').toLowerCase().includes(q) ||
                           (kal.ruangan || '').toLowerCase().includes(q) ||
                           kal.tanggal.includes(q)
-                        return matchKat && matchQ
+                        return matchKat && matchBulan && matchWaktu && matchQ
                       })
                       if (filteredKegiatan.length === 0) {
                         return (
@@ -4250,7 +4430,10 @@ export default function AdminSidebarPage() {
                               fontWeight: 600,
                             }}
                           >
-                            {q || kegiatanKategoriFilter !== 'Semua'
+                            {q ||
+                            kegiatanKategoriFilter !== 'Semua' ||
+                            kegiatanBulanFilter !== 'Semua' ||
+                            kegiatanWaktuFilter !== 'Semua'
                               ? 'Tidak ada kegiatan yang cocok dengan pencarian atau filter.'
                               : adminKalSelectedDate
                                 ? `Belum ada kegiatan masjid yang terjadwal pada tanggal ${adminKalSelectedDate}.`
@@ -4698,7 +4881,32 @@ export default function AdminSidebarPage() {
                     </h2>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <label
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '6px 11px',
+                        borderRadius: '8px',
+                        background: showIdHolidaysAdmin ? '#fef2f2' : '#f8fafc',
+                        border: showIdHolidaysAdmin
+                          ? '1px solid #fca5a5'
+                          : '1px solid #cbd5e1',
+                        color: showIdHolidaysAdmin ? '#b91c1c' : '#374151',
+                        fontSize: '0.78rem',
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={showIdHolidaysAdmin}
+                        onChange={(e) => setShowIdHolidaysAdmin(e.target.checked)}
+                        style={{ width: 'auto', margin: 0 }}
+                      />
+                      <span>Tanggal Merah Indonesia</span>
+                    </label>
                     <span
                       style={{
                         padding: '6px 12px',
@@ -4758,18 +4966,21 @@ export default function AdminSidebarPage() {
                     marginBottom: '8px',
                   }}
                 >
-                  {['Ahad', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'].map((hari) => (
+                  {['Ahad', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'].map((hari, hIdx) => (
                     <div
                       key={hari}
                       style={{
                         textAlign: 'center',
                         fontSize: '0.78rem',
                         fontWeight: 800,
-                        color: '#0f4a2a',
+                        color: showIdHolidaysAdmin && hIdx === 0 ? '#dc2626' : '#0f4a2a',
                         padding: '8px 4px',
-                        background: '#f0fdf4',
+                        background: showIdHolidaysAdmin && hIdx === 0 ? '#fef2f2' : '#f0fdf4',
                         borderRadius: '8px',
-                        border: '1px solid rgba(27, 107, 69, 0.14)',
+                        border:
+                          showIdHolidaysAdmin && hIdx === 0
+                            ? '1px solid #fecaca'
+                            : '1px solid rgba(27, 107, 69, 0.14)',
                       }}
                     >
                       {hari}
@@ -4805,6 +5016,9 @@ export default function AdminSidebarPage() {
                     const isPastDate = dateStr < todayIsoAdmin
                     const isToday = dateStr === todayIsoAdmin
                     const isSelected = adminKalSelectedDate === dateStr
+                    const dayOfWeek = new Date(`${dateStr}T12:00:00`).getDay()
+                    const holidayLabel = showIdHolidaysAdmin ? getIdHolidayLabel(dateStr) : ''
+                    const isRedDate = showIdHolidaysAdmin && (dayOfWeek === 0 || Boolean(holidayLabel))
                     // Hanya tampilkan kegiatan yang belum lewat pada kalender aktif
                     const dayEvents = upcomingKegiatanMasjidList.filter(
                       (a) => a.tanggal === dateStr
@@ -4817,6 +5031,7 @@ export default function AdminSidebarPage() {
                       <button
                         key={dateStr}
                         type="button"
+                        title={holidayLabel || undefined}
                         onClick={() => {
                           setAdminKalSelectedDate(isSelected ? null : dateStr)
                           setKalenderSubView('kegiatan_masjid')
@@ -4831,16 +5046,20 @@ export default function AdminSidebarPage() {
                               ? '1.5px solid #dc2626'
                               : dayEvents.length > 0
                                 ? '1.5px solid #16a34a'
-                                : '1px solid #e5e7eb',
+                                : isRedDate
+                                  ? '1px solid #fecaca'
+                                  : '1px solid #e5e7eb',
                           background: isSelected
                             ? '#dcfce7'
                             : hasConflict
                               ? '#fef2f2'
                               : dayEvents.length > 0
                                 ? '#f0fdf4'
-                                : isPastDate
-                                  ? '#fafafa'
-                                  : '#ffffff',
+                                : isRedDate
+                                  ? '#fff5f5'
+                                  : isPastDate
+                                    ? '#fafafa'
+                                    : '#ffffff',
                           opacity: isPastDate ? 0.55 : 1,
                           display: 'flex',
                           flexDirection: 'column',
@@ -4862,7 +5081,11 @@ export default function AdminSidebarPage() {
                             style={{
                               fontSize: '0.84rem',
                               fontWeight: 800,
-                              color: isToday ? '#ffffff' : '#111827',
+                              color: isToday
+                                ? '#ffffff'
+                                : isRedDate
+                                  ? '#dc2626'
+                                  : '#111827',
                               background: isToday ? '#15803d' : 'transparent',
                               borderRadius: '6px',
                               padding: isToday ? '1px 6px' : 0,
@@ -4895,6 +5118,23 @@ export default function AdminSidebarPage() {
                             overflow: 'hidden',
                           }}
                         >
+                          {holidayLabel && (
+                            <span
+                              style={{
+                                fontSize: '0.66rem',
+                                fontWeight: 800,
+                                color: '#b91c1c',
+                                background: '#fee2e2',
+                                padding: '2px 5px',
+                                borderRadius: '5px',
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                              }}
+                            >
+                              {holidayLabel}
+                            </span>
+                          )}
                           {dayEvents.slice(0, 2).map((ev) => (
                             <span
                               key={ev.id}
@@ -5510,6 +5750,7 @@ export default function AdminSidebarPage() {
                             <option value="Pendidikan">Pendidikan</option>
                             <option value="Rapat DKM">Rapat DKM</option>
                             <option value="Sosial">Sosial</option>
+                            <option value="Umroh / Haji">Umroh / Haji</option>
                           </select>
                         </div>
                       </div>
@@ -6796,7 +7037,22 @@ export default function AdminSidebarPage() {
                         <button
                           type="button"
                           className={styles.submitBtn}
-                          onClick={() => setShowInputKeuanganModal(true)}
+                          onClick={() => {
+                            const mPrefix = `${rekapKeuanganYear}-${String(
+                              rekapKeuanganMonth + 1
+                            ).padStart(2, '0')}`
+                            if (!tglPengeluaran.startsWith(mPrefix)) {
+                              const todayDay = new Date().getDate()
+                              const maxD = new Date(
+                                rekapKeuanganYear,
+                                rekapKeuanganMonth + 1,
+                                0
+                              ).getDate()
+                              const clampedDay = String(Math.min(todayDay, maxD)).padStart(2, '0')
+                              setTglPengeluaran(`${mPrefix}-${clampedDay}`)
+                            }
+                            setKeuanganConfirmMonthModal(true)
+                          }}
                           style={{
                             width: 'auto',
                             marginTop: 0,
@@ -8324,6 +8580,359 @@ export default function AdminSidebarPage() {
                   )
                 })()}
 
+              {/* STEP 1 POP-UP: KONFIRMASI BULAN & TAHUN LAPORAN KEUANGAN */}
+              {keuanganConfirmMonthModal && (
+                <div
+                  style={{
+                    position: 'fixed',
+                    inset: 0,
+                    background: 'rgba(15, 23, 42, 0.68)',
+                    backdropFilter: 'blur(4px)',
+                    zIndex: 9995,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '16px',
+                  }}
+                  onClick={() => setKeuanganConfirmMonthModal(false)}
+                >
+                  <div
+                    style={{
+                      background: '#ffffff',
+                      borderRadius: '18px',
+                      width: '100%',
+                      maxWidth: '440px',
+                      padding: '24px',
+                      boxShadow: '0 24px 60px rgba(0, 0, 0, 0.32)',
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        marginBottom: '10px',
+                      }}
+                    >
+                      <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 900, color: '#0f4a2a' }}>
+                        Konfirmasi Bulan Laporan
+                      </h3>
+                      <button
+                        type="button"
+                        aria-label="Tutup Pop-up"
+                        onClick={() => setKeuanganConfirmMonthModal(false)}
+                        style={{
+                          border: 'none',
+                          background: '#f3f4f6',
+                          borderRadius: '8px',
+                          width: '30px',
+                          height: '30px',
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                    <p style={{ margin: '0 0 18px', fontSize: '0.88rem', color: '#374151', lineHeight: 1.55 }}>
+                      Apakah Anda ingin menginput laporan pada bulan{' '}
+                      <strong>{`${NAMA_BULAN_ADMIN[rekapKeuanganMonth]} ${rekapKeuanganYear}`}</strong>
+                      ?
+                    </p>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <button
+                        type="button"
+                        onClick={() => setKeuanganConfirmMonthModal(false)}
+                        style={{
+                          flex: 1,
+                          padding: '10px 14px',
+                          borderRadius: '10px',
+                          border: '1px solid #d1d5db',
+                          background: '#f9fafb',
+                          color: '#374151',
+                          fontWeight: 800,
+                          fontSize: '0.85rem',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Tidak
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setKeuanganConfirmMonthModal(false)
+                          setKeuanganReturnToFormAfterPick(false)
+                          setKeuanganPickDateModal(true)
+                        }}
+                        style={{
+                          flex: 1,
+                          padding: '10px 14px',
+                          borderRadius: '10px',
+                          border: 'none',
+                          background: 'linear-gradient(135deg, #0f4a2a, #15803d)',
+                          color: '#ffffff',
+                          fontWeight: 800,
+                          fontSize: '0.85rem',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Ya, Lanjutkan
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 2 POP-UP: PILIH TANGGAL SESUAI BULAN & TAHUN YANG DIPILIH */}
+              {keuanganPickDateModal &&
+                (() => {
+                  const mStr = String(rekapKeuanganMonth + 1).padStart(2, '0')
+                  const mPrefix = `${rekapKeuanganYear}-${mStr}`
+                  const maxDays = new Date(
+                    rekapKeuanganYear,
+                    rekapKeuanganMonth + 1,
+                    0
+                  ).getDate()
+                  const minIso = `${mPrefix}-01`
+                  const maxIso = `${mPrefix}-${String(maxDays).padStart(2, '0')}`
+                  return (
+                    <div
+                      style={{
+                        position: 'fixed',
+                        inset: 0,
+                        background: 'rgba(15, 23, 42, 0.68)',
+                        backdropFilter: 'blur(4px)',
+                        zIndex: 9997,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '16px',
+                      }}
+                      onClick={() => setKeuanganPickDateModal(false)}
+                    >
+                      <div
+                        style={{
+                          background: '#ffffff',
+                          borderRadius: '18px',
+                          width: '100%',
+                          maxWidth: '460px',
+                          padding: '24px',
+                          boxShadow: '0 24px 60px rgba(0, 0, 0, 0.32)',
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            marginBottom: '10px',
+                          }}
+                        >
+                          <h3
+                            style={{
+                              margin: 0,
+                              fontSize: '1.05rem',
+                              fontWeight: 900,
+                              color: '#0f4a2a',
+                            }}
+                          >
+                            {`Pilih Tanggal (${NAMA_BULAN_ADMIN[rekapKeuanganMonth]} ${rekapKeuanganYear})`}
+                          </h3>
+                          <button
+                            type="button"
+                            aria-label="Tutup Pop-up"
+                            onClick={() => setKeuanganPickDateModal(false)}
+                            style={{
+                              border: 'none',
+                              background: '#f3f4f6',
+                              borderRadius: '8px',
+                              width: '30px',
+                              height: '30px',
+                              fontWeight: 800,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            ✕
+                          </button>
+                        </div>
+
+                        <div className={styles.formGroup}>
+                          <label>{`Tanggal pada ${NAMA_BULAN_ADMIN[rekapKeuanganMonth]} ${rekapKeuanganYear}`}</label>
+                          <input
+                            type="date"
+                            min={minIso}
+                            max={maxIso}
+                            value={tglPengeluaran}
+                            onChange={(e) => {
+                              const v = e.target.value
+                              if (v && v.startsWith(mPrefix)) {
+                                setTglPengeluaran(v)
+                              }
+                            }}
+                          />
+                        </div>
+
+                        <div
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(7, 1fr)',
+                            gap: '5px',
+                            marginBottom: '16px',
+                          }}
+                        >
+                          {Array.from({ length: maxDays }, (_, dIdx) => {
+                            const dNum = dIdx + 1
+                            const dIso = `${mPrefix}-${String(dNum).padStart(2, '0')}`
+                            const active = tglPengeluaran === dIso
+                            return (
+                              <button
+                                key={dIso}
+                                type="button"
+                                onClick={() => setTglPengeluaran(dIso)}
+                                style={{
+                                  padding: '6px 0',
+                                  borderRadius: '7px',
+                                  border: active
+                                    ? '1.5px solid #0f4a2a'
+                                    : '1px solid #e5e7eb',
+                                  background: active ? '#0f4a2a' : '#f8fafc',
+                                  color: active ? '#ffffff' : '#111827',
+                                  fontWeight: 800,
+                                  fontSize: '0.78rem',
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                {dNum}
+                              </button>
+                            )
+                          })}
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '10px' }}>
+                          <button
+                            type="button"
+                            onClick={() => setKeuanganPickDateModal(false)}
+                            style={{
+                              flex: 1,
+                              padding: '10px 14px',
+                              borderRadius: '10px',
+                              border: '1px solid #d1d5db',
+                              background: '#f9fafb',
+                              color: '#374151',
+                              fontWeight: 800,
+                              fontSize: '0.84rem',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            Batal
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setKeuanganPickDateModal(false)
+                              setShowInputKeuanganModal(true)
+                            }}
+                            style={{
+                              flex: 1,
+                              padding: '10px 14px',
+                              borderRadius: '10px',
+                              border: 'none',
+                              background: 'linear-gradient(135deg, #0f4a2a, #15803d)',
+                              color: '#ffffff',
+                              fontWeight: 800,
+                              fontSize: '0.84rem',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            {keuanganReturnToFormAfterPick
+                              ? 'Simpan Tanggal'
+                              : 'Lanjut ke Input'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })()}
+
+              {/* POP-UP KONFIRMASI UBAH TANGGAL DI DALAM FORM INPUT KEUANGAN */}
+              {keuanganConfirmChangeDateModal && (
+                <div
+                  style={{
+                    position: 'fixed',
+                    inset: 0,
+                    background: 'rgba(15, 23, 42, 0.72)',
+                    backdropFilter: 'blur(4px)',
+                    zIndex: 9998,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '16px',
+                  }}
+                  onClick={() => setKeuanganConfirmChangeDateModal(false)}
+                >
+                  <div
+                    style={{
+                      background: '#ffffff',
+                      borderRadius: '18px',
+                      width: '100%',
+                      maxWidth: '420px',
+                      padding: '24px',
+                      boxShadow: '0 24px 60px rgba(0, 0, 0, 0.34)',
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <h3 style={{ margin: '0 0 8px', fontSize: '1.05rem', fontWeight: 900, color: '#0f4a2a' }}>
+                      Konfirmasi Ubah Tanggal
+                    </h3>
+                    <p style={{ margin: '0 0 18px', fontSize: '0.86rem', color: '#374151', lineHeight: 1.5 }}>
+                      Apakah Anda ingin mengubah tanggal laporan?
+                    </p>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <button
+                        type="button"
+                        onClick={() => setKeuanganConfirmChangeDateModal(false)}
+                        style={{
+                          flex: 1,
+                          padding: '10px 14px',
+                          borderRadius: '10px',
+                          border: '1px solid #d1d5db',
+                          background: '#f9fafb',
+                          color: '#374151',
+                          fontWeight: 800,
+                          fontSize: '0.84rem',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Tidak
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setKeuanganConfirmChangeDateModal(false)
+                          setKeuanganReturnToFormAfterPick(true)
+                          setKeuanganPickDateModal(true)
+                        }}
+                        style={{
+                          flex: 1,
+                          padding: '10px 14px',
+                          borderRadius: '10px',
+                          border: 'none',
+                          background: 'linear-gradient(135deg, #0f4a2a, #15803d)',
+                          color: '#ffffff',
+                          fontWeight: 800,
+                          fontSize: '0.84rem',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Ya, Ubah Tanggal
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* POP-UP MODAL INPUT PENGELUARAN / PEMASUKAN BKU */}
               {showInputKeuanganModal && (
                 <div
@@ -8472,12 +9081,36 @@ export default function AdminSidebarPage() {
                       <div className={styles.twoCols}>
                         <div className={styles.formGroup}>
                           <label>{`Tanggal ${jenisTransaksiKeu}`}</label>
-                          <input
-                            type="date"
-                            required
-                            value={tglPengeluaran}
-                            onChange={(e) => setTglPengeluaran(e.target.value)}
-                          />
+                          <div
+                            onClick={() => setKeuanganConfirmChangeDateModal(true)}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              gap: '8px',
+                              padding: '9px 12px',
+                              borderRadius: '10px',
+                              border: '1px solid rgba(27, 107, 69, 0.28)',
+                              background: '#f0fdf4',
+                              color: '#0f4a2a',
+                              fontWeight: 800,
+                              fontSize: '0.86rem',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            <span>{formatTanggalIndo(tglPengeluaran)}</span>
+                            <span
+                              style={{
+                                fontSize: '0.74rem',
+                                padding: '2px 8px',
+                                borderRadius: '6px',
+                                background: '#ffffff',
+                                border: '1px solid rgba(27, 107, 69, 0.25)',
+                              }}
+                            >
+                              Ubah Tanggal
+                            </span>
+                          </div>
                         </div>
                         <div className={styles.formGroup}>
                           <label>{`Kategori ${jenisTransaksiKeu}`}</label>
@@ -9562,7 +10195,7 @@ export default function AdminSidebarPage() {
                     Klasifikasi Surat Undangan DKM
                   </h2>
                   <span style={{ fontSize: '0.78rem', color: '#4b5563', fontWeight: 600 }}>
-                    {`Nomor seri berikutnya tersinkron otomatis: ${noSurat}`}
+                    {`Seri 2026: ${getNextNoSuratForDate('2026-11-27')}  •  Seri 2027: ${getNextNoSuratForDate('2027-01-01')}`}
                   </span>
                 </div>
 
@@ -9767,11 +10400,14 @@ export default function AdminSidebarPage() {
                           if (d.getDay() !== 5) {
                             const diff = (5 - d.getDay() + 7) % 7
                             d.setDate(d.getDate() + diff)
-                            setTanggalSuratAcara(d.toISOString().slice(0, 10))
+                            const snapped = d.toISOString().slice(0, 10)
+                            setTanggalSuratAcara(snapped)
+                            setNoSurat(getNextNoSuratForDate(snapped))
                             return
                           }
                         }
                         setTanggalSuratAcara(val)
+                        setNoSurat(getNextNoSuratForDate(val))
                       }}
                     />
                   </div>
@@ -10122,7 +10758,7 @@ export default function AdminSidebarPage() {
                           {`Daftar Surat Undangan Otomatis (${autoUndanganList.length})`}
                         </h2>
                         <span style={{ fontSize: '0.78rem', color: '#4b5563', fontWeight: 600 }}>
-                          {`Nomor Seri Berikutnya: ${noSurat}${lastUsedNoSurat ? ` • Terakhir: ${lastUsedNoSurat.nomor}` : ''}`}
+                          {`2026: ${getNextNoSuratForDate('2026-11-27')}  •  2027: ${getNextNoSuratForDate('2027-01-01')}`}
                         </span>
                       </div>
 
@@ -10599,7 +11235,7 @@ export default function AdminSidebarPage() {
                         fontWeight: 600,
                       }}
                     >
-                      {`Nomor Seri Otomatis: ${noSurat} (Sinkron dengan Manual, Kajian, Khutbah & Bilal)`}
+                      {`Nomor Seri Otomatis (${getYearFromDateOrNomor(autoUndanganTanggal)}): ${getNextNoSuratForDate(autoUndanganTanggal)}`}
                     </p>
 
                     <form
@@ -10612,7 +11248,7 @@ export default function AdminSidebarPage() {
                         ) {
                           return
                         }
-                        const assignedNo = noSurat
+                        const assignedNo = getNextNoSuratForDate(autoUndanganTanggal)
                         const newItem: AutoUndanganItem = {
                           id: `auto-und-${Date.now()}`,
                           noSurat: assignedNo,
