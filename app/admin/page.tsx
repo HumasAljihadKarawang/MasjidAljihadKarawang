@@ -738,6 +738,11 @@ export default function AdminSidebarPage() {
   const [waBulkSending, setWaBulkSending] = useState(false)
   const [waBulkProgress, setWaBulkProgress] = useState('')
   const [waBulkDelayLeft, setWaBulkDelayLeft] = useState(0)
+  const [waBulkDelayTotal, setWaBulkDelayTotal] = useState(0)
+  const [waBulkStats, setWaBulkStats] = useState<{ done: number; total: number }>({
+    done: 0,
+    total: 0,
+  })
   const [shareWaChoiceItem, setShareWaChoiceItem] = useState<AutoUndanganItem | null>(null)
 
   const ROMAN_MONTHS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII']
@@ -1179,6 +1184,8 @@ export default function AdminSidebarPage() {
 
     setWaBulkSending(true)
     setWaBulkDelayLeft(0)
+    setWaBulkDelayTotal(0)
+    setWaBulkStats({ done: 0, total: validItems.length })
     let successCount = 0
     const failedNames: string[] = []
     const sentIds: string[] = []
@@ -1186,6 +1193,7 @@ export default function AdminSidebarPage() {
     for (let i = 0; i < validItems.length; i += 1) {
       const current = validItems[i]
       setWaBulkDelayLeft(0)
+      setWaBulkDelayTotal(0)
       setWaBulkProgress(`Mengirim ${i + 1}/${validItems.length}: ${current.nama}...`)
       try {
         await sendAutoUndanganViaWaLocal(current)
@@ -1196,22 +1204,27 @@ export default function AdminSidebarPage() {
           `${current.nama} (${err instanceof Error ? err.message : 'gagal'})`
         )
       }
+      setWaBulkStats({ done: i + 1, total: validItems.length })
       if (i < validItems.length - 1) {
+        const randomDelay = Math.floor(Math.random() * 7) + 10
+        setWaBulkDelayTotal(randomDelay)
         const nextItem = validItems[i + 1]
-        for (let sec = 10; sec >= 1; sec -= 1) {
+        for (let sec = randomDelay; sec >= 1; sec -= 1) {
           setWaBulkDelayLeft(sec)
           setWaBulkProgress(
-            `Menunggu jeda aman ${sec} detik sebelum mengirim ke ${nextItem.nama} (${i + 2}/${validItems.length})...`
+            `✓ ${current.nama} Sudah Terkirim • Jeda acak ${sec}/${randomDelay} dtk sebelum ke ${nextItem.nama} (${i + 2}/${validItems.length})...`
           )
           await new Promise((resolve) => window.setTimeout(resolve, 1000))
         }
         setWaBulkDelayLeft(0)
+        setWaBulkDelayTotal(0)
       }
     }
 
     setSelectedAutoUndanganIds((prev) => prev.filter((id) => !sentIds.includes(id)))
     setWaBulkSending(false)
     setWaBulkDelayLeft(0)
+    setWaBulkDelayTotal(0)
     setWaBulkProgress('')
     const summaryParts = [`${successCount} surat berhasil dikirim otomatis via WA Lokal.`]
     if (skippedCount > 0) summaryParts.push(`${skippedCount} dilewati (no. WA kosong).`)
@@ -11646,11 +11659,9 @@ export default function AdminSidebarPage() {
                       <div
                         style={{
                           display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          gap: '10px',
-                          flexWrap: 'wrap',
-                          padding: '10px 14px',
+                          flexDirection: 'column',
+                          gap: '8px',
+                          padding: '11px 14px',
                           borderRadius: '10px',
                           background: waBulkDelayLeft > 0 ? '#fffbeb' : '#ecfdf5',
                           border:
@@ -11660,34 +11671,65 @@ export default function AdminSidebarPage() {
                           marginBottom: '12px',
                         }}
                       >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span
-                            style={{
-                              width: '10px',
-                              height: '10px',
-                              borderRadius: '999px',
-                              background: waBulkDelayLeft > 0 ? '#d97706' : '#16a34a',
-                              display: 'inline-block',
-                            }}
-                          />
-                          <strong style={{ fontSize: '0.8rem', color: '#0f172a' }}>
-                            {waBulkProgress || 'Memproses pengiriman WA Lokal...'}
-                          </strong>
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: '10px',
+                            flexWrap: 'wrap',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
+                            <span
+                              style={{
+                                width: '10px',
+                                height: '10px',
+                                borderRadius: '999px',
+                                background: waBulkDelayLeft > 0 ? '#d97706' : '#16a34a',
+                                display: 'inline-block',
+                                flexShrink: 0,
+                              }}
+                            />
+                            <strong style={{ fontSize: '0.8rem', color: '#0f172a' }}>
+                              {waBulkProgress || 'Memproses pengiriman WA Lokal...'}
+                            </strong>
+                          </div>
+                          {waBulkDelayLeft > 0 && (
+                            <span
+                              style={{
+                                padding: '3px 10px',
+                                borderRadius: '999px',
+                                background: '#fef3c7',
+                                color: '#92400e',
+                                fontSize: '0.75rem',
+                                fontWeight: 800,
+                                border: '1px solid rgba(217, 119, 6, 0.35)',
+                              }}
+                            >
+                              {`Jeda acak (10–16d): ${waBulkDelayLeft}/${waBulkDelayTotal || waBulkDelayLeft} dtk`}
+                            </span>
+                          )}
                         </div>
-                        {waBulkDelayLeft > 0 && (
-                          <span
+                        {waBulkStats.total > 0 && (
+                          <div
                             style={{
-                              padding: '3px 10px',
+                              width: '100%',
+                              height: '6px',
                               borderRadius: '999px',
-                              background: '#fef3c7',
-                              color: '#92400e',
-                              fontSize: '0.75rem',
-                              fontWeight: 800,
-                              border: '1px solid rgba(217, 119, 6, 0.35)',
+                              background: 'rgba(15, 23, 42, 0.08)',
+                              overflow: 'hidden',
                             }}
                           >
-                            Jeda aman per khotib: {waBulkDelayLeft} detik
-                          </span>
+                            <div
+                              style={{
+                                width: `${Math.round((waBulkStats.done / waBulkStats.total) * 100)}%`,
+                                height: '100%',
+                                background: waBulkDelayLeft > 0 ? '#d97706' : '#16a34a',
+                                transition: 'width 0.3s ease',
+                              }}
+                            />
+                          </div>
                         )}
                       </div>
                     )}
@@ -11736,7 +11778,7 @@ export default function AdminSidebarPage() {
                       >
                         <option value="Semua">Semua Status</option>
                         <option value="Belum Dikirim">Belum Dikirim</option>
-                        <option value="Sudah Dikirim">Sudah Dikirim</option>
+                        <option value="Sudah Dikirim">Sudah Terkirim</option>
                         <option value="Diterima">Diterima</option>
                         <option value="Ditolak">Ditolak</option>
                       </select>
@@ -11893,7 +11935,7 @@ export default function AdminSidebarPage() {
                                       color: statusColors.fg,
                                     }}
                                   >
-                                    {item.status}
+                                    {item.status === 'Sudah Dikirim' ? 'Sudah Terkirim' : item.status}
                                   </span>
                                 </div>
                                 <div
