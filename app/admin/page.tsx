@@ -1008,7 +1008,6 @@ export default function AdminSidebarPage() {
     const targetUrl = getActiveWaUrl()
     try {
       await fetch(`${targetUrl}/logout`, { method: 'POST' })
-      setAutoWaShareHint('Sesi WhatsApp diputuskan. Menyiapkan QR Code baru di layar...')
       window.setTimeout(() => {
         void checkWaLocalStatus(false, targetUrl)
       }, 1500)
