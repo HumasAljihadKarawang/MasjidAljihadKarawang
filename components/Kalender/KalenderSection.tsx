@@ -815,7 +815,7 @@ export default function KalenderSection() {
             justifyContent: 'center',
             padding: '16px',
           }}
-          onClick={() => setPreviewPengajuan(null)}
+          onDoubleClick={() => setPreviewPengajuan(null)}
         >
           <div
             style={{
@@ -828,7 +828,7 @@ export default function KalenderSection() {
               padding: '22px',
               boxShadow: '0 24px 60px rgba(0, 0, 0, 0.3)',
             }}
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}
           >
             <div
               style={{
@@ -970,7 +970,7 @@ export default function KalenderSection() {
             justifyContent: 'center',
             padding: '16px',
           }}
-          onClick={() => {
+          onDoubleClick={() => {
             const hasInput = Boolean(
               namaKegiatan.trim() ||
                 deskripsiKegiatan.trim() ||
@@ -1018,7 +1018,7 @@ export default function KalenderSection() {
               padding: '24px',
               boxShadow: '0 24px 60px rgba(0, 0, 0, 0.28)',
             }}
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}
           >
             <div
               style={{
@@ -1405,7 +1405,7 @@ export default function KalenderSection() {
             justifyContent: 'center',
             padding: '16px',
           }}
-          onClick={() => {
+          onDoubleClick={() => {
             const hasInput = Boolean(
               Object.values(selectedAsetQty).some((q) => q > 0) || manualAsetExtra.trim()
             )
@@ -1433,7 +1433,7 @@ export default function KalenderSection() {
               padding: '20px',
               boxShadow: '0 24px 60px rgba(0, 0, 0, 0.3)',
             }}
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}
           >
             <div
               style={{
@@ -1640,7 +1640,7 @@ export default function KalenderSection() {
             justifyContent: 'center',
             padding: '16px',
           }}
-          onClick={() => {
+          onDoubleClick={() => {
             if (!captchaInput.trim()) {
               setShowCaptchaModal(false)
               return
@@ -1662,7 +1662,7 @@ export default function KalenderSection() {
               textAlign: 'center',
               position: 'relative',
             }}
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}
           >
             <button
               type="button"
@@ -1821,12 +1821,12 @@ export default function KalenderSection() {
             justifyContent: 'center',
             padding: '16px',
           }}
-          onClick={() => setShowSuccessModal(false)}
+          onDoubleClick={() => setShowSuccessModal(false)}
         >
           <div
             className={styles.successModalCard}
             style={{ position: 'relative' }}
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}
           >
             <button
               type="button"
@@ -1904,7 +1904,7 @@ export default function KalenderSection() {
             justifyContent: 'center',
             padding: '16px',
           }}
-          onClick={() => setUnsavedModalUser(null)}
+          onDoubleClick={() => setUnsavedModalUser(null)}
         >
           <div
             style={{
@@ -1917,7 +1917,7 @@ export default function KalenderSection() {
               position: 'relative',
               textAlign: 'center',
             }}
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}
           >
             <button
               type="button"

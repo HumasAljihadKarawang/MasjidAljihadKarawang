@@ -5320,7 +5320,7 @@ export default function AdminSidebarPage() {
                     justifyContent: 'center',
                     padding: '16px',
                   }}
-                  onClick={() => setPreviewKegiatanAdmin(null)}
+                  onDoubleClick={() => setPreviewKegiatanAdmin(null)}
                 >
                   <div
                     style={{
@@ -5333,7 +5333,7 @@ export default function AdminSidebarPage() {
                       padding: '22px',
                       boxShadow: '0 24px 60px rgba(0, 0, 0, 0.32)',
                     }}
-                    onClick={(e) => e.stopPropagation()}
+                    onClick={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}
                   >
                     <div
                       style={{
@@ -5480,7 +5480,7 @@ export default function AdminSidebarPage() {
                     justifyContent: 'center',
                     padding: '16px',
                   }}
-                  onClick={() => setPreviewPengajuanAdmin(null)}
+                  onDoubleClick={() => setPreviewPengajuanAdmin(null)}
                 >
                   <div
                     style={{
@@ -5493,7 +5493,7 @@ export default function AdminSidebarPage() {
                       padding: '24px',
                       boxShadow: '0 24px 60px rgba(0, 0, 0, 0.32)',
                     }}
-                    onClick={(e) => e.stopPropagation()}
+                    onClick={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}
                   >
                     <div
                       style={{
@@ -5678,7 +5678,7 @@ export default function AdminSidebarPage() {
                     justifyContent: 'center',
                     padding: '16px',
                   }}
-                  onClick={() => {
+                  onDoubleClick={() => {
                     const hasInput = Boolean(
                       judulKal.trim() ||
                         pemateriKal.trim() ||
@@ -5718,7 +5718,7 @@ export default function AdminSidebarPage() {
                       padding: '24px',
                       boxShadow: '0 24px 60px rgba(0, 0, 0, 0.32)',
                     }}
-                    onClick={(e) => e.stopPropagation()}
+                    onClick={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}
                   >
                     <div
                       style={{
@@ -5992,7 +5992,7 @@ export default function AdminSidebarPage() {
                     justifyContent: 'center',
                     padding: '16px',
                   }}
-                  onClick={() => {
+                  onDoubleClick={() => {
                     const hasInput = Boolean(
                       Object.values(selectedAsetQtyAdmin).some((q) => q > 0) ||
                         manualAsetExtraAdmin.trim()
@@ -6021,7 +6021,7 @@ export default function AdminSidebarPage() {
                       padding: '20px',
                       boxShadow: '0 24px 60px rgba(0, 0, 0, 0.3)',
                     }}
-                    onClick={(e) => e.stopPropagation()}
+                    onClick={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}
                   >
                     <div
                       style={{
@@ -6228,7 +6228,7 @@ export default function AdminSidebarPage() {
                     justifyContent: 'center',
                     padding: '16px',
                   }}
-                  onClick={() => {
+                  onDoubleClick={() => {
                     if (!adminAuthPassword.trim()) {
                       setAdminAuthModalOpen(false)
                       setPendingAdminAction(null)
@@ -6252,7 +6252,7 @@ export default function AdminSidebarPage() {
                       padding: '22px',
                       boxShadow: '0 24px 60px rgba(0, 0, 0, 0.34)',
                     }}
-                    onClick={(e) => e.stopPropagation()}
+                    onClick={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}
                   >
                     <div
                       style={{
@@ -6399,7 +6399,7 @@ export default function AdminSidebarPage() {
                     justifyContent: 'center',
                     padding: '16px',
                   }}
-                  onClick={() => setWaReportModal(null)}
+                  onDoubleClick={() => setWaReportModal(null)}
                 >
                   <div
                     style={{
@@ -6412,7 +6412,7 @@ export default function AdminSidebarPage() {
                       textAlign: 'center',
                       position: 'relative',
                     }}
-                    onClick={(e) => e.stopPropagation()}
+                    onClick={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}
                   >
                     <button
                       type="button"
@@ -8350,7 +8350,7 @@ export default function AdminSidebarPage() {
                     justifyContent: 'center',
                     padding: '16px',
                   }}
-                  onClick={() => setShowExcelGuidePrompt(false)}
+                  onDoubleClick={() => setShowExcelGuidePrompt(false)}
                 >
                   <div
                     style={{
@@ -8362,7 +8362,7 @@ export default function AdminSidebarPage() {
                       boxShadow: '0 24px 60px rgba(0, 0, 0, 0.3)',
                       border: '1px solid rgba(27, 107, 69, 0.22)',
                     }}
-                    onClick={(e) => e.stopPropagation()}
+                    onClick={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}
                   >
                     <div
                       style={{
@@ -8729,7 +8729,7 @@ export default function AdminSidebarPage() {
                     justifyContent: 'center',
                     padding: '16px',
                   }}
-                  onClick={() => setKeuanganConfirmMonthModal(false)}
+                  onDoubleClick={() => setKeuanganConfirmMonthModal(false)}
                 >
                   <div
                     style={{
@@ -8740,7 +8740,7 @@ export default function AdminSidebarPage() {
                       padding: '24px',
                       boxShadow: '0 24px 60px rgba(0, 0, 0, 0.32)',
                     }}
-                    onClick={(e) => e.stopPropagation()}
+                    onClick={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}
                   >
                     <div
                       style={{
@@ -8844,7 +8844,7 @@ export default function AdminSidebarPage() {
                         justifyContent: 'center',
                         padding: '16px',
                       }}
-                      onClick={() => setKeuanganPickDateModal(false)}
+                      onDoubleClick={() => setKeuanganPickDateModal(false)}
                     >
                       <div
                         style={{
@@ -8855,7 +8855,7 @@ export default function AdminSidebarPage() {
                           padding: '24px',
                           boxShadow: '0 24px 60px rgba(0, 0, 0, 0.32)',
                         }}
-                        onClick={(e) => e.stopPropagation()}
+                        onClick={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}
                       >
                         <div
                           style={{
@@ -9005,7 +9005,7 @@ export default function AdminSidebarPage() {
                     justifyContent: 'center',
                     padding: '16px',
                   }}
-                  onClick={() => setKeuanganConfirmChangeDateModal(false)}
+                  onDoubleClick={() => setKeuanganConfirmChangeDateModal(false)}
                 >
                   <div
                     style={{
@@ -9016,7 +9016,7 @@ export default function AdminSidebarPage() {
                       padding: '24px',
                       boxShadow: '0 24px 60px rgba(0, 0, 0, 0.34)',
                     }}
-                    onClick={(e) => e.stopPropagation()}
+                    onClick={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}
                   >
                     <h3 style={{ margin: '0 0 8px', fontSize: '1.05rem', fontWeight: 900, color: '#0f4a2a' }}>
                       Konfirmasi Ubah Tanggal
@@ -9082,7 +9082,7 @@ export default function AdminSidebarPage() {
                     justifyContent: 'center',
                     padding: '16px',
                   }}
-                  onClick={() => {
+                  onDoubleClick={() => {
                     const hasInput = Boolean(
                       uraianPengeluaran.trim() ||
                         nominalPengeluaran.trim() ||
@@ -9114,7 +9114,7 @@ export default function AdminSidebarPage() {
                       padding: '24px',
                       boxShadow: '0 24px 60px rgba(0, 0, 0, 0.32)',
                     }}
-                    onClick={(e) => e.stopPropagation()}
+                    onClick={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}
                   >
                     <div
                       style={{
@@ -9420,7 +9420,7 @@ export default function AdminSidebarPage() {
                     justifyContent: 'center',
                     padding: '16px',
                   }}
-                  onClick={() => setPreviewKeuanganItem(null)}
+                  onDoubleClick={() => setPreviewKeuanganItem(null)}
                 >
                   <div
                     style={{
@@ -9431,7 +9431,7 @@ export default function AdminSidebarPage() {
                       padding: '22px',
                       boxShadow: '0 24px 60px rgba(0, 0, 0, 0.32)',
                     }}
-                    onClick={(e) => e.stopPropagation()}
+                    onClick={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}
                   >
                     <div
                       style={{
@@ -11423,7 +11423,7 @@ export default function AdminSidebarPage() {
                     justifyContent: 'center',
                     padding: '16px',
                   }}
-                  onClick={() => {
+                  onDoubleClick={() => {
                     const hasInput = Boolean(
                       autoUndanganNama.trim() || autoUndanganTelp.trim()
                     )
@@ -11452,7 +11452,7 @@ export default function AdminSidebarPage() {
                       padding: '24px',
                       boxShadow: '0 24px 60px rgba(0, 0, 0, 0.32)',
                     }}
-                    onClick={(e) => e.stopPropagation()}
+                    onClick={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}
                   >
                     <div
                       style={{
@@ -11735,7 +11735,7 @@ export default function AdminSidebarPage() {
                     justifyContent: 'center',
                     padding: '16px',
                   }}
-                  onClick={() => setDeleteAutoUndanganConfirm(null)}
+                  onDoubleClick={() => setDeleteAutoUndanganConfirm(null)}
                 >
                   <div
                     style={{
@@ -11746,7 +11746,7 @@ export default function AdminSidebarPage() {
                       padding: '24px',
                       boxShadow: '0 24px 60px rgba(0, 0, 0, 0.34)',
                     }}
-                    onClick={(e) => e.stopPropagation()}
+                    onClick={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}
                   >
                     <h3 style={{ margin: '0 0 8px', fontSize: '1.05rem', fontWeight: 900, color: '#991b1b' }}>
                       Konfirmasi Hapus Surat Undangan
@@ -11834,7 +11834,7 @@ export default function AdminSidebarPage() {
                         justifyContent: 'center',
                         padding: '16px',
                       }}
-                      onClick={() => setKonfirmasiAutoModal(null)}
+                      onDoubleClick={() => setKonfirmasiAutoModal(null)}
                     >
                       <div
                         style={{
@@ -11847,7 +11847,7 @@ export default function AdminSidebarPage() {
                           padding: '24px',
                           boxShadow: '0 24px 60px rgba(0, 0, 0, 0.32)',
                         }}
-                        onClick={(e) => e.stopPropagation()}
+                        onClick={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}
                       >
                         <div
                           style={{
@@ -12229,7 +12229,7 @@ export default function AdminSidebarPage() {
             justifyContent: 'center',
             padding: '16px',
           }}
-          onClick={() => setUnsavedConfirmModal(null)}
+          onDoubleClick={() => setUnsavedConfirmModal(null)}
         >
           <div
             style={{
@@ -12242,7 +12242,7 @@ export default function AdminSidebarPage() {
               position: 'relative',
               textAlign: 'center',
             }}
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}
           >
             <button
               type="button"

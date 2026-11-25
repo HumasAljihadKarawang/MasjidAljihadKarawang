@@ -160,7 +160,7 @@ export default function KritikSaranSection() {
             justifyContent: 'center',
             padding: '16px',
           }}
-          onClick={() => setShowUnsavedModal(false)}
+          onDoubleClick={() => setShowUnsavedModal(false)}
         >
           <div
             style={{
@@ -173,7 +173,7 @@ export default function KritikSaranSection() {
               position: 'relative',
               textAlign: 'center',
             }}
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}
           >
             <button
               type="button"
