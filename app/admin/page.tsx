@@ -717,14 +717,23 @@ export default function AdminSidebarPage() {
     online: boolean
     connected: boolean
     phone?: string | null
+    qrDataUrl?: string | null
     statusText?: string
   }>({
     checking: false,
     online: false,
     connected: false,
     phone: null,
+    qrDataUrl: null,
     statusText: 'Belum dicek',
   })
+  const DEFAULT_WA_DEVICES = [
+    { id: 'laptop-saya', name: 'Laptop Saya', url: 'http://127.0.0.1:3099' },
+    { id: 'pc-dkm', name: 'PC Sekretariat DKM', url: 'http://127.0.0.1:3099' },
+  ]
+  const [waDevices, setWaDevices] = useState(DEFAULT_WA_DEVICES)
+  const [selectedWaDeviceId, setSelectedWaDeviceId] = useState('laptop-saya')
+  const [showWaDeviceSettings, setShowWaDeviceSettings] = useState(false)
   const [selectedAutoUndanganIds, setSelectedAutoUndanganIds] = useState<string[]>([])
   const [waBulkSending, setWaBulkSending] = useState(false)
   const [waBulkProgress, setWaBulkProgress] = useState('')
@@ -816,6 +825,21 @@ export default function AdminSidebarPage() {
         if (parsedContacts && typeof parsedContacts === 'object') {
           setKhatibContacts(parsedContacts)
         }
+      }
+      const savedWaDevices = window.localStorage.getItem('aljihad_wa_devices_v1')
+      if (savedWaDevices) {
+        const parsedDevices = JSON.parse(savedWaDevices) as Array<{
+          id: string
+          name: string
+          url: string
+        }>
+        if (Array.isArray(parsedDevices) && parsedDevices.length > 0) {
+          setWaDevices(parsedDevices)
+        }
+      }
+      const savedWaDeviceId = window.localStorage.getItem('aljihad_wa_active_device_v1')
+      if (savedWaDeviceId) {
+        setSelectedWaDeviceId(savedWaDeviceId)
       }
     } catch {
       // ignore storage error
@@ -919,16 +943,32 @@ export default function AdminSidebarPage() {
     }
   }
 
-  const WA_LOCAL_URL = 'http://127.0.0.1:3099'
+  const getActiveWaUrl = (overrideDeviceId?: string) => {
+    const targetId = overrideDeviceId || selectedWaDeviceId
+    const found = waDevices.find((d) => d.id === targetId) || waDevices[0]
+    return String(found?.url || 'http://127.0.0.1:3099')
+      .trim()
+      .replace(/\/+$/, '')
+  }
 
-  const checkWaLocalStatus = async (silent = false) => {
+  const saveWaDevices = (nextDevices: Array<{ id: string; name: string; url: string }>) => {
+    setWaDevices(nextDevices)
+    try {
+      window.localStorage.setItem('aljihad_wa_devices_v1', JSON.stringify(nextDevices))
+    } catch {
+      // ignore
+    }
+  }
+
+  const checkWaLocalStatus = async (silent = false, overrideUrl?: string) => {
+    const targetUrl = (overrideUrl || getActiveWaUrl()).replace(/\/+$/, '')
     if (!silent) {
       setWaLocalStatus((prev) => ({ ...prev, checking: true }))
     }
     try {
       const controller = new AbortController()
       const timer = window.setTimeout(() => controller.abort(), 3000)
-      const res = await fetch(`${WA_LOCAL_URL}/status`, {
+      const res = await fetch(`${targetUrl}/status`, {
         method: 'GET',
         signal: controller.signal,
       })
@@ -937,6 +977,7 @@ export default function AdminSidebarPage() {
       const data = (await res.json()) as {
         connected?: boolean
         phone?: string | null
+        qrDataUrl?: string | null
         statusText?: string
       }
       const next = {
@@ -944,6 +985,7 @@ export default function AdminSidebarPage() {
         online: true,
         connected: Boolean(data.connected),
         phone: data.phone || null,
+        qrDataUrl: data.qrDataUrl || null,
         statusText: data.statusText || (data.connected ? 'Terhubung' : 'Menunggu Scan QR'),
       }
       setWaLocalStatus(next)
@@ -954,12 +996,34 @@ export default function AdminSidebarPage() {
         online: false,
         connected: false,
         phone: null,
+        qrDataUrl: null,
         statusText: 'WA Sender lokal belum dijalankan',
       }
       setWaLocalStatus(next)
       return next
     }
   }
+
+  const logoutWaLocal = async () => {
+    const targetUrl = getActiveWaUrl()
+    try {
+      await fetch(`${targetUrl}/logout`, { method: 'POST' })
+      setAutoWaShareHint('Sesi WhatsApp diputuskan. Menyiapkan QR Code baru di layar...')
+      window.setTimeout(() => {
+        void checkWaLocalStatus(false, targetUrl)
+      }, 1500)
+    } catch {
+      setAutoWaShareHint('Gagal memutuskan sesi WA Sender.')
+    }
+  }
+
+  useEffect(() => {
+    if (!waLocalStatus.online || waLocalStatus.connected) return
+    const timer = window.setInterval(() => {
+      void checkWaLocalStatus(true)
+    }, 4000)
+    return () => window.clearInterval(timer)
+  }, [waLocalStatus.online, waLocalStatus.connected, selectedWaDeviceId, waDevices])
 
   const blobToBase64 = (blob: Blob) =>
     new Promise<string>((resolve, reject) => {
@@ -994,7 +1058,8 @@ export default function AdminSidebarPage() {
     })
     const fileName = `Surat-Undangan-${item.nama.replace(/[^a-zA-Z0-9]+/g, '-')}-${item.tanggal}.png`
     const imageBase64 = await blobToBase64(imgBlob)
-    const res = await fetch(`${WA_LOCAL_URL}/send-media`, {
+    const targetUrl = getActiveWaUrl()
+    const res = await fetch(`${targetUrl}/send-media`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -11401,12 +11466,42 @@ export default function AdminSidebarPage() {
                             display: 'inline-block',
                           }}
                         />
+                        <select
+                          aria-label="Pilih Perangkat WA Sender"
+                          value={selectedWaDeviceId}
+                          onChange={(e) => {
+                            const nextId = e.target.value
+                            setSelectedWaDeviceId(nextId)
+                            try {
+                              window.localStorage.setItem('aljihad_wa_active_device_v1', nextId)
+                            } catch {
+                              // ignore
+                            }
+                            void checkWaLocalStatus(false, getActiveWaUrl(nextId))
+                          }}
+                          style={{
+                            padding: '4px 9px',
+                            borderRadius: '7px',
+                            border: '1px solid rgba(27, 107, 69, 0.28)',
+                            background: '#ffffff',
+                            color: '#0f4a2a',
+                            fontSize: '0.75rem',
+                            fontWeight: 800,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {waDevices.map((dev) => (
+                            <option key={dev.id} value={dev.id}>
+                              {dev.name}
+                            </option>
+                          ))}
+                        </select>
                         <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#0f172a' }}>
                           {waLocalStatus.connected
-                            ? `WA Lokal Terhubung (${waLocalStatus.phone ? `+${waLocalStatus.phone}` : 'Siap Kirim Otomatis'})`
+                            ? `Terhubung (+${waLocalStatus.phone || 'Siap'})`
                             : waLocalStatus.online
-                              ? 'WA Lokal Aktif — Scan QR di terminal JALANKAN-WA-SENDER.bat'
-                              : 'WA Lokal Belum Aktif (Mode Manual Browser)'}
+                              ? 'Server Aktif — Scan QR di bawah'
+                              : 'Belum Aktif (Jalankan PASANG-AUTO-START.bat)'}
                         </span>
                         <button
                           type="button"
@@ -11423,8 +11518,42 @@ export default function AdminSidebarPage() {
                             cursor: waLocalStatus.checking ? 'wait' : 'pointer',
                           }}
                         >
-                          {waLocalStatus.checking ? 'Mengecek...' : 'Cek Koneksi WA Lokal'}
+                          {waLocalStatus.checking ? 'Mengecek...' : 'Cek Koneksi'}
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowWaDeviceSettings((prev) => !prev)}
+                          style={{
+                            padding: '4px 9px',
+                            borderRadius: '7px',
+                            border: '1px solid rgba(100, 116, 139, 0.3)',
+                            background: '#ffffff',
+                            color: '#475569',
+                            fontSize: '0.72rem',
+                            fontWeight: 800,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {showWaDeviceSettings ? 'Tutup Alamat' : 'Atur Alamat'}
+                        </button>
+                        {waLocalStatus.connected && (
+                          <button
+                            type="button"
+                            onClick={() => void logoutWaLocal()}
+                            style={{
+                              padding: '4px 9px',
+                              borderRadius: '7px',
+                              border: '1px solid rgba(220, 38, 38, 0.28)',
+                              background: '#fef2f2',
+                              color: '#b91c1c',
+                              fontSize: '0.72rem',
+                              fontWeight: 800,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            Ganti Akun WA
+                          </button>
+                        )}
                       </div>
 
                       {autoUndanganList.length > 0 && (
@@ -11507,6 +11636,120 @@ export default function AdminSidebarPage() {
                         </div>
                       )}
                     </div>
+
+                    {showWaDeviceSettings && (
+                      <div
+                        style={{
+                          padding: '12px 14px',
+                          borderRadius: '10px',
+                          background: '#f8fafc',
+                          border: '1px solid rgba(100, 116, 139, 0.28)',
+                          marginBottom: '12px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '8px',
+                        }}
+                      >
+                        <strong style={{ fontSize: '0.8rem', color: '#0f4a2a' }}>
+                          Pengaturan Alamat Server WA Sender Per Perangkat
+                        </strong>
+                        <span style={{ fontSize: '0.73rem', color: '#475569' }}>
+                          Gunakan <code>http://127.0.0.1:3099</code> jika dipakai langsung di komputer tersebut, atau isi IP Wi-Fi komputer DKM (mis. <code>http://192.168.1.50:3099</code>).
+                        </span>
+                        {waDevices.map((dev, idx) => (
+                          <div
+                            key={dev.id}
+                            style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}
+                          >
+                            <span style={{ minWidth: '145px', fontSize: '0.76rem', fontWeight: 800, color: '#0f172a' }}>
+                              {dev.name}
+                            </span>
+                            <input
+                              type="text"
+                              value={dev.url}
+                              onChange={(e) => {
+                                const val = e.target.value
+                                const next = waDevices.map((d, i) =>
+                                  i === idx ? { ...d, url: val } : d
+                                )
+                                saveWaDevices(next)
+                              }}
+                              placeholder="http://127.0.0.1:3099"
+                              style={{
+                                flex: 1,
+                                minWidth: '200px',
+                                padding: '6px 10px',
+                                borderRadius: '8px',
+                                border: '1px solid rgba(27, 107, 69, 0.25)',
+                                fontSize: '0.77rem',
+                                background: '#ffffff',
+                              }}
+                            />
+                          </div>
+                        ))}
+                        <div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowWaDeviceSettings(false)
+                              void checkWaLocalStatus(false)
+                            }}
+                            style={{
+                              padding: '6px 14px',
+                              borderRadius: '8px',
+                              border: 'none',
+                              background: '#0f4a2a',
+                              color: '#ffffff',
+                              fontSize: '0.76rem',
+                              fontWeight: 800,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            Simpan &amp; Cek Koneksi
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {waLocalStatus.online && !waLocalStatus.connected && waLocalStatus.qrDataUrl && (
+                      <div
+                        style={{
+                          padding: '14px',
+                          borderRadius: '12px',
+                          background: '#fffbeb',
+                          border: '1px solid rgba(217, 119, 6, 0.38)',
+                          marginBottom: '12px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '16px',
+                          flexWrap: 'wrap',
+                        }}
+                      >
+                        <img
+                          src={waLocalStatus.qrDataUrl}
+                          alt="QR Code WhatsApp DKM"
+                          style={{
+                            width: '170px',
+                            height: '170px',
+                            borderRadius: '10px',
+                            border: '2px solid #ffffff',
+                            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+                            background: '#ffffff',
+                          }}
+                        />
+                        <div style={{ flex: 1, minWidth: '210px' }}>
+                          <strong style={{ display: 'block', fontSize: '0.88rem', color: '#92400e', marginBottom: '4px' }}>
+                            Scan QR Code WhatsApp dari HP Anda
+                          </strong>
+                          <p style={{ margin: '0 0 8px', fontSize: '0.78rem', color: '#78350f', lineHeight: 1.5 }}>
+                            Buka <strong>WhatsApp</strong> di HP → <strong>Perangkat Tertaut</strong> → <strong>Tautkan Perangkat</strong>, lalu arahkan kamera ke QR ini. Status akan otomatis berubah menjadi Terhubung.
+                          </p>
+                          <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#b45309' }}>
+                            {waLocalStatus.statusText}
+                          </span>
+                        </div>
+                      </div>
+                    )}
 
                     {waBulkSending && (
                       <div

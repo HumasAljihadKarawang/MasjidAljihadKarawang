@@ -3,6 +3,7 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const pino = require('pino');
+const qrcode = require('qrcode');
 const qrcodeTerminal = require('qrcode-terminal');
 const { Boom } = require('@hapi/boom');
 const {
@@ -32,9 +33,11 @@ app.use(cors({ origin: true }));
 app.use(express.json({ limit: '25mb' }));
 
 let sock = null;
+let isStarting = false;
 let connectionState = {
   connected: false,
   qr: null,
+  qrDataUrl: null,
   phone: null,
   name: null,
   statusText: 'Menghubungkan ke WhatsApp...',
@@ -52,68 +55,95 @@ function formatJid(rawPhone) {
 }
 
 async function startWhatsApp() {
-  if (!fs.existsSync(AUTH_DIR)) {
-    fs.mkdirSync(AUTH_DIR, { recursive: true });
-  }
-  const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
-  const { version } = await fetchLatestBaileysVersion().catch(() => ({
-    version: [2, 3000, 1015901307],
-  }));
-
-  sock = makeWASocket({
-    version,
-    auth: state,
-    logger: pino({ level: 'silent' }),
-    browser: ['DKM Al-Jihad WA Sender', 'Chrome', '1.0.0'],
-    printQRInTerminal: false,
-    syncFullHistory: false,
-  });
-
-  sock.ev.on('creds.update', saveCreds);
-
-  sock.ev.on('connection.update', (update) => {
-    const { connection, lastDisconnect, qr } = update;
-
-    if (qr) {
-      connectionState.connected = false;
-      connectionState.qr = qr;
-      connectionState.statusText = 'Silakan scan QR code WhatsApp di terminal ini.';
-      console.log('\n======================================================');
-      console.log('SCAN QR CODE WHATSAPP INI DARI HP ANDA:');
-      console.log('Buka WhatsApp > Perangkat Tertaut > Tautkan Perangkat');
-      console.log('======================================================');
-      qrcodeTerminal.generate(qr, { small: true });
+  if (isStarting) return;
+  isStarting = true;
+  try {
+    if (!fs.existsSync(AUTH_DIR)) {
+      fs.mkdirSync(AUTH_DIR, { recursive: true });
     }
+    const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
+    const { version } = await fetchLatestBaileysVersion().catch(() => ({
+      version: [2, 3000, 1015901307],
+    }));
 
-    if (connection === 'open') {
-      const userId = sock?.user?.id || '';
-      const phone = userId.split(':')[0] || userId.split('@')[0] || '';
-      connectionState = {
-        connected: true,
-        qr: null,
-        phone,
-        name: sock?.user?.name || 'WhatsApp DKM',
-        statusText: 'Terhubung',
-      };
-      console.log(`\n[OK] WhatsApp Terhubung! Nomor: +${phone} (${connectionState.name})`);
-      console.log(`[READY] Siap menerima perintah kirim dari Web Admin DKM di http://127.0.0.1:${PORT}\n`);
-    }
+    sock = makeWASocket({
+      version,
+      auth: state,
+      logger: pino({ level: 'silent' }),
+      browser: ['DKM Al-Jihad WA Sender', 'Chrome', '1.0.0'],
+      printQRInTerminal: false,
+      syncFullHistory: false,
+    });
 
-    if (connection === 'close') {
-      const statusCode = new Boom(lastDisconnect?.error)?.output?.statusCode;
-      const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
-      connectionState.connected = false;
-      connectionState.qr = null;
-      connectionState.statusText = shouldReconnect
-        ? 'Koneksi terputus, mencoba menghubungkan ulang...'
-        : 'Sesi WhatsApp logout. Hapus folder auth_info lalu jalankan ulang untuk scan QR.';
+    sock.ev.on('creds.update', saveCreds);
 
-      console.log(`[INFO] Koneksi WA tertutup (code: ${statusCode}). Reconnect: ${shouldReconnect}`);
-      if (shouldReconnect) {
-        setTimeout(startWhatsApp, 3000);
+    sock.ev.on('connection.update', async (update) => {
+      const { connection, lastDisconnect, qr } = update;
+
+      if (qr) {
+        let qrDataUrl = null;
+        try {
+          qrDataUrl = await qrcode.toDataURL(qr, { width: 280, margin: 2 });
+        } catch {
+          qrDataUrl = null;
+        }
+        connectionState.connected = false;
+        connectionState.qr = qr;
+        connectionState.qrDataUrl = qrDataUrl;
+        connectionState.statusText = 'Silakan scan QR code WhatsApp (bisa langsung dari Web Admin).';
+        console.log('\n======================================================');
+        console.log('SCAN QR CODE WHATSAPP INI DARI HP ANDA:');
+        console.log('Buka WhatsApp > Perangkat Tertaut > Tautkan Perangkat');
+        console.log('======================================================');
+        qrcodeTerminal.generate(qr, { small: true });
       }
-    }
-  });
+
+      if (connection === 'open') {
+        const userId = sock?.user?.id || '';
+        const phone = userId.split(':')[0] || userId.split('@')[0] || '';
+        connectionState = {
+          connected: true,
+          qr: null,
+          qrDataUrl: null,
+          phone,
+          name: sock?.user?.name || 'WhatsApp DKM',
+          statusText: 'Terhubung',
+        };
+        console.log(`\n[OK] WhatsApp Terhubung! Nomor: +${phone} (${connectionState.name})`);
+        console.log(`[READY] Siap menerima perintah kirim dari Web Admin DKM di http://127.0.0.1:${PORT}\n`);
+      }
+
+      if (connection === 'close') {
+        const statusCode = new Boom(lastDisconnect?.error)?.output?.statusCode;
+        const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+        connectionState.connected = false;
+        connectionState.qr = null;
+        connectionState.qrDataUrl = null;
+        connectionState.statusText = shouldReconnect
+          ? 'Koneksi terputus, mencoba menghubungkan ulang...'
+          : 'Sesi WhatsApp logout. Menyiapkan QR baru...';
+
+        console.log(`[INFO] Koneksi WA tertutup (code: ${statusCode}). Reconnect: ${shouldReconnect}`);
+        if (shouldReconnect) {
+          setTimeout(() => {
+            startWhatsApp().catch(() => {});
+          }, 3000);
+        } else {
+          // Hapus auth lama dan buat sesi QR baru otomatis agar web langsung dapat QR baru
+          try {
+            fs.rmSync(AUTH_DIR, { recursive: true, force: true });
+          } catch {
+            // ignore
+          }
+          setTimeout(() => {
+            startWhatsApp().catch(() => {});
+          }, 1500);
+        }
+      }
+    });
+  } finally {
+    isStarting = false;
+  }
 }
 
 app.get('/status', (_req, res) => {
@@ -123,12 +153,44 @@ app.get('/status', (_req, res) => {
   });
 });
 
+app.post('/logout', async (_req, res) => {
+  try {
+    if (sock) {
+      try {
+        await sock.logout();
+      } catch {
+        // ignore if already closed
+      }
+      sock = null;
+    }
+    try {
+      fs.rmSync(AUTH_DIR, { recursive: true, force: true });
+    } catch {
+      // ignore
+    }
+    connectionState = {
+      connected: false,
+      qr: null,
+      qrDataUrl: null,
+      phone: null,
+      name: null,
+      statusText: 'Memuat QR Code baru...',
+    };
+    setTimeout(() => {
+      startWhatsApp().catch(() => {});
+    }, 800);
+    return res.json({ ok: true });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err?.message || 'Gagal logout WA' });
+  }
+});
+
 app.post('/send-media', async (req, res) => {
   try {
     if (!sock || !connectionState.connected) {
       return res.status(503).json({
         ok: false,
-        error: 'WhatsApp belum terhubung. Pastikan sudah scan QR di terminal WA Sender.',
+        error: 'WhatsApp belum terhubung. Pastikan sudah scan QR dari Web Admin atau terminal.',
       });
     }
 
@@ -143,7 +205,6 @@ app.post('/send-media', async (req, res) => {
 
     const cleanBase64 = String(imageBase64 || '').replace(/^data:image\/\w+;base64,/, '');
     if (!cleanBase64) {
-      // Fallback kirim teks saja jika tidak ada gambar
       await sock.sendMessage(jid, { text: String(caption || '') });
       console.log(`[TERKIRIM TEKS] -> ${jid}`);
       return res.json({ ok: true, jid, mode: 'text' });
@@ -168,11 +229,11 @@ app.post('/send-media', async (req, res) => {
   }
 });
 
-app.listen(PORT, '127.0.0.1', () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log('======================================================');
   console.log('  WA SENDER LOKAL - MASJID AL-JIHAD KARAWANG');
   console.log(`  Server aktif di http://127.0.0.1:${PORT}`);
-  console.log('  Jangan tutup jendela ini selama mengirim surat.');
+  console.log('  QR Code juga tampil otomatis di Web Admin.');
   console.log('======================================================\n');
   startWhatsApp().catch((err) => {
     console.error('Gagal memulai WhatsApp socket:', err);
