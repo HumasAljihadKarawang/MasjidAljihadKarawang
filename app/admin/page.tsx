@@ -888,16 +888,75 @@ export default function AdminSidebarPage() {
   }
 
   const handleDeleteAutoUndangan = async (targetItem: AutoUndanganItem) => {
-    saveAutoUndanganList(
-      autoUndanganList.filter(
-        (x) => x.id !== targetItem.id && x.noSurat !== targetItem.noSurat
-      )
+    const targetYear = getYearFromDateOrNomor(targetItem.tanggal, targetItem.noSurat)
+    const remaining = autoUndanganList.filter(
+      (x) => x.id !== targetItem.id && x.noSurat !== targetItem.noSurat
     )
+
+    // Urutkan item pada tahun yang sama dari terlama -> terbaru lalu rapikan ulang nomor seri (001, 002, ...)
+    const sameYearAsc = remaining
+      .filter((x) => getYearFromDateOrNomor(x.tanggal, x.noSurat) === targetYear)
+      .sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)))
+
+    const renumberedMap = new Map<string, string>()
+    const changedItems: Array<{ item: AutoUndanganItem; nextNoSurat: string }> = []
+
+    sameYearAsc.forEach((it, idx) => {
+      const seqStr = String(idx + 1).padStart(3, '0')
+      const dt = it.tanggal ? new Date(`${it.tanggal}T12:00:00`) : new Date()
+      const validDt = Number.isNaN(dt.getTime()) ? new Date() : dt
+      const roman = ROMAN_MONTHS[validDt.getMonth()] || 'XI'
+      const nextNo = `${seqStr}/DKM-ALJIHAD/KRW/${roman}/${targetYear}`
+      renumberedMap.set(it.id, nextNo)
+      if (nextNo !== it.noSurat) {
+        changedItems.push({ item: it, nextNoSurat: nextNo })
+      }
+    })
+
+    const nextList = remaining.map((it) => {
+      const updatedNo = renumberedMap.get(it.id)
+      return updatedNo ? { ...it, noSurat: updatedNo } : it
+    })
+    saveAutoUndanganList(nextList)
+
+    // Sesuaikan ulang penghitung nomor seri tahun tersebut agar surat baru melanjutkan nomor setelah yang tersisa
+    const lastRemaining = sameYearAsc[sameYearAsc.length - 1]
+    const lastRemainingNo = lastRemaining ? renumberedMap.get(lastRemaining.id) || '' : ''
+    const nextYearMap: Record<string, YearNoSuratInfo> = { ...noSuratByYear }
+    if (sameYearAsc.length === 0) {
+      delete nextYearMap[targetYear]
+    } else {
+      nextYearMap[targetYear] = {
+        lastSeq: sameYearAsc.length,
+        lastNomor: lastRemainingNo,
+        waktu: new Date().toLocaleString('id-ID', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+      }
+    }
+    setNoSuratByYear(nextYearMap)
+    setNoSurat(getNextNoSuratForDate(tanggalSuratAcara, nextYearMap))
+    try {
+      window.localStorage.setItem('aljihad_no_surat_by_year_v2', JSON.stringify(nextYearMap))
+    } catch {
+      // ignore storage error
+    }
+
     if (getActiveSupabaseConfig().isConfigured) {
       const sb = getSupabaseClient()
       try {
         await sb.from('surat_undangan_otomatis').delete().eq('id', targetItem.id)
         await sb.from('surat_undangan_otomatis').delete().eq('no_surat', targetItem.noSurat)
+        for (const ch of changedItems) {
+          await sb
+            .from('surat_undangan_otomatis')
+            .update({ no_surat: ch.nextNoSurat })
+            .eq('id', ch.item.id)
+        }
       } catch {
         // ignore
       }
@@ -908,6 +967,19 @@ export default function AdminSidebarPage() {
           .delete()
           .eq('kategori', '__AUTO_UNDANGAN__')
           .ilike('pesan', `%${targetItem.noSurat}%`)
+        for (const ch of changedItems) {
+          await sb
+            .from('kritik_saran')
+            .update({
+              pesan: JSON.stringify({
+                clientId: ch.item.id,
+                noSurat: ch.nextNoSurat,
+                perihal: ch.item.perihal,
+                createdAt: ch.item.createdAt,
+              }),
+            })
+            .eq('id', ch.item.id)
+        }
       } catch {
         // ignore
       }
