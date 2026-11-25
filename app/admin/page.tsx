@@ -641,6 +641,11 @@ export default function AdminSidebarPage() {
   const [autoUndanganJumatOnly, setAutoUndanganJumatOnly] = useState(true)
   const [autoUndanganTelp, setAutoUndanganTelp] = useState('')
   const [autoWaShareHint, setAutoWaShareHint] = useState('')
+  const [autoUndanganSearchQuery, setAutoUndanganSearchQuery] = useState('')
+  const [autoUndanganStatusFilter, setAutoUndanganStatusFilter] = useState<
+    'Semua' | AutoUndanganStatus
+  >('Semua')
+  const [autoUndanganSyncing, setAutoUndanganSyncing] = useState(false)
   const [showAutoUndanganModal, setShowAutoUndanganModal] = useState(false)
   const [konfirmasiAutoModal, setKonfirmasiAutoModal] = useState<AutoUndanganItem | null>(null)
 
@@ -704,10 +709,12 @@ export default function AdminSidebarPage() {
   }
 
   const handleCreateAutoUndangan = async (newItem: AutoUndanganItem) => {
-    saveAutoUndanganList([newItem, ...autoUndanganList])
+    const optimisticList = [newItem, ...autoUndanganList]
+    saveAutoUndanganList(optimisticList)
     if (getActiveSupabaseConfig().isConfigured) {
+      const sb = getSupabaseClient()
       try {
-        await getSupabaseClient().from('surat_undangan_otomatis').insert({
+        const res1 = await sb.from('surat_undangan_otomatis').insert({
           id: newItem.id,
           no_surat: newItem.noSurat,
           nama: newItem.nama,
@@ -717,8 +724,37 @@ export default function AdminSidebarPage() {
           status: newItem.status,
           created_at: newItem.createdAt,
         })
+        if (!res1.error) return
       } catch {
-        // tabel surat_undangan_otomatis opsional jika belum dibuat di Supabase
+        // fallback ke tabel kritik_saran
+      }
+      // Fallback lintas perangkat via tabel kritik_saran yang sudah pasti ada di Supabase
+      try {
+        const res2 = await sb
+          .from('kritik_saran')
+          .insert({
+            nama: newItem.nama,
+            kontak: newItem.noTelp || '-',
+            kategori: '__AUTO_UNDANGAN__',
+            pesan: JSON.stringify({
+              clientId: newItem.id,
+              noSurat: newItem.noSurat,
+              perihal: newItem.perihal,
+              createdAt: newItem.createdAt,
+            }),
+            tanggal: newItem.tanggal,
+            status: newItem.status,
+          })
+          .select('id')
+          .single()
+        if (!res2.error && res2.data?.id) {
+          const dbId = String(res2.data.id)
+          saveAutoUndanganList(
+            optimisticList.map((x) => (x.id === newItem.id ? { ...x, id: dbId } : x))
+          )
+        }
+      } catch {
+        // ignore
       }
     }
   }
@@ -731,11 +767,14 @@ export default function AdminSidebarPage() {
       autoUndanganList.map((x) => (x.id === id ? { ...x, status: nextStatus } : x))
     )
     if (getActiveSupabaseConfig().isConfigured) {
+      const sb = getSupabaseClient()
       try {
-        await getSupabaseClient()
-          .from('surat_undangan_otomatis')
-          .update({ status: nextStatus })
-          .eq('id', id)
+        await sb.from('surat_undangan_otomatis').update({ status: nextStatus }).eq('id', id)
+      } catch {
+        // ignore
+      }
+      try {
+        await sb.from('kritik_saran').update({ status: nextStatus }).eq('id', id)
       } catch {
         // ignore
       }
@@ -745,8 +784,14 @@ export default function AdminSidebarPage() {
   const handleDeleteAutoUndangan = async (id: string) => {
     saveAutoUndanganList(autoUndanganList.filter((x) => x.id !== id))
     if (getActiveSupabaseConfig().isConfigured) {
+      const sb = getSupabaseClient()
       try {
-        await getSupabaseClient().from('surat_undangan_otomatis').delete().eq('id', id)
+        await sb.from('surat_undangan_otomatis').delete().eq('id', id)
+      } catch {
+        // ignore
+      }
+      try {
+        await sb.from('kritik_saran').delete().eq('id', id)
       } catch {
         // ignore
       }
@@ -964,23 +1009,25 @@ export default function AdminSidebarPage() {
         // tabel pengajuan_kalender opsional jika belum dibuat di Supabase
       }
 
+      const syncedAutoItems: AutoUndanganItem[] = []
       try {
         const autoUndRes = await sb
           .from('surat_undangan_otomatis')
           .select('*')
           .order('created_at', { ascending: false })
-        if (!autoUndRes.error && autoUndRes.data && autoUndRes.data.length > 0) {
-          const mappedAuto: AutoUndanganItem[] = autoUndRes.data.map((d) => ({
-            id: d.id,
-            noSurat: d.no_surat,
-            nama: d.nama,
-            perihal: d.perihal,
-            tanggal: d.tanggal,
-            noTelp: d.no_telp || '',
-            status: (d.status || 'Belum Dikirim') as AutoUndanganStatus,
-            createdAt: d.created_at,
-          }))
-          saveAutoUndanganList(mappedAuto)
+        if (!autoUndRes.error && autoUndRes.data) {
+          autoUndRes.data.forEach((d) => {
+            syncedAutoItems.push({
+              id: String(d.id),
+              noSurat: d.no_surat,
+              nama: d.nama,
+              perihal: d.perihal,
+              tanggal: d.tanggal,
+              noTelp: d.no_telp || '',
+              status: (d.status || 'Belum Dikirim') as AutoUndanganStatus,
+              createdAt: d.created_at,
+            })
+          })
         }
       } catch {
         // tabel surat_undangan_otomatis opsional jika belum dibuat di Supabase
@@ -1004,7 +1051,14 @@ export default function AdminSidebarPage() {
       }
 
       if (ksRes.data && ksRes.data.length > 0) {
-        const mappedK: KritikSaranItem[] = ksRes.data.map((d) => ({
+        const realKritikRows = ksRes.data.filter(
+          (d) => d.kategori !== '__AUTO_UNDANGAN__'
+        )
+        const autoFromKritikRows = ksRes.data.filter(
+          (d) => d.kategori === '__AUTO_UNDANGAN__'
+        )
+
+        const mappedK: KritikSaranItem[] = realKritikRows.map((d) => ({
           id: d.id,
           nama: d.nama || 'Jamaah',
           kontak: d.kontak || '-',
@@ -1015,6 +1069,71 @@ export default function AdminSidebarPage() {
         }))
         setKritikList(mappedK)
         masjidStore.saveKritik(mappedK)
+
+        autoFromKritikRows.forEach((d) => {
+          try {
+            const meta = JSON.parse(d.pesan || '{}') as {
+              noSurat?: string
+              perihal?: string
+              createdAt?: string
+            }
+            syncedAutoItems.push({
+              id: String(d.id),
+              noSurat: meta.noSurat || '001/DKM-ALJIHAD/KRW/XI/2026',
+              nama: d.nama || '-',
+              perihal: meta.perihal || "Permohonan Menjadi Imam & Khotib Sholat Jum'at",
+              tanggal: d.tanggal || new Date().toISOString().slice(0, 10),
+              noTelp: d.kontak && d.kontak !== '-' ? d.kontak : '',
+              status: (d.status || 'Belum Dikirim') as AutoUndanganStatus,
+              createdAt: meta.createdAt || d.created_at || new Date().toISOString(),
+            })
+          } catch {
+            // ignore malformed row
+          }
+        })
+      }
+
+      if (syncedAutoItems.length > 0) {
+        syncedAutoItems.sort((a, b) =>
+          String(b.createdAt).localeCompare(String(a.createdAt))
+        )
+        saveAutoUndanganList(syncedAutoItems)
+        // Sinkronkan juga nomor seri surat & kontak khatib antar perangkat
+        let maxSeq = 0
+        let latestNomor = ''
+        const contactPatch: Record<string, string> = {}
+        syncedAutoItems.forEach((it) => {
+          const m = String(it.noSurat || '').match(/^(\d+)/)
+          const seq = m ? Number(m[1]) : 0
+          if (seq > maxSeq) {
+            maxSeq = seq
+            latestNomor = it.noSurat
+          }
+          if (it.nama && it.noTelp) {
+            contactPatch[it.nama] = it.noTelp
+          }
+        })
+        if (Object.keys(contactPatch).length > 0) {
+          setKhatibContacts((prev) => {
+            const merged = { ...prev, ...contactPatch }
+            try {
+              window.localStorage.setItem(
+                'aljihad_khatib_contacts_v1',
+                JSON.stringify(merged)
+              )
+            } catch {
+              // ignore
+            }
+            return merged
+          })
+        }
+        if (latestNomor) {
+          setNoSurat((prev) => {
+            const pm = String(prev || '').match(/^(\d+)/)
+            const prevSeq = pm ? Number(pm[1]) : 0
+            return maxSeq >= prevSeq ? buildNextNoSurat(latestNomor) : prev
+          })
+        }
       }
     }
   }, [selectedMasterId, sbUrlInput])
@@ -10007,19 +10126,96 @@ export default function AdminSidebarPage() {
                         </span>
                       </div>
 
-                      <button
-                        type="button"
-                        className={styles.submitBtn}
-                        onClick={() => setShowAutoUndanganModal(true)}
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            setAutoUndanganSyncing(true)
+                            await syncAllData()
+                            setAutoUndanganSyncing(false)
+                            setAutoWaShareHint(
+                              'Data Surat Undangan Otomatis berhasil disinkronkan dari server.'
+                            )
+                          }}
+                          disabled={autoUndanganSyncing}
+                          style={{
+                            padding: '9px 14px',
+                            borderRadius: '10px',
+                            border: '1px solid rgba(27, 107, 69, 0.28)',
+                            background: '#f0fdf4',
+                            color: '#0f4a2a',
+                            fontWeight: 800,
+                            fontSize: '0.83rem',
+                            cursor: autoUndanganSyncing ? 'wait' : 'pointer',
+                          }}
+                        >
+                          {autoUndanganSyncing ? 'Menyinkronkan...' : '↻ Refresh'}
+                        </button>
+
+                        <button
+                          type="button"
+                          className={styles.submitBtn}
+                          onClick={() => setShowAutoUndanganModal(true)}
+                          style={{
+                            width: 'auto',
+                            marginTop: 0,
+                            padding: '9px 16px',
+                            fontSize: '0.84rem',
+                          }}
+                        >
+                          + Buat Undangan Otomatis
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Menu Pencarian & Filter Status Surat Undangan Otomatis */}
+                    <div
+                      style={{
+                        display: 'flex',
+                        gap: '8px',
+                        flexWrap: 'wrap',
+                        marginBottom: '12px',
+                      }}
+                    >
+                      <input
+                        type="text"
+                        placeholder="Cari nama penerima, nomor surat, perihal, tanggal, atau nomor HP..."
+                        value={autoUndanganSearchQuery}
+                        onChange={(e) => setAutoUndanganSearchQuery(e.target.value)}
                         style={{
-                          width: 'auto',
-                          marginTop: 0,
-                          padding: '9px 16px',
-                          fontSize: '0.84rem',
+                          flex: 1,
+                          minWidth: '210px',
+                          padding: '8px 12px',
+                          borderRadius: '9px',
+                          border: '1px solid rgba(27, 107, 69, 0.25)',
+                          fontSize: '0.83rem',
+                          background: '#ffffff',
+                        }}
+                      />
+                      <select
+                        aria-label="Filter Status Undangan Otomatis"
+                        value={autoUndanganStatusFilter}
+                        onChange={(e) =>
+                          setAutoUndanganStatusFilter(
+                            e.target.value as 'Semua' | AutoUndanganStatus
+                          )
+                        }
+                        style={{
+                          padding: '8px 12px',
+                          borderRadius: '9px',
+                          border: '1px solid rgba(27, 107, 69, 0.25)',
+                          fontSize: '0.83rem',
+                          fontWeight: 700,
+                          background: '#f8faf8',
+                          color: '#0f4a2a',
                         }}
                       >
-                        + Buat Undangan Otomatis
-                      </button>
+                        <option value="Semua">Semua Status</option>
+                        <option value="Belum Dikirim">Belum Dikirim</option>
+                        <option value="Sudah Dikirim">Sudah Dikirim</option>
+                        <option value="Diterima">Diterima</option>
+                        <option value="Ditolak">Ditolak</option>
+                      </select>
                     </div>
 
                     {autoWaShareHint && (
@@ -10039,15 +10235,33 @@ export default function AdminSidebarPage() {
                       </div>
                     )}
 
-                    {autoUndanganList.length === 0 ? (
-                      <p className={styles.panelSub} style={{ marginBottom: 0 }}>
-                        Belum ada daftar undangan otomatis. Klik tombol{' '}
-                        <strong>+ Buat Undangan Otomatis</strong> di pojok kanan atas untuk
-                        membuat undangan siap kirim WA.
-                      </p>
-                    ) : (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        {autoUndanganList.map((item) => {
+                    {(() => {
+                      const aq = autoUndanganSearchQuery.trim().toLowerCase()
+                      const filteredAuto = autoUndanganList.filter((item) => {
+                        const matchStatus =
+                          autoUndanganStatusFilter === 'Semua' ||
+                          item.status === autoUndanganStatusFilter
+                        const matchQ =
+                          !aq ||
+                          item.nama.toLowerCase().includes(aq) ||
+                          item.noSurat.toLowerCase().includes(aq) ||
+                          item.perihal.toLowerCase().includes(aq) ||
+                          item.noTelp.toLowerCase().includes(aq) ||
+                          item.tanggal.includes(aq)
+                        return matchStatus && matchQ
+                      })
+                      if (filteredAuto.length === 0) {
+                        return (
+                          <p className={styles.panelSub} style={{ marginBottom: 0 }}>
+                            {aq || autoUndanganStatusFilter !== 'Semua'
+                              ? 'Tidak ada undangan otomatis yang cocok dengan pencarian atau filter status.'
+                              : 'Belum ada daftar undangan otomatis. Klik tombol + Buat Undangan Otomatis di pojok kanan atas untuk membuat undangan siap kirim WA.'}
+                          </p>
+                        )
+                      }
+                      return (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          {filteredAuto.map((item) => {
                           const statusColors =
                             item.status === 'Diterima'
                               ? { bg: '#dcfce7', fg: '#166534' }
@@ -10274,8 +10488,9 @@ export default function AdminSidebarPage() {
                             </div>
                           )
                         })}
-                      </div>
-                    )}
+                        </div>
+                      )
+                    })()}
                   </div>
                 </div>
               )}
