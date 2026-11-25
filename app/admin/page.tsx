@@ -1493,7 +1493,7 @@ export default function AdminSidebarPage() {
   const [tanggalSuratAcara, setTanggalSuratAcara] = useState('2026-11-20')
   const [waktuSuratAcara, setWaktuSuratAcara] = useState('11:36 WIB')
   const [tempatSuratAcara, setTempatSuratAcara] = useState(
-    'Masjid Raya Al-Jihad Islamic Center Karawang'
+    'Masjid Al-Jihad Islamic Center Karawang'
   )
   const [agendaSurat, setAgendaSurat] = useState(
     'Menjadi Khotib & Imam dalam pelaksanaan ibadah Jumat.'
@@ -3261,8 +3261,8 @@ export default function AdminSidebarPage() {
 
     const pembuka =
       activeJenis === 'Khutbah Jumat'
-        ? `Sehubungan dengan pelaksanaan kegiatan ibadah Jumat di Masjid Al-Jihad Islamic Center Karawang, kami memohon kesediaan Bapak/Ustadz untuk menjadi ${roleText} pada:`
-        : 'Sehubungan dengan pelaksanaan kegiatan di Masjid Al-Jihad Islamic Center Karawang, bersama surat ini kami memohon kesediaan Bapak/Ibu/Ustadz untuk hadir pada:'
+        ? `Sehubungan dengan pelaksanaan kegiatan ibadah Jumat di Masjid Al-Jihad Islamic Center Karawang, kami mohon kesediaan Bapak/Ustadz untuk menjadi ${roleText} pada:`
+        : 'Sehubungan dengan pelaksanaan kegiatan di Masjid Al-Jihad Islamic Center Karawang, bersama surat ini kami mohon kesediaan Bapak/Ibu/Ustadz untuk hadir pada:'
 
     y += 42
     drawWrapped(pembuka, '25px "Times New Roman", serif')
@@ -11241,7 +11241,7 @@ export default function AdminSidebarPage() {
                     </p>
                     <p>
                       {jenisSurat === 'Khutbah Jumat'
-                        ? `Sehubungan dengan pelaksanaan kegiatan ibadah Jumat di Masjid Raya Al-Jihad Karawang, kami memohon kesediaan Bapak/Ustadz untuk menjadi ${
+                        ? `Sehubungan dengan pelaksanaan kegiatan ibadah Jumat di Masjid Al-Jihad Islamic Center Karawang, kami mohon kesediaan Bapak/Ustadz untuk menjadi ${
                             perihalKhutbahOpsi === 'Khotib & Imam'
                               ? 'Khotib & Imam'
                               : perihalKhutbahOpsi === 'Khotib Jumat'
@@ -11252,7 +11252,7 @@ export default function AdminSidebarPage() {
                                     ? 'Bilal'
                                     : 'Petugas Ibadah Jumat'
                           } pada:`
-                        : 'Sehubungan dengan pelaksanaan kegiatan di Masjid Raya Al-Jihad Karawang, bersama surat ini kami memohon kesediaan Bapak/Ibu/Ustadz untuk hadir pada:'}
+                        : 'Sehubungan dengan pelaksanaan kegiatan di Masjid Al-Jihad Islamic Center Karawang, bersama surat ini kami mohon kesediaan Bapak/Ibu/Ustadz untuk hadir pada:'}
                     </p>
 
                     <div className={styles.suratScheduleTable}>
