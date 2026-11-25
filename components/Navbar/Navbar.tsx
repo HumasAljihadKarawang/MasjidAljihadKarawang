@@ -17,7 +17,7 @@ const navLinks = [
   { href: '/kegiatan', label: 'Kegiatan' },
   { href: '/el-jihad', label: 'El Jihad' },
   { href: '/kontak', label: 'Kontak' },
-  { href: '/profil#aset-masjid', label: 'My.DKM' },
+  { href: '/my-dkm', label: 'My.DKM' },
 ]
 
 export default function Navbar() {
