@@ -631,8 +631,11 @@ export default function AdminSidebarPage() {
   const [autoUndanganList, setAutoUndanganList] = useState<AutoUndanganItem[]>([])
   const [khatibContacts, setKhatibContacts] = useState<Record<string, string>>({})
   const [autoUndanganNama, setAutoUndanganNama] = useState('')
+  const [autoUndanganPerihalOpsi, setAutoUndanganPerihalOpsi] = useState<
+    'Imam' | 'Khotib' | 'Imam & Khotib' | 'Bilal' | 'Manual'
+  >('Imam & Khotib')
   const [autoUndanganPerihal, setAutoUndanganPerihal] = useState(
-    "Permohonan Menjadi Khotib & Imam Sholat Jum'at"
+    "Permohonan Menjadi Imam & Khotib Sholat Jum'at"
   )
   const [autoUndanganTanggal, setAutoUndanganTanggal] = useState('2026-11-27')
   const [autoUndanganTelp, setAutoUndanganTelp] = useState('')
@@ -10359,21 +10362,47 @@ export default function AdminSidebarPage() {
 
                       <div className={styles.formGroup}>
                         <label>Perihal Undangan</label>
-                        <input
-                          type="text"
-                          required
-                          list="perihal-undangan-presets"
-                          placeholder="Khotib / Bilal / Kajian..."
-                          value={autoUndanganPerihal}
-                          onChange={(e) => setAutoUndanganPerihal(e.target.value)}
-                        />
-                        <datalist id="perihal-undangan-presets">
-                          <option value="Permohonan Menjadi Khotib & Imam Sholat Jum'at" />
-                          <option value="Permohonan Menjadi Khotib Sholat Jum'at" />
-                          <option value="Permohonan Menjadi Imam Sholat Jum'at" />
-                          <option value="Permohonan Menjadi Bilal Sholat Jum'at" />
-                          <option value="Permohonan Menjadi Pemateri Kajian Pekanan" />
-                        </datalist>
+                        <select
+                          value={autoUndanganPerihalOpsi}
+                          onChange={(e) => {
+                            const opsi = e.target.value as
+                              | 'Imam'
+                              | 'Khotib'
+                              | 'Imam & Khotib'
+                              | 'Bilal'
+                              | 'Manual'
+                            setAutoUndanganPerihalOpsi(opsi)
+                            if (opsi === 'Imam') {
+                              setAutoUndanganPerihal("Permohonan Menjadi Imam Sholat Jum'at")
+                            } else if (opsi === 'Khotib') {
+                              setAutoUndanganPerihal("Permohonan Menjadi Khotib Sholat Jum'at")
+                            } else if (opsi === 'Imam & Khotib') {
+                              setAutoUndanganPerihal(
+                                "Permohonan Menjadi Imam & Khotib Sholat Jum'at"
+                              )
+                            } else if (opsi === 'Bilal') {
+                              setAutoUndanganPerihal("Permohonan Menjadi Bilal Sholat Jum'at")
+                            } else {
+                              setAutoUndanganPerihal('')
+                            }
+                          }}
+                        >
+                          <option value="Imam & Khotib">Imam &amp; Khotib</option>
+                          <option value="Khotib">Khotib</option>
+                          <option value="Imam">Imam</option>
+                          <option value="Bilal">Bilal</option>
+                          <option value="Manual">Manual (Ketik Sendiri / Kajian)</option>
+                        </select>
+                        {autoUndanganPerihalOpsi === 'Manual' && (
+                          <input
+                            type="text"
+                            required
+                            placeholder="Ketik perihal undangan..."
+                            value={autoUndanganPerihal}
+                            onChange={(e) => setAutoUndanganPerihal(e.target.value)}
+                            style={{ marginTop: '8px' }}
+                          />
+                        )}
                       </div>
 
                       <div className={styles.twoCols}>
