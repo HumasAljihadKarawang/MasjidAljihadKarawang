@@ -1668,9 +1668,6 @@ export default function AdminSidebarPage() {
       : `https://wa.me/?text=${encodeURIComponent(waText)}`
     window.open(waUrl, '_blank', 'noopener,noreferrer')
 
-    setAutoWaShareHint(
-      `Langsung diarahkan ke WA ${item.noTelp || 'tujuan'} dengan teks pengantar. Foto PNG (${item.noSurat}) sudah disalin ke clipboard (tekan Ctrl+V di chat WA) & diunduh, lalu tinggal klik Kirim.`
-    )
     setManualSentConfirmItem(item)
   }
 
