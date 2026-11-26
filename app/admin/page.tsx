@@ -12044,108 +12044,58 @@ export default function AdminSidebarPage() {
                         marginBottom: '12px',
                       }}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                        <span
-                          style={{
-                            width: '9px',
-                            height: '9px',
-                            borderRadius: '999px',
-                            background: waLocalStatus.connected
-                              ? '#16a34a'
-                              : waLocalStatus.online
-                                ? '#d97706'
-                                : '#94a3b8',
-                            display: 'inline-block',
-                          }}
-                        />
-                        <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#0f172a' }}>
-                          {`${
-                            (waDevices.find((d) => d.id === selectedWaDeviceId) || waDevices[0])
-                              ?.name || 'Laptop Saya'
-                          } • ${
-                            waLocalStatus.connected
-                              ? `Terhubung (+${waLocalStatus.phone || 'Siap'})`
-                              : waLocalStatus.online
-                                ? 'Belum Scan QR'
-                                : 'Belum Aktif'
-                          }`}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            const res = await checkWaLocalStatus(false)
-                            if (res.online && !res.connected) {
-                              setShowWaDeviceSettings(true)
-                            }
-                          }}
-                          disabled={waLocalStatus.checking}
-                          style={{
-                            padding: '4px 10px',
-                            borderRadius: '7px',
-                            border: '1px solid rgba(27, 107, 69, 0.25)',
-                            background: '#ffffff',
-                            color: '#0f4a2a',
-                            fontSize: '0.73rem',
-                            fontWeight: 800,
-                            cursor: waLocalStatus.checking ? 'wait' : 'pointer',
-                          }}
-                        >
-                          {waLocalStatus.checking ? 'Mengecek...' : 'Cek Koneksi'}
-                        </button>
-                        {waLocalStatus.online && !waLocalStatus.connected && (
-                          <button
-                            type="button"
-                            onClick={() => setShowWaDeviceSettings(true)}
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: '10px',
+                          width: '100%',
+                          flexWrap: 'wrap',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                          <span
                             style={{
-                              padding: '4px 10px',
-                              borderRadius: '7px',
-                              border: '1px solid rgba(217, 119, 6, 0.4)',
-                              background: '#fef3c7',
-                              color: '#92400e',
-                              fontSize: '0.73rem',
-                              fontWeight: 800,
-                              cursor: 'pointer',
+                              width: '9px',
+                              height: '9px',
+                              borderRadius: '999px',
+                              background: waLocalStatus.connected
+                                ? '#16a34a'
+                                : waLocalStatus.online
+                                  ? '#d97706'
+                                  : '#94a3b8',
+                              display: 'inline-block',
                             }}
-                          >
-                            Scan QR
-                          </button>
-                        )}
-                        {waLocalStatus.connected && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setShowWaDeviceSettings(true)
-                              void logoutWaLocal()
-                            }}
-                            style={{
-                              padding: '4px 9px',
-                              borderRadius: '7px',
-                              border: '1px solid rgba(220, 38, 38, 0.28)',
-                              background: '#fef2f2',
-                              color: '#b91c1c',
-                              fontSize: '0.72rem',
-                              fontWeight: 800,
-                              cursor: 'pointer',
-                            }}
-                          >
-                            Ganti Akun WA
-                          </button>
-                        )}
+                          />
+                          <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#0f172a' }}>
+                            {`${
+                              (waDevices.find((d) => d.id === selectedWaDeviceId) || waDevices[0])
+                                ?.name || 'Laptop Saya'
+                            } • ${
+                              waLocalStatus.connected
+                                ? `Terhubung (${waLocalStatus.phone ? formatIndoLocalPhone(waLocalStatus.phone) : 'Siap'})`
+                                : waLocalStatus.online
+                                  ? 'Belum Scan QR'
+                                  : 'Belum Aktif'
+                            }`}
+                          </span>
+                        </div>
                         <button
                           type="button"
                           onClick={() => setShowWaDeviceSettings(true)}
                           style={{
-                            padding: '4px 9px',
-                            borderRadius: '7px',
-                            border: '1px solid rgba(100, 116, 139, 0.3)',
+                            padding: '5px 12px',
+                            borderRadius: '8px',
+                            border: '1px solid rgba(27, 107, 69, 0.28)',
                             background: '#ffffff',
-                            color: '#475569',
-                            fontSize: '0.72rem',
+                            color: '#0f4a2a',
+                            fontSize: '0.74rem',
                             fontWeight: 800,
                             cursor: 'pointer',
                           }}
                         >
-                          Alamat Setting
+                          Pengaturan
                         </button>
                       </div>
                     </div>
@@ -12749,28 +12699,47 @@ export default function AdminSidebarPage() {
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
                           <div>
                             <strong style={{ display: 'block', fontSize: '0.84rem', color: '#166534' }}>
-                              ● Terhubung (+{waLocalStatus.phone || 'Siap'})
+                              ● Terhubung ({waLocalStatus.phone ? formatIndoLocalPhone(waLocalStatus.phone) : 'Siap'})
                             </strong>
                             <span style={{ fontSize: '0.74rem', color: '#15803d' }}>
                               Siap kirim otomatis satuan &amp; banyak.
                             </span>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => void logoutWaLocal()}
-                            style={{
-                              padding: '6px 11px',
-                              borderRadius: '8px',
-                              border: '1px solid rgba(220, 38, 38, 0.3)',
-                              background: '#fef2f2',
-                              color: '#b91c1c',
-                              fontSize: '0.75rem',
-                              fontWeight: 800,
-                              cursor: 'pointer',
-                            }}
-                          >
-                            Ganti Akun WA
-                          </button>
+                          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                            <button
+                              type="button"
+                              onClick={() => void checkWaLocalStatus(false)}
+                              disabled={waLocalStatus.checking}
+                              style={{
+                                padding: '6px 10px',
+                                borderRadius: '8px',
+                                border: '1px solid rgba(27, 107, 69, 0.25)',
+                                background: '#ffffff',
+                                color: '#0f4a2a',
+                                fontSize: '0.74rem',
+                                fontWeight: 700,
+                                cursor: waLocalStatus.checking ? 'wait' : 'pointer',
+                              }}
+                            >
+                              {waLocalStatus.checking ? 'Mengecek...' : 'Cek Koneksi'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void logoutWaLocal()}
+                              style={{
+                                padding: '6px 11px',
+                                borderRadius: '8px',
+                                border: '1px solid rgba(220, 38, 38, 0.3)',
+                                background: '#fef2f2',
+                                color: '#b91c1c',
+                                fontSize: '0.74rem',
+                                fontWeight: 800,
+                                cursor: 'pointer',
+                              }}
+                            >
+                              Ganti Akun WA
+                            </button>
+                          </div>
                         </div>
                       ) : waLocalStatus.online && waLocalStatus.qrDataUrl ? (
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '10px' }}>
