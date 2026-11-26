@@ -244,6 +244,119 @@ app.post('/send-media', async (req, res) => {
   }
 });
 
+const SCHEDULE_FILE = path.join(__dirname, 'scheduled_jobs.json');
+
+function loadScheduledJobs() {
+  try {
+    if (!fs.existsSync(SCHEDULE_FILE)) return [];
+    const raw = fs.readFileSync(SCHEDULE_FILE, 'utf8');
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveScheduledJobs(jobs) {
+  try {
+    fs.writeFileSync(SCHEDULE_FILE, JSON.stringify(jobs, null, 2), 'utf8');
+  } catch (err) {
+    console.error('[ERROR SAVE SCHEDULE]', err);
+  }
+}
+
+app.get('/scheduled', (_req, res) => {
+  const jobs = loadScheduledJobs().map((j) => ({
+    id: j.id,
+    phone: j.phone,
+    scheduledAt: j.scheduledAt,
+    sent: Boolean(j.sent),
+    sentAt: j.sentAt || null,
+    error: j.error || null,
+  }));
+  res.json({ ok: true, jobs });
+});
+
+app.post('/schedule-send', (req, res) => {
+  try {
+    const { id, phone, caption, imageBase64, fileName, scheduledAt } = req.body || {};
+    const jid = formatJid(phone);
+    if (!jid) {
+      return res.status(400).json({ ok: false, error: 'Nomor WhatsApp tujuan tidak valid.' });
+    }
+    const targetTime = new Date(scheduledAt).getTime();
+    if (!scheduledAt || Number.isNaN(targetTime)) {
+      return res.status(400).json({ ok: false, error: 'Waktu jadwal tidak valid.' });
+    }
+    const jobs = loadScheduledJobs().filter((j) => j.id !== String(id));
+    jobs.push({
+      id: String(id || Date.now()),
+      phone: String(phone),
+      caption: String(caption || ''),
+      imageBase64: String(imageBase64 || ''),
+      fileName: fileName || 'Surat-Undangan.png',
+      scheduledAt: new Date(targetTime).toISOString(),
+      sent: false,
+      sentAt: null,
+      error: null,
+    });
+    saveScheduledJobs(jobs);
+    console.log(`[JADWAL TERSIMPAN] id=${id} -> ${jid} pada ${new Date(targetTime).toLocaleString('id-ID')}`);
+    return res.json({ ok: true, scheduledAt: new Date(targetTime).toISOString() });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err?.message || 'Gagal menjadwalkan.' });
+  }
+});
+
+let isProcessingSchedule = false;
+setInterval(async () => {
+  if (isProcessingSchedule || !sock || !connectionState.connected) return;
+  const jobs = loadScheduledJobs();
+  const now = Date.now();
+  const dueJobs = jobs.filter((j) => !j.sent && new Date(j.scheduledAt).getTime() <= now);
+  if (dueJobs.length === 0) return;
+
+  isProcessingSchedule = true;
+  try {
+    let changed = false;
+    for (const job of dueJobs) {
+      try {
+        const jid = formatJid(job.phone);
+        if (!jid) {
+          job.error = 'Nomor tidak valid';
+          changed = true;
+          continue;
+        }
+        const cleanBase64 = String(job.imageBase64 || '').replace(/^data:image\/\w+;base64,/, '');
+        if (cleanBase64) {
+          await sock.sendMessage(jid, {
+            image: Buffer.from(cleanBase64, 'base64'),
+            caption: String(job.caption || ''),
+            mimetype: 'image/png',
+            fileName: job.fileName || 'Surat-Undangan.png',
+          });
+        } else {
+          await sock.sendMessage(jid, { text: String(job.caption || '') });
+        }
+        job.sent = true;
+        job.sentAt = new Date().toISOString();
+        job.error = null;
+        changed = true;
+        console.log(`[JADWAL TERKIRIM OTOMATIS] -> ${jid} (${job.fileName})`);
+      } catch (err) {
+        job.error = err?.message || 'Gagal kirim terjadwal';
+        changed = true;
+        console.error('[ERROR JADWAL]', err);
+      }
+    }
+    if (changed) {
+      saveScheduledJobs(jobs);
+    }
+  } finally {
+    isProcessingSchedule = false;
+  }
+}, 10000);
+
 const server = app.listen(PORT, '0.0.0.0', () => {
   console.log('======================================================');
   console.log('  WA SENDER LOKAL - MASJID AL-JIHAD KARAWANG');

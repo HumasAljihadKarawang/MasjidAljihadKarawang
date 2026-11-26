@@ -689,6 +689,8 @@ export default function AdminSidebarPage() {
     noTelp: string
     status: AutoUndanganStatus
     createdAt: string
+    sentAt?: string
+    scheduledAt?: string
   }
   const [autoUndanganList, setAutoUndanganList] = useState<AutoUndanganItem[]>([])
   const [khatibContacts, setKhatibContacts] = useState<Record<string, string>>({})
@@ -745,6 +747,9 @@ export default function AdminSidebarPage() {
   })
   const [shareWaChoiceItem, setShareWaChoiceItem] = useState<AutoUndanganItem | null>(null)
   const [editAutoUndanganItem, setEditAutoUndanganItem] = useState<AutoUndanganItem | null>(null)
+  const [showSchedulePicker, setShowSchedulePicker] = useState(false)
+  const [scheduleDateTimeInput, setScheduleDateTimeInput] = useState('')
+  const [manualGuideItem, setManualGuideItem] = useState<AutoUndanganItem | null>(null)
 
   const ROMAN_MONTHS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII']
 
@@ -914,12 +919,23 @@ export default function AdminSidebarPage() {
 
   const handleUpdateAutoUndanganStatus = async (
     targetItem: AutoUndanganItem,
-    nextStatus: AutoUndanganStatus
+    nextStatus: AutoUndanganStatus,
+    customSentAt?: string
   ) => {
+    const resolvedSentAt =
+      nextStatus === 'Belum Dikirim'
+        ? undefined
+        : customSentAt || targetItem.sentAt || new Date().toISOString()
+
     setAutoUndanganList((prev) => {
       const next = prev.map((x) =>
         x.id === targetItem.id || x.noSurat === targetItem.noSurat
-          ? { ...x, status: nextStatus }
+          ? {
+              ...x,
+              status: nextStatus,
+              sentAt: resolvedSentAt,
+              scheduledAt: nextStatus === 'Sudah Dikirim' ? undefined : x.scheduledAt,
+            }
           : x
       )
       try {
@@ -1155,6 +1171,113 @@ export default function AdminSidebarPage() {
     }
     await handleUpdateAutoUndanganStatus(item, 'Sudah Dikirim')
   }
+
+  const scheduleAutoUndanganViaWaLocal = async (
+    item: AutoUndanganItem,
+    scheduledIso: string
+  ) => {
+    const waPhone = normalizeWaPhone(item.noTelp)
+    if (!waPhone) {
+      throw new Error(`Nomor WA untuk ${item.nama} masih kosong`)
+    }
+    const isKhutbah = /khotib|khatib|imam|bilal|jumat|jum'at/i.test(item.perihal)
+    const jenisTarget: 'Khutbah Jumat' | 'Umum' = isKhutbah ? 'Khutbah Jumat' : 'Umum'
+    const waText = getSuratWaText({
+      kepada: item.nama,
+      perihal: item.perihal,
+      tanggal: item.tanggal,
+      noSurat: item.noSurat,
+      jenisSurat: jenisTarget,
+    })
+    const imgBlob = await buildSuratImageBlob({
+      noSurat: item.noSurat,
+      perihal: item.perihal,
+      kepada: item.nama,
+      tanggal: item.tanggal,
+      waktu: isKhutbah ? '11:36 WIB' : waktuSuratAcara,
+      agenda: item.perihal,
+      jenisSurat: jenisTarget,
+    })
+    const fileName = `Surat-Undangan-${item.nama.replace(/[^a-zA-Z0-9]+/g, '-')}-${item.tanggal}.png`
+    const imageBase64 = await blobToBase64(imgBlob)
+    const targetUrl = getActiveWaUrl()
+    const res = await fetch(`${targetUrl}/schedule-send`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: item.id,
+        phone: waPhone,
+        caption: waText,
+        imageBase64,
+        fileName,
+        scheduledAt: scheduledIso,
+      }),
+    })
+    const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string }
+    if (!res.ok || !data.ok) {
+      throw new Error(data.error || 'Gagal menjadwalkan di WA Sender')
+    }
+    setAutoUndanganList((prev) => {
+      const next = prev.map((x) =>
+        x.id === item.id || x.noSurat === item.noSurat ? { ...x, scheduledAt: scheduledIso } : x
+      )
+      try {
+        window.localStorage.setItem('aljihad_auto_undangan_v1', JSON.stringify(next))
+      } catch {
+        // ignore
+      }
+      return next
+    })
+  }
+
+  useEffect(() => {
+    if (suratTabMode !== 'otomatis' || !waLocalStatus.online) return
+    const syncScheduled = async () => {
+      try {
+        const res = await fetch(`${getActiveWaUrl()}/scheduled`)
+        if (!res.ok) return
+        const data = (await res.json()) as {
+          ok?: boolean
+          jobs?: Array<{ id: string; sent: boolean; sentAt?: string | null }>
+        }
+        if (!data.ok || !Array.isArray(data.jobs)) return
+        const sentMap = new Map(
+          data.jobs.filter((j) => j.sent).map((j) => [j.id, j.sentAt || new Date().toISOString()])
+        )
+        if (sentMap.size === 0) return
+        setAutoUndanganList((prev) => {
+          let changed = false
+          const next = prev.map((it) => {
+            if (it.status === 'Belum Dikirim' && sentMap.has(it.id)) {
+              changed = true
+              return {
+                ...it,
+                status: 'Sudah Dikirim' as AutoUndanganStatus,
+                sentAt: sentMap.get(it.id),
+                scheduledAt: undefined,
+              }
+            }
+            return it
+          })
+          if (changed) {
+            try {
+              window.localStorage.setItem('aljihad_auto_undangan_v1', JSON.stringify(next))
+            } catch {
+              // ignore
+            }
+          }
+          return changed ? next : prev
+        })
+      } catch {
+        // ignore
+      }
+    }
+    void syncScheduled()
+    const timer = window.setInterval(() => {
+      void syncScheduled()
+    }, 10000)
+    return () => window.clearInterval(timer)
+  }, [suratTabMode, waLocalStatus.online, selectedWaDeviceId, waDevices])
 
   const sendAutoUndanganManual = async (item: AutoUndanganItem) => {
     const isKhutbah = /khotib|khatib|imam|bilal|jumat|jum'at/i.test(item.perihal)
@@ -13077,10 +13200,11 @@ export default function AdminSidebarPage() {
                 </div>
               )}
 
-              {/* POP-UP KONFIRMASI ADMIN STATUS UNDANGAN OTOMATIS (DENGAN INDIKATOR STATUS & TANPA STIKER) */}
+              {/* POP-UP KONFIRMASI ADMIN STATUS UNDANGAN OTOMATIS */}
               {konfirmasiAutoModal &&
                 (() => {
                   const st = konfirmasiAutoModal.status
+                  const stLabel = st === 'Sudah Dikirim' ? 'Sudah Terkirim' : st
                   const statusBadgeStyle =
                     st === 'Diterima'
                       ? { bg: '#dcfce7', fg: '#166534', dot: '#16a34a', border: '#86efac' }
@@ -13090,13 +13214,28 @@ export default function AdminSidebarPage() {
                           ? { bg: '#dbeafe', fg: '#1e40af', dot: '#2563eb', border: '#93c5fd' }
                           : { bg: '#fef3c7', fg: '#92400e', dot: '#d97706', border: '#fde68a' }
 
-                  const currentStepIndex =
-                    st === 'Belum Dikirim' ? 0 : st === 'Sudah Dikirim' ? 1 : 2
+                  const closeStatusModal = () => {
+                    setKonfirmasiAutoModal(null)
+                    setShowSchedulePicker(false)
+                  }
 
                   const updateAutoStatus = (nextStatus: AutoUndanganStatus) => {
-                    handleUpdateAutoUndanganStatus(konfirmasiAutoModal, nextStatus)
-                    setKonfirmasiAutoModal(null)
+                    void handleUpdateAutoUndanganStatus(konfirmasiAutoModal, nextStatus)
+                    closeStatusModal()
                   }
+
+                  const sentTimeText =
+                    st === 'Belum Dikirim'
+                      ? 'Belum dikirim'
+                      : konfirmasiAutoModal.sentAt
+                        ? new Date(konfirmasiAutoModal.sentAt).toLocaleString('id-ID', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          }) + ' WIB'
+                        : 'Sudah terkirim'
 
                   return (
                     <div
@@ -13111,285 +13250,491 @@ export default function AdminSidebarPage() {
                         justifyContent: 'center',
                         padding: '16px',
                       }}
-                      onDoubleClick={() => setKonfirmasiAutoModal(null)}
+                      onDoubleClick={closeStatusModal}
                     >
                       <div
                         style={{
                           background: '#ffffff',
                           borderRadius: '18px',
                           width: '100%',
-                          maxWidth: '520px',
+                          maxWidth: '480px',
                           maxHeight: '90vh',
                           overflowY: 'auto',
-                          padding: '24px',
+                          padding: '22px',
                           boxShadow: '0 24px 60px rgba(0, 0, 0, 0.32)',
                         }}
-                        onClick={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}
+                        onClick={(e) => e.stopPropagation()}
+                        onDoubleClick={(e) => e.stopPropagation()}
                       >
                         <div
                           style={{
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'space-between',
-                            marginBottom: '12px',
-                          }}
-                        >
-                          <div>
-                            <h3
-                              style={{
-                                margin: 0,
-                                fontSize: '1.08rem',
-                                fontWeight: 900,
-                                color: '#0f4a2a',
-                              }}
-                            >
-                              Kelola &amp; Konfirmasi Status Undangan
-                            </h3>
-                            <span style={{ fontSize: '0.76rem', color: '#4b5563', fontWeight: 600 }}>
-                              Perbarui progres pengiriman dan respon penerima undangan
-                            </span>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => setKonfirmasiAutoModal(null)}
-                            style={{
-                              border: '1px solid #d1d5db',
-                              background: '#f9fafb',
-                              color: '#374151',
-                              borderRadius: '8px',
-                              padding: '5px 11px',
-                              fontSize: '0.78rem',
-                              fontWeight: 800,
-                              cursor: 'pointer',
-                            }}
-                          >
-                            Tutup
-                          </button>
-                        </div>
-
-                        {/* Ringkasan Penerima + Indikator Status Saat Ini */}
-                        <div
-                          style={{
-                            padding: '13px 15px',
-                            borderRadius: '12px',
-                            background: '#f8faf8',
-                            border: '1px solid rgba(27, 107, 69, 0.16)',
                             marginBottom: '14px',
                           }}
                         >
-                          <div
+                          <h3
                             style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'space-between',
-                              gap: '8px',
-                              flexWrap: 'wrap',
-                              marginBottom: '6px',
+                              margin: 0,
+                              fontSize: '1.08rem',
+                              fontWeight: 900,
+                              color: '#0f4a2a',
                             }}
                           >
-                            <span
-                              style={{
-                                fontSize: '0.74rem',
-                                fontWeight: 800,
-                                color: '#0f4a2a',
-                              }}
-                            >
-                              {konfirmasiAutoModal.noSurat}
-                            </span>
+                            Konfirmasi Status Undangan
+                          </h3>
+                          <button
+                            type="button"
+                            aria-label="Tutup"
+                            onClick={closeStatusModal}
+                            style={{
+                              border: 'none',
+                              background: '#f1f5f9',
+                              color: '#475569',
+                              borderRadius: '999px',
+                              width: '30px',
+                              height: '30px',
+                              fontSize: '0.95rem',
+                              fontWeight: 800,
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}
+                          >
+                            ✕
+                          </button>
+                        </div>
+
+                        {/* Ringkasan Info Surat + Status Besar */}
+                        <div
+                          style={{
+                            padding: '14px 16px',
+                            borderRadius: '12px',
+                            background: '#f8faf8',
+                            border: '1px solid rgba(27, 107, 69, 0.16)',
+                            marginBottom: '16px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '6px',
+                          }}
+                        >
+                          <div style={{ fontSize: '0.76rem', fontWeight: 800, color: '#0f4a2a' }}>
+                            {konfirmasiAutoModal.noSurat}
+                          </div>
+                          <div style={{ fontSize: '0.96rem', fontWeight: 900, color: '#111827' }}>
+                            {konfirmasiAutoModal.nama}
+                          </div>
+                          <div style={{ fontSize: '0.81rem', color: '#374151', fontWeight: 600 }}>
+                            <strong>Permohonan:</strong> {konfirmasiAutoModal.perihal}
+                          </div>
+                          <div style={{ fontSize: '0.81rem', color: '#374151', fontWeight: 600 }}>
+                            <strong>Waktu Terkirim:</strong> {sentTimeText}
+                          </div>
+                          {konfirmasiAutoModal.scheduledAt && st === 'Belum Dikirim' && (
+                            <div style={{ fontSize: '0.78rem', color: '#b45309', fontWeight: 700 }}>
+                              <strong>Terjadwal Otomatis:</strong>{' '}
+                              {new Date(konfirmasiAutoModal.scheduledAt).toLocaleString('id-ID', {
+                                day: '2-digit',
+                                month: 'short',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}{' '}
+                              WIB
+                            </div>
+                          )}
+                          <div style={{ fontSize: '0.81rem', color: '#374151', fontWeight: 600 }}>
+                            <strong>No. Telp:</strong> {konfirmasiAutoModal.noTelp || '-'}
+                          </div>
+                          <div style={{ marginTop: '6px' }}>
                             <span
                               style={{
                                 display: 'inline-flex',
                                 alignItems: 'center',
-                                gap: '6px',
-                                fontSize: '0.75rem',
-                                fontWeight: 800,
-                                padding: '3px 11px',
+                                gap: '8px',
+                                fontSize: '0.94rem',
+                                fontWeight: 900,
+                                padding: '6px 14px',
                                 borderRadius: '999px',
                                 background: statusBadgeStyle.bg,
                                 color: statusBadgeStyle.fg,
-                                border: `1px solid ${statusBadgeStyle.border}`,
+                                border: `1.5px solid ${statusBadgeStyle.border}`,
                               }}
                             >
                               <span
                                 style={{
-                                  width: '8px',
-                                  height: '8px',
+                                  width: '9px',
+                                  height: '9px',
                                   borderRadius: '999px',
                                   background: statusBadgeStyle.dot,
                                   display: 'inline-block',
                                 }}
                               />
-                              {`Status Sekarang: ${st}`}
+                              {stLabel}
                             </span>
                           </div>
-                          <div style={{ fontSize: '0.92rem', fontWeight: 800, color: '#111827' }}>
-                            {konfirmasiAutoModal.nama}
-                          </div>
-                          <div
-                            style={{
-                              fontSize: '0.8rem',
-                              color: '#4b5563',
-                              fontWeight: 600,
-                              marginTop: '2px',
-                            }}
-                          >
-                            {`${konfirmasiAutoModal.perihal} • ${konfirmasiAutoModal.tanggal} • WA: ${konfirmasiAutoModal.noTelp}`}
-                          </div>
                         </div>
 
-                        {/* Indikator Progres 3 Tahap */}
-                        <div
-                          style={{
-                            display: 'grid',
-                            gridTemplateColumns: 'repeat(3, 1fr)',
-                            gap: '8px',
-                            marginBottom: '16px',
-                          }}
-                        >
-                          {[
-                            { idx: 0, title: '1. Belum Dikirim' },
-                            { idx: 1, title: '2. Sudah Dikirim' },
-                            {
-                              idx: 2,
-                              title:
-                                st === 'Ditolak'
-                                  ? '3. Ditolak'
-                                  : st === 'Diterima'
-                                    ? '3. Diterima'
-                                    : '3. Konfirmasi Akhir',
-                            },
-                          ].map((step) => {
-                            const isReached = currentStepIndex >= step.idx
-                            const isCurrent = currentStepIndex === step.idx
-                            const activeBg =
-                              step.idx === 2 && st === 'Ditolak'
-                                ? '#dc2626'
-                                : step.idx === 2 && st === 'Diterima'
-                                  ? '#15803d'
-                                  : '#0f4a2a'
-                            return (
-                              <div key={step.idx} style={{ textAlign: 'center' }}>
-                                <div
+                        {st === 'Belum Dikirim' ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            <div style={{ fontSize: '0.84rem', fontWeight: 800, color: '#0f172a' }}>
+                              Surat ini belum dikirim. Pilih tindakan:
+                            </div>
+                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                              <button
+                                type="button"
+                                disabled={!waLocalStatus.connected || !normalizeWaPhone(konfirmasiAutoModal.noTelp)}
+                                onClick={async () => {
+                                  const target = konfirmasiAutoModal
+                                  closeStatusModal()
+                                  try {
+                                    setAutoWaShareHint(`Mengirim surat PNG + teks ke WA ${target.nama}...`)
+                                    await sendAutoUndanganViaWaLocal(target)
+                                    setAutoWaShareHint(
+                                      `Berhasil! Surat PNG (${target.noSurat}) terkirim otomatis ke WA ${target.nama}.`
+                                    )
+                                  } catch (err) {
+                                    setAutoWaShareHint(
+                                      `Gagal kirim otomatis: ${err instanceof Error ? err.message : 'error'}`
+                                    )
+                                  }
+                                }}
+                                style={{
+                                  flex: 1,
+                                  padding: '10px 14px',
+                                  borderRadius: '10px',
+                                  border: 'none',
+                                  background:
+                                    waLocalStatus.connected && normalizeWaPhone(konfirmasiAutoModal.noTelp)
+                                      ? '#16a34a'
+                                      : '#cbd5e1',
+                                  color: '#ffffff',
+                                  fontSize: '0.84rem',
+                                  fontWeight: 800,
+                                  cursor:
+                                    waLocalStatus.connected && normalizeWaPhone(konfirmasiAutoModal.noTelp)
+                                      ? 'pointer'
+                                      : 'not-allowed',
+                                }}
+                              >
+                                Kirim Sekarang
+                              </button>
+
+                              <button
+                                type="button"
+                                disabled={!waLocalStatus.online || !normalizeWaPhone(konfirmasiAutoModal.noTelp)}
+                                onClick={() => {
+                                  const nowPlus5 = new Date(Date.now() + 5 * 60000)
+                                  const localIso = new Date(
+                                    nowPlus5.getTime() - nowPlus5.getTimezoneOffset() * 60000
+                                  )
+                                    .toISOString()
+                                    .slice(0, 16)
+                                  setScheduleDateTimeInput(localIso)
+                                  setShowSchedulePicker((prev) => !prev)
+                                }}
+                                style={{
+                                  flex: 1,
+                                  padding: '10px 14px',
+                                  borderRadius: '10px',
+                                  border: '1px solid #cbd5e1',
+                                  background: waLocalStatus.online ? '#f8fafc' : '#f1f5f9',
+                                  color: waLocalStatus.online ? '#0f172a' : '#94a3b8',
+                                  fontSize: '0.84rem',
+                                  fontWeight: 800,
+                                  cursor:
+                                    waLocalStatus.online && normalizeWaPhone(konfirmasiAutoModal.noTelp)
+                                      ? 'pointer'
+                                      : 'not-allowed',
+                                }}
+                              >
+                                Jadwalkan
+                              </button>
+                            </div>
+
+                            {showSchedulePicker && (
+                              <div
+                                style={{
+                                  padding: '10px 12px',
+                                  borderRadius: '10px',
+                                  background: '#f8fafc',
+                                  border: '1px solid #cbd5e1',
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  gap: '8px',
+                                }}
+                              >
+                                <label style={{ fontSize: '0.76rem', fontWeight: 700, color: '#334155' }}>
+                                  Pilih Tanggal &amp; Jam Kirim Otomatis (WA Sender):
+                                </label>
+                                <input
+                                  type="datetime-local"
+                                  value={scheduleDateTimeInput}
+                                  onChange={(e) => setScheduleDateTimeInput(e.target.value)}
                                   style={{
-                                    height: '6px',
-                                    borderRadius: '999px',
-                                    background: isReached ? activeBg : '#e5e7eb',
-                                    marginBottom: '5px',
-                                    transition: 'background 0.2s ease',
+                                    padding: '7px 10px',
+                                    borderRadius: '8px',
+                                    border: '1px solid #cbd5e1',
+                                    fontSize: '0.82rem',
                                   }}
                                 />
-                                <span
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    if (!scheduleDateTimeInput) return
+                                    const target = konfirmasiAutoModal
+                                    const iso = new Date(scheduleDateTimeInput).toISOString()
+                                    closeStatusModal()
+                                    try {
+                                      await scheduleAutoUndanganViaWaLocal(target, iso)
+                                      setAutoWaShareHint(
+                                        `Terjadwal! Surat untuk ${target.nama} akan dikirim otomatis pada ${new Date(iso).toLocaleString('id-ID')}.`
+                                      )
+                                    } catch (err) {
+                                      setAutoWaShareHint(
+                                        `Gagal menjadwalkan: ${err instanceof Error ? err.message : 'error'}`
+                                      )
+                                    }
+                                  }}
                                   style={{
-                                    fontSize: '0.71rem',
-                                    fontWeight: isCurrent ? 900 : 700,
-                                    color: isCurrent
-                                      ? activeBg
-                                      : isReached
-                                        ? '#111827'
-                                        : '#9ca3af',
+                                    padding: '8px 12px',
+                                    borderRadius: '8px',
+                                    border: 'none',
+                                    background: '#0f4a2a',
+                                    color: '#ffffff',
+                                    fontSize: '0.8rem',
+                                    fontWeight: 800,
+                                    cursor: 'pointer',
                                   }}
                                 >
-                                  {step.title}
-                                </span>
+                                  Simpan Jadwal Otomatis
+                                </button>
                               </div>
-                            )
-                          })}
-                        </div>
+                            )}
 
-                        {/* Pilihan Pembaruan Status (Tanpa Stiker) */}
-                        <div style={{ display: 'grid', gap: '8px' }}>
-                          <button
-                            type="button"
-                            onClick={() => updateAutoStatus('Sudah Dikirim')}
-                            style={{
-                              textAlign: 'left',
-                              padding: '11px 14px',
-                              borderRadius: '11px',
-                              border:
-                                st === 'Sudah Dikirim'
-                                  ? '2px solid #2563eb'
-                                  : '1px solid #bfdbfe',
-                              background: st === 'Sudah Dikirim' ? '#dbeafe' : '#eff6ff',
-                              color: '#1e40af',
-                              cursor: 'pointer',
-                            }}
-                          >
-                            <div style={{ fontWeight: 800, fontSize: '0.86rem' }}>
-                              Sudah Dikirim ke WhatsApp
-                            </div>
-                            <div style={{ fontSize: '0.75rem', opacity: 0.88, marginTop: '2px' }}>
-                              Undangan format PNG dan teks pengantar sudah dikirimkan ke penerima
-                            </div>
-                          </button>
+                            {!waLocalStatus.connected && (
+                              <div style={{ fontSize: '0.72rem', color: '#64748b' }}>
+                                Kirim otomatis aktif saat Server WA Sender terhubung.
+                              </div>
+                            )}
 
-                          <button
-                            type="button"
-                            onClick={() => updateAutoStatus('Diterima')}
-                            style={{
-                              textAlign: 'left',
-                              padding: '11px 14px',
-                              borderRadius: '11px',
-                              border:
-                                st === 'Diterima' ? '2px solid #16a34a' : '1px solid #bbf7d0',
-                              background: st === 'Diterima' ? '#dcfce7' : '#f0fdf4',
-                              color: '#166534',
-                              cursor: 'pointer',
-                            }}
-                          >
-                            <div style={{ fontWeight: 800, fontSize: '0.86rem' }}>
+                            <div
+                              style={{
+                                marginTop: '6px',
+                                paddingTop: '10px',
+                                borderTop: '1px solid #e2e8f0',
+                                fontSize: '0.76rem',
+                                color: '#64748b',
+                                textAlign: 'center',
+                              }}
+                            >
+                              Ada kendala?{' '}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const target = konfirmasiAutoModal
+                                  closeStatusModal()
+                                  setManualGuideItem(target)
+                                }}
+                                style={{
+                                  border: 'none',
+                                  background: 'transparent',
+                                  color: '#0f4a2a',
+                                  fontWeight: 800,
+                                  fontSize: '0.76rem',
+                                  textDecoration: 'underline',
+                                  cursor: 'pointer',
+                                  padding: 0,
+                                }}
+                              >
+                                Kirim manual di sini
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div style={{ display: 'grid', gap: '8px' }}>
+                            <button
+                              type="button"
+                              onClick={() => updateAutoStatus('Diterima')}
+                              style={{
+                                textAlign: 'left',
+                                padding: '10px 14px',
+                                borderRadius: '10px',
+                                border: st === 'Diterima' ? '2px solid #16a34a' : '1px solid #bbf7d0',
+                                background: st === 'Diterima' ? '#dcfce7' : '#f0fdf4',
+                                color: '#166534',
+                                fontWeight: 800,
+                                fontSize: '0.84rem',
+                                cursor: 'pointer',
+                              }}
+                            >
                               Diterima (Bersedia Hadir)
-                            </div>
-                            <div style={{ fontSize: '0.75rem', opacity: 0.88, marginTop: '2px' }}>
-                              Khotib / Imam / Bilal / Pemateri telah mengonfirmasi bersedia hadir
-                            </div>
-                          </button>
+                            </button>
 
-                          <button
-                            type="button"
-                            onClick={() => updateAutoStatus('Ditolak')}
-                            style={{
-                              textAlign: 'left',
-                              padding: '11px 14px',
-                              borderRadius: '11px',
-                              border:
-                                st === 'Ditolak' ? '2px solid #dc2626' : '1px solid #fecaca',
-                              background: st === 'Ditolak' ? '#fee2e2' : '#fef2f2',
-                              color: '#991b1b',
-                              cursor: 'pointer',
-                            }}
-                          >
-                            <div style={{ fontWeight: 800, fontSize: '0.86rem' }}>
+                            <button
+                              type="button"
+                              onClick={() => updateAutoStatus('Ditolak')}
+                              style={{
+                                textAlign: 'left',
+                                padding: '10px 14px',
+                                borderRadius: '10px',
+                                border: st === 'Ditolak' ? '2px solid #dc2626' : '1px solid #fecaca',
+                                background: st === 'Ditolak' ? '#fee2e2' : '#fef2f2',
+                                color: '#991b1b',
+                                fontWeight: 800,
+                                fontSize: '0.84rem',
+                                cursor: 'pointer',
+                              }}
+                            >
                               Ditolak / Berhalangan
-                            </div>
-                            <div style={{ fontSize: '0.75rem', opacity: 0.88, marginTop: '2px' }}>
-                              Penerima berhalangan hadir sehingga perlu penjadwalan pengganti
-                            </div>
-                          </button>
+                            </button>
 
-                          {st !== 'Belum Dikirim' && (
                             <button
                               type="button"
                               onClick={() => updateAutoStatus('Belum Dikirim')}
                               style={{
                                 textAlign: 'center',
-                                padding: '9px 14px',
-                                borderRadius: '10px',
+                                padding: '8px 14px',
+                                borderRadius: '9px',
                                 border: '1px solid #d1d5db',
                                 background: '#f9fafb',
-                                color: '#374151',
+                                color: '#475569',
                                 fontWeight: 700,
-                                fontSize: '0.8rem',
+                                fontSize: '0.78rem',
                                 cursor: 'pointer',
                               }}
                             >
-                              Kembalikan ke Status Belum Dikirim
+                              Kembalikan ke Belum Dikirim
                             </button>
-                          )}
-                        </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )
                 })()}
+
+              {/* POP-UP PANDUAN KIRIM MANUAL (CTRL + V / PASTE GAMBAR) */}
+              {manualGuideItem && (
+                <div
+                  onDoubleClick={(e) => {
+                    if (e.target === e.currentTarget) setManualGuideItem(null)
+                  }}
+                  style={{
+                    position: 'fixed',
+                    inset: 0,
+                    background: 'rgba(15, 23, 42, 0.68)',
+                    backdropFilter: 'blur(4px)',
+                    zIndex: 9999,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '16px',
+                  }}
+                >
+                  <div
+                    style={{
+                      width: '100%',
+                      maxWidth: '430px',
+                      background: '#ffffff',
+                      borderRadius: '16px',
+                      padding: '22px',
+                      boxShadow: '0 24px 60px rgba(0, 0, 0, 0.28)',
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        marginBottom: '10px',
+                      }}
+                    >
+                      <h3 style={{ margin: 0, fontSize: '1.02rem', fontWeight: 900, color: '#0f4a2a' }}>
+                        Panduan Kirim Manual
+                      </h3>
+                      <button
+                        type="button"
+                        aria-label="Tutup"
+                        onClick={() => setManualGuideItem(null)}
+                        style={{
+                          border: 'none',
+                          background: '#f1f5f9',
+                          color: '#475569',
+                          borderRadius: '999px',
+                          width: '28px',
+                          height: '28px',
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                    <p style={{ margin: '0 0 12px', fontSize: '0.82rem', color: '#334155', lineHeight: 1.55 }}>
+                      Saat Anda klik <strong>Lanjut &amp; Buka WhatsApp</strong>, gambar surat PNG otomatis{' '}
+                      <strong>disalin ke papan klip (clipboard)</strong> dan chat WhatsApp ke{' '}
+                      <strong>{manualGuideItem.nama}</strong> akan terbuka dengan teks pengantar.
+                    </p>
+                    <div
+                      style={{
+                        padding: '10px 12px',
+                        borderRadius: '10px',
+                        background: '#f0fdf4',
+                        border: '1px solid rgba(22, 163, 74, 0.28)',
+                        fontSize: '0.8rem',
+                        color: '#166534',
+                        lineHeight: 1.5,
+                        marginBottom: '14px',
+                      }}
+                    >
+                      <strong>Cara memunculkan gambar di WhatsApp:</strong>
+                      <br />
+                      Setelah chat WhatsApp terbuka, cukup tekan <strong>Ctrl + V</strong> (atau klik kanan →{' '}
+                      <strong>Paste / Tempel</strong>) di kolom pesan, lalu klik Kirim.
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                      <button
+                        type="button"
+                        onClick={() => setManualGuideItem(null)}
+                        style={{
+                          padding: '7px 13px',
+                          borderRadius: '8px',
+                          border: '1px solid #e2e8f0',
+                          background: '#ffffff',
+                          color: '#64748b',
+                          fontSize: '0.8rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Batal
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const target = manualGuideItem
+                          setManualGuideItem(null)
+                          await sendAutoUndanganManual(target)
+                        }}
+                        style={{
+                          padding: '7px 14px',
+                          borderRadius: '8px',
+                          border: 'none',
+                          background: '#16a34a',
+                          color: '#ffffff',
+                          fontSize: '0.8rem',
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Lanjut &amp; Buka WhatsApp
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* MENU 8: UPLOAD KITAB EL JIHAD */}
