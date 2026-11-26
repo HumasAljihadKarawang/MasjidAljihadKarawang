@@ -752,6 +752,7 @@ export default function AdminSidebarPage() {
   const [showSchedulePicker, setShowSchedulePicker] = useState(false)
   const [scheduleDateTimeInput, setScheduleDateTimeInput] = useState('')
   const [manualGuideItem, setManualGuideItem] = useState<AutoUndanganItem | null>(null)
+  const [manualSentConfirmItem, setManualSentConfirmItem] = useState<AutoUndanganItem | null>(null)
 
   type KhotibPemateriKategori =
     | "Khotib Jum'at"
@@ -1637,7 +1638,7 @@ export default function AdminSidebarPage() {
           setAutoWaShareHint(
             `Surat undangan format PNG (${item.noSurat}) dan teks pengantar berhasil dibagikan.`
           )
-          setKonfirmasiAutoModal(item)
+          setManualSentConfirmItem(item)
           return
         } catch (err) {
           if (err instanceof Error && err.name === 'AbortError') {
@@ -1670,7 +1671,7 @@ export default function AdminSidebarPage() {
     setAutoWaShareHint(
       `Langsung diarahkan ke WA ${item.noTelp || 'tujuan'} dengan teks pengantar. Foto PNG (${item.noSurat}) sudah disalin ke clipboard (tekan Ctrl+V di chat WA) & diunduh, lalu tinggal klik Kirim.`
     )
-    setKonfirmasiAutoModal(item)
+    setManualSentConfirmItem(item)
   }
 
   const handleBulkSendWaLocal = async (itemsToSend: AutoUndanganItem[]) => {
@@ -14143,6 +14144,85 @@ export default function AdminSidebarPage() {
                         }}
                       >
                         Lanjut &amp; Buka WhatsApp
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* POP-UP TANYA KONFIRMASI SETELAH KIRIM MANUAL (YA / TIDAK) */}
+              {manualSentConfirmItem && (
+                <div
+                  onDoubleClick={(e) => {
+                    if (e.target === e.currentTarget) setManualSentConfirmItem(null)
+                  }}
+                  style={{
+                    position: 'fixed',
+                    inset: 0,
+                    background: 'rgba(15, 23, 42, 0.68)',
+                    backdropFilter: 'blur(4px)',
+                    zIndex: 9999,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '16px',
+                  }}
+                >
+                  <div
+                    style={{
+                      width: '100%',
+                      maxWidth: '410px',
+                      background: '#ffffff',
+                      borderRadius: '16px',
+                      padding: '22px',
+                      boxShadow: '0 24px 60px rgba(0, 0, 0, 0.28)',
+                    }}
+                  >
+                    <h3 style={{ margin: '0 0 8px', fontSize: '1.02rem', fontWeight: 900, color: '#0f4a2a' }}>
+                      Apakah Surat Sudah Terkirim?
+                    </h3>
+                    <p style={{ margin: '0 0 16px', fontSize: '0.83rem', color: '#475569', lineHeight: 1.55 }}>
+                      Konfirmasi apakah surat undangan untuk <strong>{manualSentConfirmItem.nama}</strong> ({manualSentConfirmItem.noSurat}) sudah berhasil Anda kirimkan lewat WhatsApp?
+                    </p>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', flexWrap: 'wrap' }}>
+                      <button
+                        type="button"
+                        onClick={() => setManualSentConfirmItem(null)}
+                        style={{
+                          padding: '8px 14px',
+                          borderRadius: '8px',
+                          border: '1px solid #cbd5e1',
+                          background: '#ffffff',
+                          color: '#475569',
+                          fontSize: '0.81rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Tidak (Belum Terkirim)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const target = manualSentConfirmItem
+                          setManualSentConfirmItem(null)
+                          await handleUpdateAutoUndanganStatus(target, 'Sudah Dikirim')
+                          setAutoWaShareHint(
+                            `Status undangan ${target.nama} (${target.noSurat}) diperbarui menjadi Sudah Terkirim.`
+                          )
+                        }}
+                        style={{
+                          padding: '8px 15px',
+                          borderRadius: '8px',
+                          border: 'none',
+                          background: '#16a34a',
+                          color: '#ffffff',
+                          fontSize: '0.81rem',
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Ya, Sudah Terkirim
                       </button>
                     </div>
                   </div>
