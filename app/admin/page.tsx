@@ -1430,6 +1430,14 @@ export default function AdminSidebarPage() {
   }
 
   useEffect(() => {
+    if (!autoWaShareHint) return
+    const timer = window.setTimeout(() => {
+      setAutoWaShareHint('')
+    }, 7000)
+    return () => window.clearTimeout(timer)
+  }, [autoWaShareHint])
+
+  useEffect(() => {
     if (suratTabMode !== 'otomatis') return
     void checkWaLocalStatus(true)
   }, [suratTabMode, selectedWaDeviceId, waDevices])
