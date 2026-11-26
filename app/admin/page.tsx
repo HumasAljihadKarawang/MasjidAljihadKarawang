@@ -716,6 +716,7 @@ export default function AdminSidebarPage() {
   const [konfirmasiAutoModal, setKonfirmasiAutoModal] = useState<AutoUndanganItem | null>(null)
   const [deleteAutoUndanganConfirm, setDeleteAutoUndanganConfirm] =
     useState<AutoUndanganItem | null>(null)
+  const [showDeleteBulkAutoConfirm, setShowDeleteBulkAutoConfirm] = useState(false)
   const [waLocalStatus, setWaLocalStatus] = useState<{
     checking: boolean
     online: boolean
@@ -1761,6 +1762,102 @@ export default function AdminSidebarPage() {
     if (skippedCount > 0) summaryParts.push(`${skippedCount} dilewati (no. WA kosong).`)
     if (failedNames.length > 0) summaryParts.push(`Gagal: ${failedNames.join(', ')}.`)
     setAutoWaShareHint(summaryParts.join(' '))
+  }
+
+  const handleBulkDeleteAutoUndangan = async (targetItems: AutoUndanganItem[]) => {
+    if (targetItems.length === 0) return
+    const targetIds = new Set(targetItems.map((x) => x.id))
+    const remaining = autoUndanganList.filter((x) => !targetIds.has(x.id))
+
+    const years = Array.from(
+      new Set(remaining.map((x) => getYearFromDateOrNomor(x.tanggal, x.noSurat)))
+    )
+    const renumberedMap = new Map<string, string>()
+    const changedItems: Array<{ item: AutoUndanganItem; nextNoSurat: string }> = []
+
+    years.forEach((yr) => {
+      const sameYearAsc = remaining
+        .filter((x) => getYearFromDateOrNomor(x.tanggal, x.noSurat) === yr)
+        .sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)))
+      sameYearAsc.forEach((it, idx) => {
+        const seqStr = String(idx + 1).padStart(3, '0')
+        const dt = it.tanggal ? new Date(`${it.tanggal}T12:00:00`) : new Date()
+        const validDt = Number.isNaN(dt.getTime()) ? new Date() : dt
+        const roman = ROMAN_MONTHS[validDt.getMonth()] || 'XI'
+        const nextNo = `${seqStr}/DKM-ALJIHAD/KRW/${roman}/${yr}`
+        renumberedMap.set(it.id, nextNo)
+        if (nextNo !== it.noSurat) {
+          changedItems.push({ item: it, nextNoSurat: nextNo })
+        }
+      })
+    })
+
+    const nextList = remaining.map((it) => {
+      const updatedNo = renumberedMap.get(it.id)
+      return updatedNo ? { ...it, noSurat: updatedNo } : it
+    })
+    saveAutoUndanganList(nextList)
+    setSelectedAutoUndanganIds([])
+
+    if (getActiveSupabaseConfig().isConfigured) {
+      const sb = getSupabaseClient()
+      for (const targetItem of targetItems) {
+        try {
+          await sb.from('surat_undangan_otomatis').delete().eq('id', targetItem.id)
+          await sb.from('surat_undangan_otomatis').delete().eq('no_surat', targetItem.noSurat)
+        } catch {
+          // ignore
+        }
+        try {
+          await sb.from('kritik_saran').delete().eq('id', targetItem.id)
+          await sb
+            .from('kritik_saran')
+            .delete()
+            .eq('kategori', '__AUTO_UNDANGAN__')
+            .ilike('pesan', `%${targetItem.id}%`)
+          await sb
+            .from('kritik_saran')
+            .update({ kategori: '__AUTO_UNDANGAN_DELETED__' })
+            .eq('id', targetItem.id)
+          await sb
+            .from('kritik_saran')
+            .update({ kategori: '__AUTO_UNDANGAN_DELETED__' })
+            .eq('kategori', '__AUTO_UNDANGAN__')
+            .ilike('pesan', `%${targetItem.id}%`)
+          await sb
+            .from('kritik_saran')
+            .update({ kategori: '__AUTO_UNDANGAN_DELETED__' })
+            .eq('kategori', '__AUTO_UNDANGAN__')
+            .ilike('pesan', `%${targetItem.noSurat}%`)
+        } catch {
+          // ignore
+        }
+      }
+      for (const ch of changedItems) {
+        try {
+          await sb
+            .from('surat_undangan_otomatis')
+            .update({ no_surat: ch.nextNoSurat })
+            .eq('id', ch.item.id)
+          const updatedPayload = JSON.stringify({
+            clientId: ch.item.id,
+            noSurat: ch.nextNoSurat,
+            perihal: ch.item.perihal,
+            createdAt: ch.item.createdAt,
+          })
+          await sb.from('kritik_saran').update({ pesan: updatedPayload }).eq('id', ch.item.id)
+          await sb
+            .from('kritik_saran')
+            .update({ pesan: updatedPayload })
+            .eq('kategori', '__AUTO_UNDANGAN__')
+            .ilike('pesan', `%${ch.item.id}%`)
+        } catch {
+          // ignore
+        }
+      }
+    }
+
+    setAutoWaShareHint(`${targetItems.length} surat undangan terpilih berhasil dihapus.`)
   }
 
   const handleDeleteAutoUndangan = async (targetItem: AutoUndanganItem) => {
@@ -12125,7 +12222,7 @@ export default function AdminSidebarPage() {
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                           <button
                             type="button"
-                            disabled={!waLocalStatus.connected || waBulkSending}
+                            disabled={waBulkSending}
                             onClick={() => {
                               const aq = autoUndanganSearchQuery.trim().toLowerCase()
                               const visibleIds = autoUndanganList
@@ -12152,11 +12249,11 @@ export default function AdminSidebarPage() {
                               padding: '5px 11px',
                               borderRadius: '7px',
                               border: '1px solid rgba(27, 107, 69, 0.25)',
-                              background: !waLocalStatus.connected || waBulkSending ? '#f1f5f9' : '#ffffff',
-                              color: !waLocalStatus.connected || waBulkSending ? '#94a3b8' : '#14532d',
+                              background: waBulkSending ? '#f1f5f9' : '#ffffff',
+                              color: waBulkSending ? '#94a3b8' : '#14532d',
                               fontSize: '0.75rem',
                               fontWeight: 800,
-                              cursor: !waLocalStatus.connected || waBulkSending ? 'not-allowed' : 'pointer',
+                              cursor: waBulkSending ? 'not-allowed' : 'pointer',
                             }}
                           >
                             {selectedAutoUndanganIds.length > 0 ? 'Batal Pilih' : 'Pilih Semua'}
@@ -12193,10 +12290,39 @@ export default function AdminSidebarPage() {
                                 : 'Mengirim...'
                               : `Kirim Terpilih (${selectedAutoUndanganIds.length})`}
                           </button>
+                          <button
+                            type="button"
+                            disabled={selectedAutoUndanganIds.length === 0 || waBulkSending}
+                            onClick={() => setShowDeleteBulkAutoConfirm(true)}
+                            style={{
+                              padding: '6px 12px',
+                              borderRadius: '8px',
+                              border:
+                                selectedAutoUndanganIds.length === 0 || waBulkSending
+                                  ? '1px solid #e2e8f0'
+                                  : '1px solid rgba(220, 38, 38, 0.3)',
+                              background:
+                                selectedAutoUndanganIds.length === 0 || waBulkSending
+                                  ? '#f1f5f9'
+                                  : '#fef2f2',
+                              color:
+                                selectedAutoUndanganIds.length === 0 || waBulkSending
+                                  ? '#94a3b8'
+                                  : '#b91c1c',
+                              fontSize: '0.75rem',
+                              fontWeight: 800,
+                              cursor:
+                                selectedAutoUndanganIds.length === 0 || waBulkSending
+                                  ? 'not-allowed'
+                                  : 'pointer',
+                            }}
+                          >
+                            {`Hapus Terpilih (${selectedAutoUndanganIds.length})`}
+                          </button>
                         </div>
                         {!waLocalStatus.connected && (
                           <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 700 }}>
-                            Aktif setelah Server WA Sender terhubung (jeda acak 10–16 dtk/khotib)
+                            Kirim Terpilih aktif saat WA Sender terhubung (Hapus Terpilih selalu aktif)
                           </span>
                         )}
                       </div>
@@ -12411,7 +12537,7 @@ export default function AdminSidebarPage() {
                                 <input
                                   type="checkbox"
                                   aria-label={`Pilih ${item.nama}`}
-                                  disabled={!waLocalStatus.connected || waBulkSending}
+                                  disabled={waBulkSending}
                                   checked={selectedAutoUndanganIds.includes(item.id)}
                                   onChange={(e) => {
                                     const checked = e.target.checked
@@ -12426,11 +12552,8 @@ export default function AdminSidebarPage() {
                                     width: '16px',
                                     height: '16px',
                                     accentColor: '#15803d',
-                                    cursor:
-                                      !waLocalStatus.connected || waBulkSending
-                                        ? 'not-allowed'
-                                        : 'pointer',
-                                    opacity: !waLocalStatus.connected || waBulkSending ? 0.45 : 1,
+                                    cursor: waBulkSending ? 'not-allowed' : 'pointer',
+                                    opacity: waBulkSending ? 0.45 : 1,
                                     flexShrink: 0,
                                   }}
                                 />
@@ -14228,6 +14351,84 @@ export default function AdminSidebarPage() {
                         }}
                       >
                         Ya, Sudah Terkirim
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* POP-UP KONFIRMASI HAPUS TERPILIH (PILIH BANYAK) */}
+              {showDeleteBulkAutoConfirm && (
+                <div
+                  onDoubleClick={(e) => {
+                    if (e.target === e.currentTarget) setShowDeleteBulkAutoConfirm(false)
+                  }}
+                  style={{
+                    position: 'fixed',
+                    inset: 0,
+                    background: 'rgba(15, 23, 42, 0.68)',
+                    backdropFilter: 'blur(4px)',
+                    zIndex: 9999,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '16px',
+                  }}
+                >
+                  <div
+                    style={{
+                      width: '100%',
+                      maxWidth: '410px',
+                      background: '#ffffff',
+                      borderRadius: '16px',
+                      padding: '22px',
+                      boxShadow: '0 24px 60px rgba(0, 0, 0, 0.28)',
+                    }}
+                  >
+                    <h3 style={{ margin: '0 0 8px', fontSize: '1.02rem', fontWeight: 900, color: '#991b1b' }}>
+                      Hapus Surat Terpilih?
+                    </h3>
+                    <p style={{ margin: '0 0 16px', fontSize: '0.83rem', color: '#475569', lineHeight: 1.55 }}>
+                      Yakin ingin menghapus <strong>{selectedAutoUndanganIds.length}</strong> surat undangan terpilih secara global?
+                    </p>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                      <button
+                        type="button"
+                        onClick={() => setShowDeleteBulkAutoConfirm(false)}
+                        style={{
+                          padding: '8px 14px',
+                          borderRadius: '8px',
+                          border: '1px solid #cbd5e1',
+                          background: '#ffffff',
+                          color: '#475569',
+                          fontSize: '0.81rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Batal
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const targets = autoUndanganList.filter((it) =>
+                            selectedAutoUndanganIds.includes(it.id)
+                          )
+                          setShowDeleteBulkAutoConfirm(false)
+                          await handleBulkDeleteAutoUndangan(targets)
+                        }}
+                        style={{
+                          padding: '8px 15px',
+                          borderRadius: '8px',
+                          border: 'none',
+                          background: '#dc2626',
+                          color: '#ffffff',
+                          fontSize: '0.81rem',
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Ya, Hapus ({selectedAutoUndanganIds.length})
                       </button>
                     </div>
                   </div>
