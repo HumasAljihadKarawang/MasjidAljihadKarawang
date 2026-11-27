@@ -62,7 +62,42 @@ export default function KalenderSection() {
   // State Pop-up Daftar Aset Masjid (Tabel Pilih + Jumlah Maksimal Stok + Ketik Manual)
   const [showAsetModal, setShowAsetModal] = useState(false)
   const [previewPengajuan, setPreviewPengajuan] = useState<PengajuanKalenderItem | null>(null)
+  const [previewAgendaPublik, setPreviewAgendaPublik] = useState<AgendaKalenderItem | null>(null)
   const [selectedAsetQty, setSelectedAsetQty] = useState<Record<string, number>>({})
+
+  const formatTanggalIndoPublik = (isoDate?: string) => {
+    if (!isoDate) return '-'
+    const d = new Date(`${isoDate}T12:00:00`)
+    if (Number.isNaN(d.getTime())) return isoDate
+    return d.toLocaleDateString('id-ID', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    })
+  }
+
+  const isKhotibAgenda = (item: AgendaKalenderItem) =>
+    item.kategori === 'Khutbah Jumat' ||
+    (item.keterangan || '').startsWith('[KHOTIB_DATA]') ||
+    item.id.startsWith('khotib-kal-')
+
+  const parseKhotibMetaPublik = (keterangan?: string) => {
+    const raw = String(keterangan || '')
+    if (!raw.startsWith('[KHOTIB_DATA]')) return null
+    try {
+      return JSON.parse(raw.slice('[KHOTIB_DATA]'.length)) as {
+        kategori?: string
+        khotib?: string
+        imam?: string
+        bilal?: string
+        tema?: string
+        waktu?: string
+        noSurat?: string
+      }
+    } catch {
+      return null
+    }
+  }
   const [manualAsetExtra, setManualAsetExtra] = useState('')
   const [unsavedModalUser, setUnsavedModalUser] = useState<{
     contextLabel?: string
@@ -525,6 +560,8 @@ export default function KalenderSection() {
                   dayNum
                 ).padStart(2, '0')}`
                 const dayEvents = effectiveAgendas.filter((a) => a.tanggal === dateStr)
+                const hasKhotib = dayEvents.some((ev) => isKhotibAgenda(ev))
+                const nonKhotibCount = dayEvents.filter((ev) => !isKhotibAgenda(ev)).length
                 const hasConflict = dayEvents.some(
                   (ev) => findScheduleConflicts(ev, effectiveAgendas, ev.id).length > 0
                 )
@@ -543,14 +580,38 @@ export default function KalenderSection() {
                     }
                   >
                     <span>{dayNum}</span>
-                    {dayEvents.length > 0 && (
-                      <span
-                        className={`${styles.eventCountBadge} ${
-                          hasConflict ? styles.conflictCountBadge : ''
-                        }`}
-                      >
-                        {dayEvents.length}
-                      </span>
+                    {(hasKhotib || nonKhotibCount > 0) && (
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                        {hasKhotib && (
+                          <span
+                            title="Jadwal Khotib Tersedia"
+                            style={{
+                              width: '17px',
+                              height: '17px',
+                              borderRadius: '999px',
+                              background: '#f59e0b',
+                              color: '#ffffff',
+                              fontSize: '0.65rem',
+                              fontWeight: 900,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              boxShadow: '0 2px 5px rgba(245, 158, 11, 0.35)',
+                            }}
+                          >
+                            ✓
+                          </span>
+                        )}
+                        {nonKhotibCount > 0 && (
+                          <span
+                            className={`${styles.eventCountBadge} ${
+                              hasConflict ? styles.conflictCountBadge : ''
+                            }`}
+                          >
+                            {nonKhotibCount}
+                          </span>
+                        )}
+                      </div>
                     )}
                   </button>
                 )
@@ -570,6 +631,18 @@ export default function KalenderSection() {
                 Jadwal Terkoordinasi (Aman)
               </span>
               <span className={styles.legendBadge}>
+                <span
+                  style={{
+                    width: '11px',
+                    height: '11px',
+                    borderRadius: '999px',
+                    background: '#f59e0b',
+                    display: 'inline-block',
+                  }}
+                />
+                Jadwal Khotib (✓)
+              </span>
+              <span className={styles.legendBadge}>
                 <span className={styles.dotRed} />
                 Indikator Jam Beririsan / Bentrok
               </span>
@@ -581,7 +654,7 @@ export default function KalenderSection() {
             <div className={styles.agendaHeader}>
               <h3 className={styles.agendaTitle}>
                 {selectedDate
-                  ? `Daftar Acara Tanggal ${selectedDate}`
+                  ? `Daftar Acara Tanggal ${formatTanggalIndoPublik(selectedDate)}`
                   : 'Seluruh Jadwal Kegiatan Terdekat'}
               </h3>
               <button
@@ -609,37 +682,75 @@ export default function KalenderSection() {
                   }}
                 >
                   {selectedDate
-                    ? `Belum ada jadwal kegiatan pada tanggal ${selectedDate}.`
+                    ? `Belum ada jadwal kegiatan pada tanggal ${formatTanggalIndoPublik(selectedDate)}.`
                     : 'Belum ada jadwal kegiatan yang terdaftar.'}
                 </div>
               ) : (
                 displayedAgendas.map((item) => {
                 const conflicts = findScheduleConflicts(item, effectiveAgendas, item.id)
                 const isConflict = conflicts.length > 0
+                const isKhotib = isKhotibAgenda(item)
 
                 return (
                   <div
                     key={item.id}
+                    onClick={() => setPreviewAgendaPublik(item)}
                     className={`${styles.agendaItem} ${
                       isConflict ? styles.agendaItemConflict : ''
                     }`}
+                    style={{
+                      cursor: 'pointer',
+                      ...(isKhotib
+                        ? {
+                            background: '#fffbeb',
+                            borderColor: 'rgba(245, 158, 11, 0.38)',
+                            borderLeft: '4px solid #f59e0b',
+                          }
+                        : {}),
+                    }}
                   >
                     <div className={styles.agendaTop}>
-                      <span className={styles.timeBadge}>
-                        {`${item.tanggal} • ${item.jamMulai} – ${item.jamSelesai} WIB`}
+                      <span
+                        className={styles.timeBadge}
+                        style={
+                          isKhotib
+                            ? { background: '#fef3c7', color: '#b45309' }
+                            : undefined
+                        }
+                      >
+                        {isKhotib
+                          ? `${formatTanggalIndoPublik(item.tanggal)} • ${item.jamMulai} WIB`
+                          : `${formatTanggalIndoPublik(item.tanggal)} • ${item.jamMulai} – ${item.jamSelesai} WIB`}
                       </span>
-                      <span className={isConflict ? styles.conflictBadge : styles.safeBadge}>
-                        {isConflict
-                          ? `⚠️ Bentrok Jam dengan: ${conflicts[0].judul}`
-                          : '✓ Jadwal Aman (Tidak Bentrok)'}
-                      </span>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                        <span className={isConflict ? styles.conflictBadge : styles.safeBadge}>
+                          {isConflict
+                            ? `⚠️ Bentrok Jam dengan: ${conflicts[0].judul}`
+                            : '✓ Jadwal Aman'}
+                        </span>
+                        <span
+                          style={{
+                            fontSize: '0.72rem',
+                            fontWeight: 800,
+                            color: isKhotib ? '#b45309' : '#0f4a2a',
+                            background: '#ffffff',
+                            border: '1px solid rgba(15, 23, 42, 0.14)',
+                            borderRadius: '6px',
+                            padding: '2px 8px',
+                          }}
+                        >
+                          Preview ›
+                        </span>
+                      </div>
                     </div>
                     <h4 className={styles.agendaName}>{item.judul}</h4>
-                    <span className={styles.agendaMeta}>
-                      {`Pemateri/PJ: ${item.pemateri || 'DKM Al-Jihad'} • Lokasi: ${
-                        item.ruangan
-                      }`}
-                    </span>
+                    {!isKhotib && (
+                      <span className={styles.agendaMeta}>
+                        {`Pemateri/PJ: ${item.pemateri || 'DKM Al-Jihad'} • Lokasi: ${
+                          item.ruangan
+                        }`}
+                      </span>
+                    )}
                     {item.peminjamanAset && item.peminjamanAset !== '-' && (
                       <div
                         style={{
@@ -674,6 +785,154 @@ export default function KalenderSection() {
             </div>
           </div>
         </div>
+
+        {/* POP-UP PREVIEW AGENDA / KHOTIB PUBLIK */}
+        {previewAgendaPublik &&
+          (() => {
+            const isKhotib = isKhotibAgenda(previewAgendaPublik)
+            const khotibMeta = parseKhotibMetaPublik(previewAgendaPublik.keterangan)
+            return (
+              <div
+                onDoubleClick={(e) => {
+                  if (e.target === e.currentTarget) setPreviewAgendaPublik(null)
+                }}
+                style={{
+                  position: 'fixed',
+                  inset: 0,
+                  background: 'rgba(15, 23, 42, 0.68)',
+                  backdropFilter: 'blur(4px)',
+                  zIndex: 9999,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '16px',
+                }}
+              >
+                <div
+                  style={{
+                    width: '100%',
+                    maxWidth: '470px',
+                    maxHeight: '90vh',
+                    overflowY: 'auto',
+                    background: '#ffffff',
+                    borderRadius: '18px',
+                    padding: '22px',
+                    boxShadow: '0 24px 60px rgba(0, 0, 0, 0.28)',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                    <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 900, color: isKhotib ? '#b45309' : '#0f4a2a' }}>
+                      {previewAgendaPublik.judul}
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={() => setPreviewAgendaPublik(null)}
+                      style={{
+                        border: 'none',
+                        background: '#f1f5f9',
+                        color: '#475569',
+                        borderRadius: '999px',
+                        width: '28px',
+                        height: '28px',
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  {isKhotib ? (
+                    <div
+                      style={{
+                        display: 'grid',
+                        gap: '8px',
+                        fontSize: '0.85rem',
+                        color: '#1f2937',
+                        background: '#fffbeb',
+                        padding: '14px',
+                        borderRadius: '12px',
+                        border: '1px solid rgba(245, 158, 11, 0.35)',
+                      }}
+                    >
+                      <div>
+                        <strong>Kategori :</strong> {khotibMeta?.kategori || previewAgendaPublik.kategori}
+                      </div>
+                      <div>
+                        <strong>Khotib / Penceramah :</strong>{' '}
+                        {khotibMeta?.khotib || previewAgendaPublik.pemateri || '-'}
+                      </div>
+                      {khotibMeta?.imam && (
+                        <div>
+                          <strong>Imam :</strong> {khotibMeta.imam}
+                        </div>
+                      )}
+                      <div>
+                        <strong>Bilal :</strong> {khotibMeta?.bilal || '-'}
+                      </div>
+                      <div>
+                        <strong>Hari / Tanggal :</strong> {formatTanggalIndoPublik(previewAgendaPublik.tanggal)}
+                      </div>
+                      <div>
+                        <strong>Waktu Masuk :</strong> {`${khotibMeta?.waktu || previewAgendaPublik.jamMulai} WIB`}
+                      </div>
+                      <div>
+                        <strong>Tema :</strong>{' '}
+                        {khotibMeta?.tema ||
+                          "Mari tegakkan Sholat Jum'at berjamaah, perbanyak shalawat, dan perkuat ukhuwah Islamiyah."}
+                      </div>
+                    </div>
+                  ) : (
+                    <div
+                      style={{
+                        display: 'grid',
+                        gap: '8px',
+                        fontSize: '0.85rem',
+                        color: '#1f2937',
+                        background: '#f8faf8',
+                        padding: '14px',
+                        borderRadius: '12px',
+                        border: '1px solid rgba(27, 107, 69, 0.14)',
+                      }}
+                    >
+                      <div>
+                        <strong>Hari / Tanggal :</strong> {formatTanggalIndoPublik(previewAgendaPublik.tanggal)}
+                      </div>
+                      <div>
+                        <strong>Waktu :</strong>{' '}
+                        {`${previewAgendaPublik.jamMulai} – ${previewAgendaPublik.jamSelesai} WIB`}
+                      </div>
+                      <div>
+                        <strong>Kategori :</strong> {previewAgendaPublik.kategori}
+                      </div>
+                      <div>
+                        <strong>Penanggung Jawab / Pemateri :</strong>{' '}
+                        {previewAgendaPublik.pemateri || 'DKM Masjid Al-Jihad'}
+                      </div>
+                      <div>
+                        <strong>Lokasi :</strong> {previewAgendaPublik.ruangan}
+                      </div>
+                      {previewAgendaPublik.keterangan && (
+                        <div>
+                          <strong>Keterangan :</strong> {previewAgendaPublik.keterangan}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {previewAgendaPublik.posterUrl && (
+                    <div style={{ marginTop: '12px', textAlign: 'center' }}>
+                      <img
+                        src={previewAgendaPublik.posterUrl}
+                        alt={`Poster ${previewAgendaPublik.judul}`}
+                        style={{ maxWidth: '100%', maxHeight: '280px', borderRadius: '10px', objectFit: 'contain' }}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+          })()}
 
         {/* LIST PENGAJUAN JADWAL KEGIATAN YANG BISA DILIHAT OLEH UMUM */}
         <div

@@ -1240,15 +1240,23 @@ export default function AdminSidebarPage() {
     oldItem?: KhotibPemateriItem
   ) => {
     const targetKalId = item.kalenderId || `khotib-kal-${item.id}`
+    const effPetugas = getEffectivePetugasForItem(item)
+    const shortKat = getKategoriSingkatPerihal(item.perihal)
     const defaultTemaKalender =
       item.kategori === 'Ustadz Kajian'
-        ? item.perihal || `Kajian Bersama ${item.nama}`
-        : `Khutbah Jum'at: Menguatkan Iman & Ukhuwah Islamiyah`
+        ? 'Mari hadir menuntut ilmu agama bersama keluarga demi meraih keberkahan dan rahmat Allah SWT.'
+        : "Mari tegakkan Sholat Jum'at berjamaah, perbanyak shalawat, dan perkuat ukhuwah Islamiyah."
     const effectiveTemaKalender = (item.tema || '').trim() || defaultTemaKalender
-    const agendaJudul =
-      item.kategori === 'Ustadz Kajian'
-        ? `${effectiveTemaKalender} - ${item.nama}`
-        : `${item.perihal || item.kategori} - ${item.nama} (${effectiveTemaKalender})`
+    const agendaJudul = `${item.nama} - ${shortKat}`
+    const khotibMetaKeterangan = `[KHOTIB_DATA]${JSON.stringify({
+      kategori: shortKat,
+      khotib: item.nama,
+      imam: effPetugas.imamNama || '',
+      bilal: effPetugas.bilalNama || '',
+      tema: effectiveTemaKalender,
+      waktu: item.jamMulai || '11:36',
+      noSurat: item.noSurat || '',
+    })}`
 
     setKalenderList((prev) => {
       let next: typeof prev
@@ -1271,13 +1279,8 @@ export default function AdminSidebarPage() {
           jamMulai: item.jamMulai || '11:36',
           jamSelesai: item.jamSelesai || '12:45',
           ruangan: item.lokasi || 'Ruang Utama Masjid Al-Jihad',
-          kategori:
-            item.kategori === 'Ustadz Kajian'
-              ? 'Kajian'
-              : item.kategori === 'Khotib Sholat Ied / Hari Besar'
-                ? 'PHBI'
-                : 'Khutbah Jumat',
-          keterangan: item.noSurat ? `Surat: ${item.noSurat}` : 'DKM Masjid Al-Jihad',
+          kategori: item.kategori === 'Ustadz Kajian' ? 'Kajian' : "Sholat Jum'at / Khotib" === "Sholat Jum'at / Khotib" ? (item.kategori === 'Khotib Sholat Ied / Hari Besar' ? 'PHBI' : 'Khutbah Jumat') : 'Kajian',
+          keterangan: khotibMetaKeterangan,
           peminjamanAset: '-',
           noTeleponPj: item.noTelp || '',
           internalMasjid: true,
@@ -1348,13 +1351,8 @@ export default function AdminSidebarPage() {
           jam_selesai: item.jamSelesai || '12:45',
           waktu: `${item.jamMulai || '11:36'} - ${item.jamSelesai || '12:45'} WIB`,
           lokasi: item.lokasi || 'Ruang Utama Masjid Al-Jihad',
-          kategori:
-            item.kategori === 'Ustadz Kajian'
-              ? 'Kajian'
-              : item.kategori === 'Khotib Sholat Ied / Hari Besar'
-                ? 'PHBI'
-                : 'Khutbah Jumat',
-          keterangan: item.noSurat ? `Surat: ${item.noSurat}` : 'DKM Masjid Al-Jihad',
+          kategori: item.kategori === 'Ustadz Kajian' ? 'Kajian' : "Sholat Jum'at / Khotib" === "Sholat Jum'at / Khotib" ? (item.kategori === 'Khotib Sholat Ied / Hari Besar' ? 'PHBI' : 'Khutbah Jumat') : 'Kajian',
+          keterangan: khotibMetaKeterangan,
           aktif: true,
         })
       }
@@ -6074,6 +6072,10 @@ export default function AdminSidebarPage() {
                             kal.id
                           )
                           const isConflict = conflicts.length > 0
+                          const isKhotibKal =
+                            kal.kategori === 'Khutbah Jumat' ||
+                            (kal.keterangan || '').startsWith('[KHOTIB_DATA]') ||
+                            kal.id.startsWith('khotib-kal-')
                           return (
                             <div
                               key={kal.id}
@@ -6086,13 +6088,21 @@ export default function AdminSidebarPage() {
                                 gap: '10px',
                                 padding: '9px 14px',
                                 borderRadius: '10px',
-                                border: '1px solid rgba(27, 107, 69, 0.16)',
+                                border: isKhotibKal
+                                  ? '1px solid rgba(217, 119, 6, 0.35)'
+                                  : '1px solid rgba(27, 107, 69, 0.16)',
                                 borderLeft: isConflict
                                   ? '4px solid #dc2626'
+                                  : isKhotibKal
+                                    ? '4px solid #f59e0b'
+                                    : idx === 0
+                                      ? '4px solid #15803d'
+                                      : '4px solid rgba(27, 107, 69, 0.35)',
+                                background: isKhotibKal
+                                  ? '#fffbeb'
                                   : idx === 0
-                                    ? '4px solid #15803d'
-                                    : '4px solid rgba(27, 107, 69, 0.35)',
-                                background: idx === 0 ? '#f0fdf4' : '#f9fbf9',
+                                    ? '#f0fdf4'
+                                    : '#f9fbf9',
                                 cursor: 'pointer',
                               }}
                             >
@@ -6112,12 +6122,14 @@ export default function AdminSidebarPage() {
                                     fontWeight: 800,
                                     padding: '3px 9px',
                                     borderRadius: '7px',
-                                    background: '#dcfce7',
-                                    color: '#166534',
+                                    background: isKhotibKal ? '#fef3c7' : '#dcfce7',
+                                    color: isKhotibKal ? '#b45309' : '#166534',
                                     whiteSpace: 'nowrap',
                                   }}
                                 >
-                                  {`${kal.tanggal} • ${kal.jamMulai}–${kal.jamSelesai} WIB`}
+                                  {isKhotibKal
+                                    ? `${formatTanggalIndo(kal.tanggal)} • ${kal.jamMulai} WIB`
+                                    : `${formatTanggalIndo(kal.tanggal)} • ${kal.jamMulai}–${kal.jamSelesai} WIB`}
                                 </span>
                                 <span
                                   style={{
@@ -6891,50 +6903,124 @@ export default function AdminSidebarPage() {
                       )}`}
                     </div>
 
-                    <div
-                      style={{
-                        display: 'grid',
-                        gap: '8px',
-                        fontSize: '0.86rem',
-                        color: '#1f2937',
-                        background: '#f8faf8',
-                        padding: '14px',
-                        borderRadius: '12px',
-                        border: '1px solid rgba(27, 107, 69, 0.14)',
-                      }}
-                    >
-                      <div>
-                        <strong>Hari / Tanggal Pelaksanaan :</strong> {previewKegiatanAdmin.tanggal}
-                      </div>
-                      <div>
-                        <strong>Waktu :</strong>{' '}
-                        {`${previewKegiatanAdmin.jamMulai} – ${previewKegiatanAdmin.jamSelesai} WIB`}
-                      </div>
-                      <div>
-                        <strong>Kategori :</strong> {previewKegiatanAdmin.kategori}
-                      </div>
-                      <div>
-                        <strong>Penanggung Jawab / Pemateri :</strong>{' '}
-                        {previewKegiatanAdmin.pemateri || 'DKM Masjid Al-Jihad'}
-                      </div>
-                      {previewKegiatanAdmin.noTeleponPj && (
-                        <div>
-                          <strong>No. Telepon PJ :</strong> {previewKegiatanAdmin.noTeleponPj}
+                    {(() => {
+                      const rawKet = previewKegiatanAdmin.keterangan || ''
+                      const isKhotibPreview =
+                        rawKet.startsWith('[KHOTIB_DATA]') ||
+                        previewKegiatanAdmin.kategori === 'Khutbah Jumat' ||
+                        previewKegiatanAdmin.id.startsWith('khotib-kal-')
+                      let khotibMeta: {
+                        kategori?: string
+                        khotib?: string
+                        imam?: string
+                        bilal?: string
+                        tema?: string
+                        waktu?: string
+                        noSurat?: string
+                      } | null = null
+                      if (rawKet.startsWith('[KHOTIB_DATA]')) {
+                        try {
+                          khotibMeta = JSON.parse(rawKet.slice('[KHOTIB_DATA]'.length))
+                        } catch {
+                          khotibMeta = null
+                        }
+                      }
+
+                      if (isKhotibPreview) {
+                        return (
+                          <div
+                            style={{
+                              display: 'grid',
+                              gap: '8px',
+                              fontSize: '0.86rem',
+                              color: '#1f2937',
+                              background: '#fffbeb',
+                              padding: '14px',
+                              borderRadius: '12px',
+                              border: '1px solid rgba(217, 119, 6, 0.3)',
+                            }}
+                          >
+                            <div>
+                              <strong>Kategori :</strong>{' '}
+                              {khotibMeta?.kategori || previewKegiatanAdmin.kategori}
+                            </div>
+                            <div>
+                              <strong>Khotib / Penceramah :</strong>{' '}
+                              {khotibMeta?.khotib || previewKegiatanAdmin.pemateri || '-'}
+                            </div>
+                            {khotibMeta?.imam && (
+                              <div>
+                                <strong>Imam :</strong> {khotibMeta.imam}
+                              </div>
+                            )}
+                            <div>
+                              <strong>Bilal :</strong> {khotibMeta?.bilal || '-'}
+                            </div>
+                            <div>
+                              <strong>Hari / Tanggal :</strong>{' '}
+                              {formatTanggalIndo(previewKegiatanAdmin.tanggal)}
+                            </div>
+                            <div>
+                              <strong>Waktu Masuk :</strong>{' '}
+                              {`${khotibMeta?.waktu || previewKegiatanAdmin.jamMulai} WIB`}
+                            </div>
+                            <div>
+                              <strong>Tema :</strong>{' '}
+                              {khotibMeta?.tema ||
+                                "Mari tegakkan Sholat Jum'at berjamaah, perbanyak shalawat, dan perkuat ukhuwah Islamiyah."}
+                            </div>
+                          </div>
+                        )
+                      }
+
+                      return (
+                        <div
+                          style={{
+                            display: 'grid',
+                            gap: '8px',
+                            fontSize: '0.86rem',
+                            color: '#1f2937',
+                            background: '#f8faf8',
+                            padding: '14px',
+                            borderRadius: '12px',
+                            border: '1px solid rgba(27, 107, 69, 0.14)',
+                          }}
+                        >
+                          <div>
+                            <strong>Hari / Tanggal Pelaksanaan :</strong>{' '}
+                            {formatTanggalIndo(previewKegiatanAdmin.tanggal)}
+                          </div>
+                          <div>
+                            <strong>Waktu :</strong>{' '}
+                            {`${previewKegiatanAdmin.jamMulai} – ${previewKegiatanAdmin.jamSelesai} WIB`}
+                          </div>
+                          <div>
+                            <strong>Kategori :</strong> {previewKegiatanAdmin.kategori}
+                          </div>
+                          <div>
+                            <strong>Penanggung Jawab / Pemateri :</strong>{' '}
+                            {previewKegiatanAdmin.pemateri || 'DKM Masjid Al-Jihad'}
+                          </div>
+                          {previewKegiatanAdmin.noTeleponPj && (
+                            <div>
+                              <strong>No. Telepon PJ :</strong> {previewKegiatanAdmin.noTeleponPj}
+                            </div>
+                          )}
+                          <div>
+                            <strong>Tempat / Area Masjid :</strong> {previewKegiatanAdmin.ruangan}
+                          </div>
+                          <div>
+                            <strong>Peminjaman Aset :</strong>{' '}
+                            {previewKegiatanAdmin.peminjamanAset || '-'}
+                          </div>
+                          {previewKegiatanAdmin.keterangan && (
+                            <div>
+                              <strong>Keterangan :</strong> {previewKegiatanAdmin.keterangan}
+                            </div>
+                          )}
                         </div>
-                      )}
-                      <div>
-                        <strong>Tempat / Area Masjid :</strong> {previewKegiatanAdmin.ruangan}
-                      </div>
-                      <div>
-                        <strong>Peminjaman Aset :</strong>{' '}
-                        {previewKegiatanAdmin.peminjamanAset || '-'}
-                      </div>
-                      {previewKegiatanAdmin.keterangan && (
-                        <div>
-                          <strong>Keterangan :</strong> {previewKegiatanAdmin.keterangan}
-                        </div>
-                      )}
-                    </div>
+                      )
+                    })()}
 
                     {previewKegiatanAdmin.posterUrl && (
                       <div style={{ marginTop: '14px', textAlign: 'center' }}>
@@ -15684,6 +15770,40 @@ export default function AdminSidebarPage() {
                             setEditKhotibMgmtItem({ ...editKhotibMgmtItem, tema: e.target.value })
                           }
                         />
+                        <label
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '7px',
+                            marginTop: '6px',
+                            fontSize: '0.75rem',
+                            fontWeight: 700,
+                            color: '#0f4a2a',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={
+                              editKhotibMgmtItem.tema ===
+                                "Mari tegakkan Sholat Jum'at berjamaah, perbanyak shalawat, dan perkuat ukhuwah Islamiyah." ||
+                              editKhotibMgmtItem.tema ===
+                                'Mari hadir menuntut ilmu agama bersama keluarga demi meraih keberkahan dan rahmat Allah SWT.'
+                            }
+                            onChange={(e) => {
+                              const defaultTpl =
+                                editKhotibMgmtItem.kategori === 'Ustadz Kajian'
+                                  ? 'Mari hadir menuntut ilmu agama bersama keluarga demi meraih keberkahan dan rahmat Allah SWT.'
+                                  : "Mari tegakkan Sholat Jum'at berjamaah, perbanyak shalawat, dan perkuat ukhuwah Islamiyah."
+                              setEditKhotibMgmtItem({
+                                ...editKhotibMgmtItem,
+                                tema: e.target.checked ? defaultTpl : '',
+                              })
+                            }}
+                            style={{ width: 'auto', margin: 0 }}
+                          />
+                          Gunakan tema otomatis (template ajakan) jika tema kosong
+                        </label>
                       </div>
 
                       {editKhotibMgmtItem.kategori !== 'Ustadz Kajian' && (
