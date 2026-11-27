@@ -806,6 +806,10 @@ export default function AdminSidebarPage() {
     jamSelesai: string
     lokasi: string
     noTelp: string
+    tema?: string
+    fotoUrl?: string
+    imamNama?: string
+    bilalNama?: string
     createdAt: string
   }
 
@@ -813,6 +817,8 @@ export default function AdminSidebarPage() {
   const [khotibMgmtSearch, setKhotibMgmtSearch] = useState('')
   const [khotibMgmtFilter, setKhotibMgmtFilter] = useState<'Semua' | KhotibPemateriKategori>('Semua')
   const [editKhotibMgmtItem, setEditKhotibMgmtItem] = useState<KhotibPemateriItem | null>(null)
+  const [posterPreviewMgmtItem, setPosterPreviewMgmtItem] = useState<KhotibPemateriItem | null>(null)
+  const [posterPreviewDataUrl, setPosterPreviewDataUrl] = useState('')
   const [showAddKhotibMgmtModal, setShowAddKhotibMgmtModal] = useState(false)
   const [newKhotibForm, setNewKhotibForm] = useState<{
     nama: string
@@ -1029,16 +1035,131 @@ export default function AdminSidebarPage() {
     return 'Imam / Bilal / Lainnya'
   }
 
+  const getEffectivePetugasForItem = (item: KhotibPemateriItem) => {
+    const sameDayOthers = khotibMgmtList.filter(
+      (k) => k.id !== item.id && k.tanggal === item.tanggal
+    )
+    const sameDayAutoAccepted = autoUndanganList.filter(
+      (a) =>
+        a.status === 'Diterima' &&
+        a.tanggal === item.tanggal &&
+        a.id !== item.sourceAutoId
+    )
+    const autoImam =
+      sameDayOthers.find((k) => /\bimam\b/i.test(k.perihal) && !/khotib|khatib/i.test(k.perihal))
+        ?.nama ||
+      sameDayAutoAccepted.find(
+        (a) => /\bimam\b/i.test(a.perihal) && !/khotib|khatib/i.test(a.perihal)
+      )?.nama ||
+      (/imam.*khotib|khotib.*imam/i.test(item.perihal) ? item.nama : '')
+    const autoBilal =
+      sameDayOthers.find((k) => /\bbilal\b/i.test(k.perihal))?.nama ||
+      sameDayAutoAccepted.find((a) => /\bbilal\b/i.test(a.perihal))?.nama ||
+      ''
+    return {
+      imamNama: (item.imamNama || autoImam || '').trim(),
+      bilalNama: (item.bilalNama || autoBilal || '').trim(),
+      hasAutoImam: !item.imamNama && Boolean(autoImam),
+      hasAutoBilal: !item.bilalNama && Boolean(autoBilal),
+    }
+  }
+
+  const isKhotibItemComplete = (item: KhotibPemateriItem) => {
+    const hasTema = Boolean((item.tema || '').trim())
+    const hasFoto = Boolean((item.fotoUrl || '').trim())
+    if (item.kategori === 'Ustadz Kajian') {
+      return hasTema && hasFoto
+    }
+    const { bilalNama } = getEffectivePetugasForItem(item)
+    return hasTema && hasFoto && Boolean(bilalNama)
+  }
+
+  const getAutoUndanganConflict = (
+    tanggal: string,
+    perihal: string,
+    jamMulai = '11:36'
+  ): { conflictItem: KhotibPemateriItem; reason: string } | null => {
+    if (!tanggal) return null
+    const parseRoles = (text: string) => {
+      const p = String(text || '')
+      return {
+        khotib: /khotib|khatib/i.test(p),
+        imam: /\bimam\b/i.test(p),
+        bilal: /\bbilal\b/i.test(p),
+        kajian: /kajian|ceramah|tausiyah|pengajian/i.test(p),
+        hariBesar: /ied|idul|adha|fitri|hari besar|tarawih/i.test(p),
+      }
+    }
+    const newRoles = parseRoles(perihal)
+
+    const candidates: KhotibPemateriItem[] = [
+      ...khotibMgmtList,
+      ...autoUndanganList
+        .filter(
+          (a) =>
+            a.status === 'Diterima' &&
+            !khotibMgmtList.some((k) => k.sourceAutoId === a.id || k.noSurat === a.noSurat)
+        )
+        .map((a) => ({
+          id: `km-${a.id}`,
+          sourceAutoId: a.id,
+          noSurat: a.noSurat,
+          kalenderId: `khotib-kal-${a.id}`,
+          nama: a.nama,
+          kategori: inferKhotibKategori(a.perihal),
+          perihal: a.perihal,
+          tanggal: a.tanggal,
+          jamMulai: /ied|idul/i.test(a.perihal) ? '06:30' : '11:36',
+          jamSelesai: /ied|idul/i.test(a.perihal) ? '08:00' : '12:45',
+          lokasi: 'Ruang Utama Masjid Al-Jihad',
+          noTelp: a.noTelp,
+          createdAt: a.createdAt,
+        })),
+    ]
+
+    for (const existing of candidates) {
+      if (existing.tanggal !== tanggal) continue
+      const exRoles = parseRoles(existing.perihal || existing.kategori)
+      if (newRoles.khotib && exRoles.khotib) {
+        return { conflictItem: existing, reason: 'Posisi Khotib pada tanggal ini sudah terisi.' }
+      }
+      if (newRoles.imam && exRoles.imam) {
+        return { conflictItem: existing, reason: 'Posisi Imam pada tanggal ini sudah terisi.' }
+      }
+      if (newRoles.bilal && exRoles.bilal) {
+        return { conflictItem: existing, reason: 'Posisi Bilal pada tanggal ini sudah terisi.' }
+      }
+      if (newRoles.hariBesar && exRoles.hariBesar) {
+        return { conflictItem: existing, reason: 'Jadwal Khotib Hari Besar pada tanggal ini sudah terisi.' }
+      }
+      if (
+        (newRoles.kajian || (!newRoles.khotib && !newRoles.imam && !newRoles.bilal)) &&
+        existing.jamMulai === jamMulai
+      ) {
+        return {
+          conflictItem: existing,
+          reason: `Waktu ${jamMulai} WIB pada tanggal ini sudah dipakai kegiatan lain.`,
+        }
+      }
+    }
+    return null
+  }
+
   const syncKhotibItemToKalenderAndSupabase = async (
     item: KhotibPemateriItem,
     mode: 'upsert' | 'delete',
     oldItem?: KhotibPemateriItem
   ) => {
     const targetKalId = item.kalenderId || `khotib-kal-${item.id}`
-    const agendaJudul =
+    const defaultTemaKalender =
       item.kategori === 'Ustadz Kajian'
         ? item.perihal || `Kajian Bersama ${item.nama}`
-        : `${item.perihal || item.kategori} - ${item.nama}`
+        : `Khutbah Jum'at: Menguatkan Iman & Ukhuwah Islamiyah`
+    const effectiveTemaKalender = (item.tema || '').trim() || defaultTemaKalender
+    const agendaJudul =
+      item.kategori === 'Ustadz Kajian'
+        ? `${effectiveTemaKalender} - ${item.nama}`
+        : `${item.perihal || item.kategori} - ${item.nama} (${effectiveTemaKalender})`
 
     setKalenderList((prev) => {
       let next: typeof prev
@@ -1164,6 +1285,10 @@ export default function AdminSidebarPage() {
         jamMulai: item.jamMulai,
         jamSelesai: item.jamSelesai,
         lokasi: item.lokasi,
+        tema: item.tema || '',
+        imamNama: item.imamNama || '',
+        bilalNama: item.bilalNama || '',
+        fotoUrl: item.fotoUrl && item.fotoUrl.length < 60000 ? item.fotoUrl : '',
         createdAt: item.createdAt,
       })
       const existingMgmt = await sb
@@ -2431,6 +2556,10 @@ export default function AdminSidebarPage() {
               jamMulai?: string
               jamSelesai?: string
               lokasi?: string
+              tema?: string
+              imamNama?: string
+              bilalNama?: string
+              fotoUrl?: string
               createdAt?: string
             }
             syncedKhotibMgmt.push({
@@ -2446,6 +2575,10 @@ export default function AdminSidebarPage() {
               jamSelesai: meta.jamSelesai || '12:45',
               lokasi: meta.lokasi || 'Ruang Utama Masjid Al-Jihad',
               noTelp: d.kontak && d.kontak !== '-' ? d.kontak : '',
+              tema: meta.tema || undefined,
+              imamNama: meta.imamNama || undefined,
+              bilalNama: meta.bilalNama || undefined,
+              fotoUrl: meta.fotoUrl || undefined,
               createdAt: meta.createdAt || d.created_at || new Date().toISOString(),
             })
           } catch {
@@ -3879,15 +4012,15 @@ export default function AdminSidebarPage() {
     const marginX = 110
     let y = 95
 
-    // KOP Surat
+    // KOP Surat (Logo proporsional di seluruh surat)
     if (logoImg) {
-      const lw = 125
+      const lw = 215
       const lh = (logoImg.height / logoImg.width) * lw
-      ctx.drawImage(logoImg, marginX, y - 6, lw, lh)
+      ctx.drawImage(logoImg, marginX, y + 60 - lh / 2, lw, lh)
     }
 
     ctx.textAlign = 'center'
-    const textCenterX = marginX + 140 + (W - marginX * 2 - 140) / 2
+    const textCenterX = marginX + 225 + (W - marginX * 2 - 225) / 2
     ctx.fillStyle = '#134E2E'
     ctx.font = 'bold 28px "Times New Roman", serif'
     ctx.fillText('DEWAN KEMAKMURAN MASJID (DKM)', textCenterX, y + 26)
@@ -11952,7 +12085,7 @@ export default function AdminSidebarPage() {
                       width={logoMasjidWarna.width}
                       height={logoMasjidWarna.height}
                       style={{
-                        width: '62px',
+                        width: '120px',
                         height: 'auto',
                         objectFit: 'contain',
                         flexShrink: 0,
@@ -13543,6 +13676,16 @@ export default function AdminSidebarPage() {
                         ) {
                           return
                         }
+                        const conflictCheck = getAutoUndanganConflict(
+                          autoUndanganTanggal,
+                          autoUndanganPerihal
+                        )
+                        if (conflictCheck) {
+                          setAutoWaShareHint(
+                            `Ditolak: ${conflictCheck.reason} Silakan ubah di Manajemen Khotib & Pemateri.`
+                          )
+                          return
+                        }
                         const assignedNo = getNextNoSuratForDate(autoUndanganTanggal)
                         const newItem: AutoUndanganItem = {
                           id: `auto-und-${Date.now()}`,
@@ -13736,82 +13879,75 @@ export default function AdminSidebarPage() {
                       </div>
 
                       {(() => {
-                        const existingMgmtConflict = autoUndanganTanggal
-                          ? khotibMgmtList.find((k) => k.tanggal === autoUndanganTanggal)
-                          : undefined
-                        const acceptedAutoConflict =
-                          !existingMgmtConflict && autoUndanganTanggal
-                            ? autoUndanganList.find(
-                                (a) => a.tanggal === autoUndanganTanggal && a.status === 'Diterima'
-                              )
-                            : undefined
-                        const conflictTarget: KhotibPemateriItem | null = existingMgmtConflict
-                          ? existingMgmtConflict
-                          : acceptedAutoConflict
-                            ? {
-                                id: `km-${acceptedAutoConflict.id}`,
-                                sourceAutoId: acceptedAutoConflict.id,
-                                noSurat: acceptedAutoConflict.noSurat,
-                                kalenderId: `khotib-kal-${acceptedAutoConflict.id}`,
-                                nama: acceptedAutoConflict.nama,
-                                kategori: inferKhotibKategori(acceptedAutoConflict.perihal),
-                                perihal: acceptedAutoConflict.perihal,
-                                tanggal: acceptedAutoConflict.tanggal,
-                                jamMulai: '11:36',
-                                jamSelesai: '12:45',
-                                lokasi: 'Ruang Utama Masjid Al-Jihad',
-                                noTelp: acceptedAutoConflict.noTelp,
-                                createdAt: acceptedAutoConflict.createdAt,
-                              }
-                            : null
-                        if (!conflictTarget) return null
+                        const conflict = getAutoUndanganConflict(
+                          autoUndanganTanggal,
+                          autoUndanganPerihal
+                        )
+                        if (!conflict) {
+                          return (
+                            <button type="submit" className={styles.submitBtn}>
+                              + Simpan &amp; Masukkan ke List Undangan
+                            </button>
+                          )
+                        }
                         return (
-                          <div
-                            style={{
-                              padding: '10px 12px',
-                              borderRadius: '10px',
-                              background: '#fef2f2',
-                              border: '1px solid #fecaca',
-                              color: '#991b1b',
-                              fontSize: '0.8rem',
-                              lineHeight: 1.5,
-                              marginBottom: '10px',
-                            }}
-                          >
-                            <strong>Peringatan: Jadwal sudah terisi!</strong>
-                            <div>
-                              Tanggal <strong>{conflictTarget.tanggal}</strong> sudah terisi oleh{' '}
-                              <strong>{conflictTarget.nama}</strong> ({conflictTarget.perihal}).
+                          <>
+                            <div
+                              style={{
+                                padding: '10px 12px',
+                                borderRadius: '10px',
+                                background: '#fef2f2',
+                                border: '1px solid #fecaca',
+                                color: '#991b1b',
+                                fontSize: '0.8rem',
+                                lineHeight: 1.5,
+                                marginBottom: '10px',
+                              }}
+                            >
+                              <strong>Jadwal Bentrok / Sudah Terisi!</strong>
+                              <div>
+                                {conflict.reason} ({conflict.conflictItem.nama} •{' '}
+                                {formatTanggalIndo(conflict.conflictItem.tanggal)})
+                              </div>
+                              <div style={{ marginTop: '4px', fontSize: '0.75rem' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setShowAutoUndanganModal(false)
+                                    selectMenu('manajemen_khotib')
+                                    const eff = getEffectivePetugasForItem(conflict.conflictItem)
+                                    setEditKhotibMgmtItem({
+                                      ...conflict.conflictItem,
+                                      imamNama: conflict.conflictItem.imamNama || eff.imamNama,
+                                      bilalNama: conflict.conflictItem.bilalNama || eff.bilalNama,
+                                    })
+                                  }}
+                                  style={{
+                                    border: 'none',
+                                    background: 'transparent',
+                                    color: '#b91c1c',
+                                    fontWeight: 800,
+                                    textDecoration: 'underline',
+                                    cursor: 'pointer',
+                                    padding: 0,
+                                    fontSize: '0.75rem',
+                                  }}
+                                >
+                                  Ubah di sini untuk edit atau hapus jadwal yang tersedia
+                                </button>
+                              </div>
                             </div>
-                            <div style={{ marginTop: '4px', fontSize: '0.75rem' }}>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setShowAutoUndanganModal(false)
-                                  selectMenu('manajemen_khotib')
-                                  setEditKhotibMgmtItem(conflictTarget)
-                                }}
-                                style={{
-                                  border: 'none',
-                                  background: 'transparent',
-                                  color: '#b91c1c',
-                                  fontWeight: 800,
-                                  textDecoration: 'underline',
-                                  cursor: 'pointer',
-                                  padding: 0,
-                                  fontSize: '0.75rem',
-                                }}
-                              >
-                                Ubah di sini untuk edit atau hapus jadwal yang tersedia
-                              </button>
-                            </div>
-                          </div>
+                            <button
+                              type="submit"
+                              disabled
+                              className={styles.submitBtn}
+                              style={{ opacity: 0.45, cursor: 'not-allowed' }}
+                            >
+                              + Simpan &amp; Masukkan ke List Undangan (Jadwal Bentrok)
+                            </button>
+                          </>
                         )
                       })()}
-
-                      <button type="submit" className={styles.submitBtn}>
-                        + Simpan &amp; Masukkan ke List Undangan
-                      </button>
                     </form>
                   </div>
                 </div>
@@ -14916,7 +15052,15 @@ export default function AdminSidebarPage() {
                   }
                   return (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      {filteredMgmt.map((item) => (
+                      {filteredMgmt.map((item) => {
+                        const effPetugas = getEffectivePetugasForItem(item)
+                        const hasTema = Boolean((item.tema || '').trim())
+                        const hasFoto = Boolean((item.fotoUrl || '').trim())
+                        const needsBilal = item.kategori !== 'Ustadz Kajian'
+                        const hasBilal = Boolean(effPetugas.bilalNama)
+                        const isComplete = isKhotibItemComplete(item)
+
+                        return (
                         <div
                           key={item.id}
                           style={{
@@ -14933,6 +15077,9 @@ export default function AdminSidebarPage() {
                         >
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1, minWidth: '220px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                              <strong style={{ fontSize: '0.92rem', color: '#111827' }}>
+                                {item.nama}
+                              </strong>
                               <span
                                 style={{
                                   fontSize: '0.72rem',
@@ -14945,39 +15092,120 @@ export default function AdminSidebarPage() {
                               >
                                 {item.kategori}
                               </span>
-                              <strong style={{ fontSize: '0.92rem', color: '#111827' }}>
-                                {item.nama}
-                              </strong>
-                              <span
-                                style={{
-                                  fontSize: '0.7rem',
-                                  fontWeight: 700,
-                                  padding: '2px 8px',
-                                  borderRadius: '999px',
-                                  background: '#dbeafe',
-                                  color: '#1e40af',
-                                }}
-                              >
-                                Masuk Kalender
-                              </span>
                             </div>
                             <div style={{ fontSize: '0.8rem', color: '#374151', fontWeight: 600 }}>
-                              {`${item.tanggal} (${item.jamMulai}–${item.jamSelesai} WIB) • ${item.perihal} • ${item.lokasi}`}
+                              {`${formatTanggalIndo(item.tanggal)} • ${item.jamMulai} WIB`}
                             </div>
-                            {item.noTelp && (
-                              <div style={{ fontSize: '0.74rem', color: '#64748b', fontWeight: 600 }}>
-                                {`WA: ${item.noTelp}${item.noSurat ? ` • Surat: ${item.noSurat}` : ''}`}
+                            {(item.noTelp || item.noSurat) && (
+                              <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>
+                                {[item.noTelp, item.noSurat].filter(Boolean).join(' • ')}
                               </div>
                             )}
+                            {/* Indikator Kelengkapan Data Poster */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginTop: '2px' }}>
+                              <span
+                                style={{
+                                  fontSize: '0.68rem',
+                                  fontWeight: 800,
+                                  padding: '1px 7px',
+                                  borderRadius: '999px',
+                                  background: hasTema ? '#dcfce7' : '#fef3c7',
+                                  color: hasTema ? '#166534' : '#92400e',
+                                }}
+                              >
+                                {hasTema ? '✓ Tema' : '○ Tema kosong'}
+                              </span>
+                              <span
+                                style={{
+                                  fontSize: '0.68rem',
+                                  fontWeight: 800,
+                                  padding: '1px 7px',
+                                  borderRadius: '999px',
+                                  background: hasFoto ? '#dcfce7' : '#fef3c7',
+                                  color: hasFoto ? '#166534' : '#92400e',
+                                }}
+                              >
+                                {hasFoto ? '✓ Foto' : '○ Foto kosong'}
+                              </span>
+                              {needsBilal && (
+                                <span
+                                  style={{
+                                    fontSize: '0.68rem',
+                                    fontWeight: 800,
+                                    padding: '1px 7px',
+                                    borderRadius: '999px',
+                                    background: hasBilal ? '#dcfce7' : '#fef3c7',
+                                    color: hasBilal ? '#166534' : '#92400e',
+                                  }}
+                                >
+                                  {hasBilal
+                                    ? `✓ Bilal: ${effPetugas.bilalNama}`
+                                    : '○ Bilal kosong'}
+                                </span>
+                              )}
+                            </div>
                           </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '7px', flexWrap: 'wrap' }}>
                             <button
                               type="button"
-                              onClick={() => setEditKhotibMgmtItem(item)}
+                              onClick={() => {
+                                const eff = getEffectivePetugasForItem(item)
+                                setJenisPoster(item.kategori === 'Ustadz Kajian' ? 'Kajian' : 'Khutbah Jumat')
+                                setTanggalPoster(item.tanggal)
+                                setNamaKhatibPoster(item.nama)
+                                setKategoriKhotib(
+                                  /imam/i.test(item.perihal || '')
+                                    ? 'Khotib & Imam'
+                                    : "Khotib Jum'at"
+                                )
+                                setNamaImamPoster(eff.imamNama || item.nama)
+                                setNamaBilalPoster(eff.bilalNama || '')
+                                if (item.tema) {
+                                  setUseDefaultTemaOtomatis(false)
+                                  setTemaPoster(item.tema)
+                                } else {
+                                  setUseDefaultTemaOtomatis(true)
+                                }
+                                if (item.fotoUrl) {
+                                  setRawKhatibPhoto(item.fotoUrl)
+                                  setAiCutoutPhoto(item.fotoUrl)
+                                }
+                                setPosterPreviewMgmtItem(item)
+                                window.setTimeout(() => {
+                                  if (posterCanvasRef.current) {
+                                    setPosterPreviewDataUrl(posterCanvasRef.current.toDataURL('image/png'))
+                                  }
+                                }, 450)
+                              }}
                               style={{
                                 border: '1px solid rgba(27, 107, 69, 0.25)',
-                                background: '#ffffff',
-                                color: '#14532d',
+                                background: '#ecfdf5',
+                                color: '#0f4a2a',
+                                borderRadius: '8px',
+                                padding: '6px 11px',
+                                fontSize: '0.76rem',
+                                fontWeight: 800,
+                                cursor: 'pointer',
+                              }}
+                            >
+                              Buat Poster
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const eff = getEffectivePetugasForItem(item)
+                                setEditKhotibMgmtItem({
+                                  ...item,
+                                  imamNama: item.imamNama || eff.imamNama,
+                                  bilalNama: item.bilalNama || eff.bilalNama,
+                                })
+                              }}
+                              style={{
+                                border: isComplete
+                                  ? '1px solid rgba(27, 107, 69, 0.25)'
+                                  : '1px solid rgba(217, 119, 6, 0.4)',
+                                background: isComplete ? '#ffffff' : '#fef3c7',
+                                color: isComplete ? '#14532d' : '#92400e',
                                 borderRadius: '8px',
                                 padding: '6px 12px',
                                 fontSize: '0.77rem',
@@ -14985,19 +15213,12 @@ export default function AdminSidebarPage() {
                                 cursor: 'pointer',
                               }}
                             >
-                              Edit
-                            </button>
-                            <button
-                              type="button"
-                              className={styles.deleteBtn}
-                              style={{ padding: '6px 11px', fontSize: '0.77rem' }}
-                              onClick={() => void handleDeleteKhotibMgmt(item)}
-                            >
-                              Hapus dari List
+                              {isComplete ? 'Edit' : 'Selesaikan'}
                             </button>
                           </div>
                         </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   )
                 })()}
@@ -15035,7 +15256,9 @@ export default function AdminSidebarPage() {
                   >
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
                       <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 900, color: '#0f4a2a' }}>
-                        Edit Jadwal Khotib / Pemateri
+                        {isKhotibItemComplete(editKhotibMgmtItem)
+                          ? 'Edit Jadwal Khotib / Pemateri'
+                          : 'Selesaikan Data Khotib / Pemateri'}
                       </h3>
                       <button
                         type="button"
@@ -15114,9 +15337,102 @@ export default function AdminSidebarPage() {
                           }
                         />
                       </div>
+                      <div className={styles.formGroup}>
+                        <label>Tema Khutbah / Materi Kajian (untuk Poster &amp; Kalender)</label>
+                        <input
+                          type="text"
+                          placeholder="Contoh: Menjaga Amanah & Ukhuwah Islamiyah"
+                          value={editKhotibMgmtItem.tema || ''}
+                          onChange={(e) =>
+                            setEditKhotibMgmtItem({ ...editKhotibMgmtItem, tema: e.target.value })
+                          }
+                        />
+                      </div>
+
+                      {editKhotibMgmtItem.kategori !== 'Ustadz Kajian' && (
+                        <div className={styles.twoCols}>
+                          <div className={styles.formGroup}>
+                            <label>Nama Imam</label>
+                            <input
+                              type="text"
+                              placeholder="Otomatis terisi jika ada Imam di tanggal ini"
+                              value={editKhotibMgmtItem.imamNama || ''}
+                              onChange={(e) =>
+                                setEditKhotibMgmtItem({
+                                  ...editKhotibMgmtItem,
+                                  imamNama: e.target.value,
+                                })
+                              }
+                            />
+                          </div>
+                          <div className={styles.formGroup}>
+                            <label>Nama Bilal</label>
+                            <input
+                              type="text"
+                              placeholder="Otomatis terisi jika ada Bilal di tanggal ini"
+                              value={editKhotibMgmtItem.bilalNama || ''}
+                              onChange={(e) =>
+                                setEditKhotibMgmtItem({
+                                  ...editKhotibMgmtItem,
+                                  bilalNama: e.target.value,
+                                })
+                              }
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      <div className={styles.formGroup}>
+                        <label>Foto Khotib / Ustadz (untuk Poster)</label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0]
+                              if (!file) return
+                              const reader = new FileReader()
+                              reader.onload = () => {
+                                const img = new window.Image()
+                                img.onload = () => {
+                                  const maxSide = 420
+                                  const scale = Math.min(1, maxSide / Math.max(img.width, img.height))
+                                  const c = document.createElement('canvas')
+                                  c.width = Math.round(img.width * scale)
+                                  c.height = Math.round(img.height * scale)
+                                  const ctx = c.getContext('2d')
+                                  if (ctx) {
+                                    ctx.drawImage(img, 0, 0, c.width, c.height)
+                                    const compressed = c.toDataURL('image/png')
+                                    setEditKhotibMgmtItem((prev) =>
+                                      prev ? { ...prev, fotoUrl: compressed } : prev
+                                    )
+                                  }
+                                }
+                                img.src = String(reader.result || '')
+                              }
+                              reader.readAsDataURL(file)
+                            }}
+                          />
+                          {editKhotibMgmtItem.fotoUrl && (
+                            <img
+                              src={editKhotibMgmtItem.fotoUrl}
+                              alt="Foto Khotib"
+                              style={{
+                                width: '48px',
+                                height: '48px',
+                                borderRadius: '8px',
+                                objectFit: 'cover',
+                                border: '1px solid #cbd5e1',
+                              }}
+                            />
+                          )}
+                        </div>
+                      </div>
+
                       <div className={styles.twoCols}>
                         <div className={styles.formGroup}>
-                          <label>Jam Mulai</label>
+                          <label>Jam Masuk</label>
                           <input
                             type="time"
                             value={editKhotibMgmtItem.jamMulai}
@@ -15126,28 +15442,18 @@ export default function AdminSidebarPage() {
                           />
                         </div>
                         <div className={styles.formGroup}>
-                          <label>Jam Selesai</label>
+                          <label>No. Telepon (HP)</label>
                           <input
-                            type="time"
-                            value={editKhotibMgmtItem.jamSelesai}
+                            type="tel"
+                            value={editKhotibMgmtItem.noTelp}
                             onChange={(e) =>
-                              setEditKhotibMgmtItem({ ...editKhotibMgmtItem, jamSelesai: e.target.value })
+                              setEditKhotibMgmtItem({
+                                ...editKhotibMgmtItem,
+                                noTelp: formatIndoLocalPhone(e.target.value),
+                              })
                             }
                           />
                         </div>
-                      </div>
-                      <div className={styles.formGroup}>
-                        <label>No. Telepon (HP)</label>
-                        <input
-                          type="tel"
-                          value={editKhotibMgmtItem.noTelp}
-                          onChange={(e) =>
-                            setEditKhotibMgmtItem({
-                              ...editKhotibMgmtItem,
-                              noTelp: formatIndoLocalPhone(e.target.value),
-                            })
-                          }
-                        />
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', marginTop: '6px', flexWrap: 'wrap' }}>
                         <button
@@ -15196,6 +15502,200 @@ export default function AdminSidebarPage() {
                         </div>
                       </div>
                     </form>
+                  </div>
+                </div>
+              )}
+
+              {/* POP-UP PILIHAN TEMPLATE POSTER & PREVIEW (PORTRAIT / LANDSCAPE MENYUSUL) */}
+              {posterPreviewMgmtItem && (
+                <div
+                  onDoubleClick={(e) => {
+                    if (e.target === e.currentTarget) setPosterPreviewMgmtItem(null)
+                  }}
+                  style={{
+                    position: 'fixed',
+                    inset: 0,
+                    background: 'rgba(15, 23, 42, 0.72)',
+                    backdropFilter: 'blur(4px)',
+                    zIndex: 9999,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '16px',
+                  }}
+                >
+                  <div
+                    style={{
+                      width: '100%',
+                      maxWidth: '520px',
+                      maxHeight: '92vh',
+                      overflowY: 'auto',
+                      background: '#ffffff',
+                      borderRadius: '18px',
+                      padding: '22px',
+                      boxShadow: '0 24px 60px rgba(0, 0, 0, 0.3)',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                      <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 900, color: '#0f4a2a' }}>
+                        Pilih Template &amp; Preview Poster
+                      </h3>
+                      <button
+                        type="button"
+                        onClick={() => setPosterPreviewMgmtItem(null)}
+                        style={{
+                          border: 'none',
+                          background: '#f1f5f9',
+                          color: '#475569',
+                          borderRadius: '999px',
+                          width: '28px',
+                          height: '28px',
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        ✕
+                      </button>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '10px' }}>
+                      {[
+                        { id: 'klasik_krem', label: 'Template 1 (Krem)' },
+                        { id: 'zamrud_elegan', label: 'Template 2 (Zamrud)' },
+                        { id: 'putih_minimalis', label: 'Template 3 (Putih)' },
+                      ].map((tpl) => {
+                        const active = posterTemplate === tpl.id
+                        return (
+                          <button
+                            key={tpl.id}
+                            type="button"
+                            onClick={() => {
+                              setPosterTemplate(tpl.id as 'klasik_krem' | 'zamrud_elegan' | 'putih_minimalis')
+                              window.setTimeout(() => {
+                                if (posterCanvasRef.current) {
+                                  setPosterPreviewDataUrl(posterCanvasRef.current.toDataURL('image/png'))
+                                }
+                              }, 350)
+                            }}
+                            style={{
+                              flex: 1,
+                              minWidth: '130px',
+                              padding: '7px 10px',
+                              borderRadius: '8px',
+                              border: active ? '1.5px solid #16a34a' : '1px solid #cbd5e1',
+                              background: active ? '#f0fdf4' : '#ffffff',
+                              color: active ? '#166534' : '#475569',
+                              fontSize: '0.78rem',
+                              fontWeight: 800,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            {tpl.label}
+                          </button>
+                        )
+                      })}
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+                      <span
+                        style={{
+                          fontSize: '0.72rem',
+                          fontWeight: 800,
+                          padding: '4px 10px',
+                          borderRadius: '999px',
+                          background: '#dcfce7',
+                          color: '#166534',
+                        }}
+                      >
+                        ✓ Portrait (Siap Unduh)
+                      </span>
+                      <span
+                        style={{
+                          fontSize: '0.72rem',
+                          fontWeight: 700,
+                          padding: '4px 10px',
+                          borderRadius: '999px',
+                          background: '#f1f5f9',
+                          color: '#64748b',
+                        }}
+                      >
+                        Landscape (Menyusul)
+                      </span>
+                    </div>
+
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'center',
+                        background: '#f8fafc',
+                        borderRadius: '12px',
+                        padding: '10px',
+                        border: '1px solid #e2e8f0',
+                        marginBottom: '14px',
+                      }}
+                    >
+                      {posterPreviewDataUrl ? (
+                        <img
+                          src={posterPreviewDataUrl}
+                          alt="Preview Poster"
+                          style={{
+                            width: '100%',
+                            maxWidth: '300px',
+                            height: 'auto',
+                            borderRadius: '10px',
+                            boxShadow: '0 8px 20px rgba(0, 0, 0, 0.12)',
+                          }}
+                        />
+                      ) : (
+                        <div style={{ padding: '40px', fontSize: '0.8rem', color: '#64748b' }}>
+                          Menyiapkan preview poster...
+                        </div>
+                      )}
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', flexWrap: 'wrap' }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPosterPreviewMgmtItem(null)
+                          selectMenu('poster_khatib')
+                        }}
+                        style={{
+                          padding: '8px 13px',
+                          borderRadius: '8px',
+                          border: '1px solid #cbd5e1',
+                          background: '#ffffff',
+                          color: '#334155',
+                          fontSize: '0.8rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Buka di Studio Poster
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!posterCanvasRef.current) return
+                          const link = document.createElement('a')
+                          link.download = `Poster-${posterPreviewMgmtItem.nama.replace(/[^a-zA-Z0-9]+/g, '-')}-${posterPreviewMgmtItem.tanggal}.png`
+                          link.href = posterCanvasRef.current.toDataURL('image/png')
+                          link.click()
+                        }}
+                        style={{
+                          padding: '8px 15px',
+                          borderRadius: '8px',
+                          border: 'none',
+                          background: '#16a34a',
+                          color: '#ffffff',
+                          fontSize: '0.8rem',
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Unduh Poster (PNG)
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
