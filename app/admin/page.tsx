@@ -13777,14 +13777,79 @@ export default function AdminSidebarPage() {
                       }}
                     >
                       {waLocalStatus.connected
-                        ? `● Server WA Sender Lokal tersambung (${waLocalStatus.phone ? `+${waLocalStatus.phone}` : 'Siap'})`
+                        ? `● Server WA Sender Lokal tersambung (${waLocalStatus.phone ? formatIndoLocalPhone(waLocalStatus.phone) : 'Siap'})`
                         : '○ Server WA Sender Lokal belum tersambung (mode Otomatis terkunci)'}
                     </div>
+
+                    {showSchedulePicker && (
+                      <div
+                        style={{
+                          padding: '10px 12px',
+                          borderRadius: '10px',
+                          background: '#f8fafc',
+                          border: '1px solid #cbd5e1',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '8px',
+                          marginBottom: '12px',
+                        }}
+                      >
+                        <label style={{ fontSize: '0.76rem', fontWeight: 700, color: '#334155' }}>
+                          Pilih Tanggal &amp; Jam Kirim Otomatis:
+                        </label>
+                        <input
+                          type="datetime-local"
+                          value={scheduleDateTimeInput}
+                          onChange={(e) => setScheduleDateTimeInput(e.target.value)}
+                          style={{
+                            padding: '7px 10px',
+                            borderRadius: '8px',
+                            border: '1px solid #cbd5e1',
+                            fontSize: '0.82rem',
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (!scheduleDateTimeInput) return
+                            const target = shareWaChoiceItem
+                            const iso = new Date(scheduleDateTimeInput).toISOString()
+                            setShowSchedulePicker(false)
+                            setShareWaChoiceItem(null)
+                            try {
+                              await scheduleAutoUndanganViaWaLocal(target, iso)
+                              setAutoWaShareHint(
+                                `Terjadwal! Surat untuk ${target.nama} akan dikirim otomatis pada ${new Date(iso).toLocaleString('id-ID')}.`
+                              )
+                            } catch (err) {
+                              setAutoWaShareHint(
+                                `Gagal menjadwalkan: ${err instanceof Error ? err.message : 'error'}`
+                              )
+                            }
+                          }}
+                          style={{
+                            padding: '8px 12px',
+                            borderRadius: '8px',
+                            border: 'none',
+                            background: '#0f4a2a',
+                            color: '#ffffff',
+                            fontSize: '0.8rem',
+                            fontWeight: 800,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Simpan Jadwal Otomatis
+                        </button>
+                      </div>
+                    )}
 
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px', flexWrap: 'wrap' }}>
                       <button
                         type="button"
-                        onClick={() => setShareWaChoiceItem(null)}
+                        onClick={() => {
+                          setShowSchedulePicker(false)
+                          setShareWaChoiceItem(null)
+                        }}
                         style={{
                           padding: '7px 13px',
                           borderRadius: '8px',
@@ -13801,8 +13866,42 @@ export default function AdminSidebarPage() {
 
                       <button
                         type="button"
+                        disabled={!normalizeWaPhone(shareWaChoiceItem.noTelp)}
+                        onClick={() => {
+                          const nowPlus5 = new Date(Date.now() + 5 * 60000)
+                          const localIso = new Date(
+                            nowPlus5.getTime() - nowPlus5.getTimezoneOffset() * 60000
+                          )
+                            .toISOString()
+                            .slice(0, 16)
+                          setScheduleDateTimeInput(localIso)
+                          setShowSchedulePicker((prev) => !prev)
+                        }}
+                        style={{
+                          padding: '7px 13px',
+                          borderRadius: '8px',
+                          border: '1px solid rgba(107, 33, 168, 0.28)',
+                          background: normalizeWaPhone(shareWaChoiceItem.noTelp)
+                            ? '#faf5ff'
+                            : '#f1f5f9',
+                          color: normalizeWaPhone(shareWaChoiceItem.noTelp)
+                            ? '#6b21a8'
+                            : '#94a3b8',
+                          fontSize: '0.8rem',
+                          fontWeight: 800,
+                          cursor: normalizeWaPhone(shareWaChoiceItem.noTelp)
+                            ? 'pointer'
+                            : 'not-allowed',
+                        }}
+                      >
+                        Jadwalkan
+                      </button>
+
+                      <button
+                        type="button"
                         onClick={async () => {
                           const target = shareWaChoiceItem
+                          setShowSchedulePicker(false)
                           setShareWaChoiceItem(null)
                           await sendAutoUndanganManual(target)
                         }}
