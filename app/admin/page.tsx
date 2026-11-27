@@ -681,13 +681,20 @@ export default function AdminSidebarPage() {
     new Promise((resolve) => {
       const img = new window.Image()
       img.onload = () => {
-        const scale = Math.min(1, maxSide / Math.max(img.width, img.height))
+        const pad = 16
+        const scale = Math.min(1, (maxSide - pad * 2) / Math.max(img.width, img.height))
+        const drawW = Math.max(1, Math.round(img.width * scale))
+        const drawH = Math.max(1, Math.round(img.height * scale))
         const c = document.createElement('canvas')
-        c.width = Math.max(1, Math.round(img.width * scale))
-        c.height = Math.max(1, Math.round(img.height * scale))
+        c.width = drawW + pad * 2
+        c.height = drawH + pad * 2
         const ctx = c.getContext('2d')
         if (ctx) {
-          ctx.drawImage(img, 0, 0, c.width, c.height)
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.28)'
+          ctx.shadowBlur = 14
+          ctx.shadowOffsetX = 0
+          ctx.shadowOffsetY = 6
+          ctx.drawImage(img, pad, pad, drawW, drawH)
           resolve(c.toDataURL('image/png'))
         } else {
           resolve(srcUrl)
@@ -701,7 +708,7 @@ export default function AdminSidebarPage() {
     const targetSnapshot = editKhotibMgmtItem
     setAiMgmtProcessing(true)
     setAiMgmtProgressPct(3)
-    setAiMgmtProgressText('3% • Mempersiapkan foto...')
+    setAiMgmtProgressText('Mempersiapkan foto...')
 
     const reader = new FileReader()
     reader.onload = async () => {
@@ -711,7 +718,7 @@ export default function AdminSidebarPage() {
         if (hasRealProgress) return
         setAiMgmtProgressPct((prev) => {
           const next = prev < 24 ? prev + 3 : prev
-          setAiMgmtProgressText(`${next}% • Menghapus latar & auto-crop...`)
+          setAiMgmtProgressText('Menghapus latar & auto-crop...')
           return next
         })
       }, 150)
@@ -744,7 +751,7 @@ export default function AdminSidebarPage() {
               const pct = Math.min(98, Math.round((current / total) * 100))
               setAiMgmtProgressPct((prev) => {
                 const next = Math.max(prev, pct)
-                setAiMgmtProgressText(`${next}% • Menghapus latar & auto-crop...`)
+                setAiMgmtProgressText('Menghapus latar & auto-crop...')
                 return next
               })
             }
@@ -763,7 +770,7 @@ export default function AdminSidebarPage() {
           })
         }
         setAiMgmtProgressPct(100)
-        setAiMgmtProgressText('100% • Foto siap (Auto-Crop & Remove BG)')
+        setAiMgmtProgressText('Foto siap (Auto-Crop, Remove BG & Shadow)')
       } catch {
         const fallbackCanvas = await removePhotoBackground(dataUrl, 42)
         const trimmedFallback = await trimAndCleanCutout(fallbackCanvas.toDataURL('image/png'))
@@ -777,7 +784,7 @@ export default function AdminSidebarPage() {
           })
         }
         setAiMgmtProgressPct(100)
-        setAiMgmtProgressText('100% • Foto siap (Auto-Crop & Remove BG)')
+        setAiMgmtProgressText('Foto siap (Auto-Crop, Remove BG & Shadow)')
       } finally {
         window.clearInterval(warmupTimer)
         setAiMgmtProcessing(false)
