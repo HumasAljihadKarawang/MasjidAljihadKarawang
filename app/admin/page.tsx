@@ -14224,7 +14224,7 @@ export default function AdminSidebarPage() {
                             style={{ width: 'auto', margin: 0 }}
                           />
                           <span style={{ fontWeight: 800, color: '#0f4a2a', fontSize: '0.84rem' }}>
-                            Surat Undangan Jum&apos;at (Filter kalender khusus hari Jum&apos;at)
+                            Surat Undangan Khusus Sholat Jumat
                           </span>
                         </label>
                       </div>
