@@ -12084,30 +12084,37 @@ export default function AdminSidebarPage() {
                     }}
                   >
                     Surat Undangan Otomatis
-                    {autoUndanganList.length > 0 && (
-                      <span
-                        style={{
-                          position: 'absolute',
-                          top: '-7px',
-                          right: '-7px',
-                          minWidth: '20px',
-                          height: '20px',
-                          padding: '0 6px',
-                          borderRadius: '999px',
-                          background: '#dc2626',
-                          color: '#ffffff',
-                          fontSize: '0.68rem',
-                          fontWeight: 900,
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          boxShadow: '0 2px 6px rgba(220, 38, 38, 0.35)',
-                          border: '2px solid #ffffff',
-                        }}
-                      >
-                        {autoUndanganList.length}
-                      </span>
-                    )}
+                    {(() => {
+                      const pendingCount = autoUndanganList.filter(
+                        (item) => item.status !== 'Diterima' && item.status !== 'Ditolak'
+                      ).length
+                      return (
+                        pendingCount > 0 && (
+                          <span
+                            style={{
+                              position: 'absolute',
+                              top: '-7px',
+                              right: '-7px',
+                              minWidth: '20px',
+                              height: '20px',
+                              padding: '0 6px',
+                              borderRadius: '999px',
+                              background: '#dc2626',
+                              color: '#ffffff',
+                              fontSize: '0.68rem',
+                              fontWeight: 900,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              boxShadow: '0 2px 6px rgba(220, 38, 38, 0.35)',
+                              border: '2px solid #ffffff',
+                            }}
+                          >
+                            {pendingCount}
+                          </span>
+                        )
+                      )
+                    })()}
                   </button>
                   <button
                     type="button"
