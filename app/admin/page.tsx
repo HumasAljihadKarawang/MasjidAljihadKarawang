@@ -14033,11 +14033,6 @@ export default function AdminSidebarPage() {
                           createdAt: new Date().toISOString(),
                         }
                         handleCreateAutoUndangan(newItem)
-                        saveKhatibContact(autoUndanganNama, autoUndanganTelp)
-                        void upsertKhotibHistory({
-                          nama: autoUndanganNama,
-                          noTelp: autoUndanganTelp,
-                        })
                         recordLastUsedNoSurat(assignedNo, autoUndanganTanggal)
                         setAutoUndanganNama('')
                         setAutoUndanganTelp('')
@@ -14134,37 +14129,20 @@ export default function AdminSidebarPage() {
                           type="text"
                           required
                           autoFocus
-                          list="khatib-contact-list"
+                          autoComplete="off"
                           placeholder="Contoh: KH. Ahmad Fauzan, S.Ag."
                           value={autoUndanganNama}
                           onChange={(e) => {
                             const val = e.target.value
                             setAutoUndanganNama(val)
-                            const knownPhone =
-                              khatibContacts[val] ||
-                              kalenderList.find((k) => k.pemateri === val && k.noTeleponPj)
-                                ?.noTeleponPj ||
-                              pengajuanKalenderList.find(
-                                (p) => p.penanggungJawab === val && p.noTeleponPj
-                              )?.noTeleponPj
-                            if (knownPhone) {
-                              setAutoUndanganTelp(knownPhone)
+                            const histMatch = khotibHistoryList.find(
+                              (h) => h.nama.trim().toLowerCase() === val.trim().toLowerCase()
+                            )
+                            if (histMatch?.noTelp) {
+                              setAutoUndanganTelp(histMatch.noTelp)
                             }
                           }}
                         />
-                        <datalist id="khatib-contact-list">
-                          {Array.from(
-                            new Set([
-                              ...Object.keys(khatibContacts),
-                              ...kalenderList.map((k) => k.pemateri).filter(Boolean),
-                              ...pengajuanKalenderList
-                                .map((p) => p.penanggungJawab)
-                                .filter(Boolean),
-                            ])
-                          ).map((nm) => (
-                            <option key={nm} value={nm} />
-                          ))}
-                        </datalist>
                       </div>
 
                       <div className={styles.formGroup}>
