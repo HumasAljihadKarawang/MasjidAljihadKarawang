@@ -584,7 +584,10 @@ export default function AdminSidebarPage() {
   // Preload modul AI saat membuka tab Studio Poster agar saat upload langsung responsif
   const aiModulePromiseRef = useRef<Promise<unknown> | null>(null)
   useEffect(() => {
-    if (activeTab === 'poster_khatib' && !aiModulePromiseRef.current) {
+    if (
+      (activeTab === 'poster_khatib' || activeTab === 'manajemen_khotib') &&
+      !aiModulePromiseRef.current
+    ) {
       aiModulePromiseRef.current = import(
         // @ts-expect-error ESM remote import resolved at runtime in browser
         /* webpackIgnore: true */ 'https://esm.sh/@imgly/background-removal@1.4.5'
@@ -665,6 +668,119 @@ export default function AdminSidebarPage() {
       } finally {
         window.clearInterval(warmupTimer)
         setAiProcessing(false)
+      }
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const [aiMgmtProcessing, setAiMgmtProcessing] = useState(false)
+  const [aiMgmtProgressPct, setAiMgmtProgressPct] = useState(0)
+  const [aiMgmtProgressText, setAiMgmtProgressText] = useState('')
+
+  const compressTransparentPng = (srcUrl: string, maxSide = 420): Promise<string> =>
+    new Promise((resolve) => {
+      const img = new window.Image()
+      img.onload = () => {
+        const scale = Math.min(1, maxSide / Math.max(img.width, img.height))
+        const c = document.createElement('canvas')
+        c.width = Math.max(1, Math.round(img.width * scale))
+        c.height = Math.max(1, Math.round(img.height * scale))
+        const ctx = c.getContext('2d')
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, c.width, c.height)
+          resolve(c.toDataURL('image/png'))
+        } else {
+          resolve(srcUrl)
+        }
+      }
+      img.onerror = () => resolve(srcUrl)
+      img.src = srcUrl
+    })
+
+  const handleUploadMgmtPhotoWithAI = async (file: File) => {
+    const targetSnapshot = editKhotibMgmtItem
+    setAiMgmtProcessing(true)
+    setAiMgmtProgressPct(3)
+    setAiMgmtProgressText('3% • Mempersiapkan foto...')
+
+    const reader = new FileReader()
+    reader.onload = async () => {
+      const dataUrl = reader.result as string
+      let hasRealProgress = false
+      const warmupTimer = window.setInterval(() => {
+        if (hasRealProgress) return
+        setAiMgmtProgressPct((prev) => {
+          const next = prev < 24 ? prev + 3 : prev
+          setAiMgmtProgressText(`${next}% • Menghapus latar & auto-crop...`)
+          return next
+        })
+      }, 150)
+
+      try {
+        const [resizedBlob, modRaw] = await Promise.all([
+          resizePhotoForAi(dataUrl, 960),
+          aiModulePromiseRef.current ||
+            import(
+              // @ts-expect-error ESM remote import resolved at runtime in browser
+              /* webpackIgnore: true */ 'https://esm.sh/@imgly/background-removal@1.4.5'
+            ),
+        ])
+        const mod = modRaw as {
+          removeBackground?: (
+            input: Blob | File,
+            cfg?: Record<string, unknown>
+          ) => Promise<Blob>
+          default?: (input: Blob | File, cfg?: Record<string, unknown>) => Promise<Blob>
+        }
+        const removeBgFn = mod.removeBackground || mod.default
+        if (!removeBgFn) throw new Error('AI module unavailable')
+
+        const blobResult: Blob = await removeBgFn(resizedBlob || file, {
+          model: 'small',
+          output: { format: 'image/png', quality: 0.9 },
+          progress: (_key: string, current: number, total: number) => {
+            if (total > 0) {
+              hasRealProgress = true
+              const pct = Math.min(98, Math.round((current / total) * 100))
+              setAiMgmtProgressPct((prev) => {
+                const next = Math.max(prev, pct)
+                setAiMgmtProgressText(`${next}% • Menghapus latar & auto-crop...`)
+                return next
+              })
+            }
+          },
+        })
+        const rawCutUrl = URL.createObjectURL(blobResult)
+        const trimmedUrl = await trimAndCleanCutout(rawCutUrl)
+        URL.revokeObjectURL(rawCutUrl)
+        const finalPng = await compressTransparentPng(trimmedUrl, 420)
+        setEditKhotibMgmtItem((prev) => (prev ? { ...prev, fotoUrl: finalPng } : prev))
+        if (targetSnapshot) {
+          void upsertKhotibHistory({
+            nama: targetSnapshot.nama,
+            noTelp: targetSnapshot.noTelp,
+            fotoUrl: finalPng,
+          })
+        }
+        setAiMgmtProgressPct(100)
+        setAiMgmtProgressText('100% • Foto siap (Auto-Crop & Remove BG)')
+      } catch {
+        const fallbackCanvas = await removePhotoBackground(dataUrl, 42)
+        const trimmedFallback = await trimAndCleanCutout(fallbackCanvas.toDataURL('image/png'))
+        const finalPng = await compressTransparentPng(trimmedFallback, 420)
+        setEditKhotibMgmtItem((prev) => (prev ? { ...prev, fotoUrl: finalPng } : prev))
+        if (targetSnapshot) {
+          void upsertKhotibHistory({
+            nama: targetSnapshot.nama,
+            noTelp: targetSnapshot.noTelp,
+            fotoUrl: finalPng,
+          })
+        }
+        setAiMgmtProgressPct(100)
+        setAiMgmtProgressText('100% • Foto siap (Auto-Crop & Remove BG)')
+      } finally {
+        window.clearInterval(warmupTimer)
+        setAiMgmtProcessing(false)
       }
     }
     reader.readAsDataURL(file)
@@ -1153,9 +1269,17 @@ export default function AdminSidebarPage() {
     }
   }
 
+  const getEffectiveFotoForItem = (item: KhotibPemateriItem) => {
+    if (item.fotoUrl && item.fotoUrl.trim()) return item.fotoUrl
+    const hist = khotibHistoryList.find(
+      (h) => h.nama.trim().toLowerCase() === item.nama.trim().toLowerCase()
+    )
+    return hist?.fotoUrl || ''
+  }
+
   const isKhotibItemComplete = (item: KhotibPemateriItem) => {
     const hasTema = Boolean((item.tema || '').trim())
-    const hasFoto = Boolean((item.fotoUrl || '').trim())
+    const hasFoto = Boolean(getEffectiveFotoForItem(item).trim())
     if (item.kategori === 'Ustadz Kajian') {
       return hasTema && hasFoto
     }
@@ -15455,8 +15579,9 @@ export default function AdminSidebarPage() {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       {filteredMgmt.map((item) => {
                         const effPetugas = getEffectivePetugasForItem(item)
+                        const effFoto = getEffectiveFotoForItem(item)
                         const hasTema = Boolean((item.tema || '').trim())
-                        const hasFoto = Boolean((item.fotoUrl || '').trim())
+                        const hasFoto = Boolean(effFoto.trim())
                         const needsBilal = item.kategori !== 'Ustadz Kajian'
                         const hasBilal = Boolean(effPetugas.bilalNama)
                         const isComplete = isKhotibItemComplete(item)
@@ -15526,7 +15651,7 @@ export default function AdminSidebarPage() {
                                   color: hasFoto ? '#166534' : '#92400e',
                                 }}
                               >
-                                {hasFoto ? '✓ Foto' : '○ Foto kosong'}
+                                {hasFoto ? '✓ Foto tersedia' : '○ Foto kosong'}
                               </span>
                               {needsBilal && (
                                 <span
@@ -15567,9 +15692,9 @@ export default function AdminSidebarPage() {
                                 } else {
                                   setUseDefaultTemaOtomatis(true)
                                 }
-                                if (item.fotoUrl) {
-                                  setRawKhatibPhoto(item.fotoUrl)
-                                  setAiCutoutPhoto(item.fotoUrl)
+                                if (effFoto) {
+                                  setRawKhatibPhoto(effFoto)
+                                  setAiCutoutPhoto(effFoto)
                                 }
                                 setPosterPreviewMgmtItem(item)
                                 window.setTimeout(() => {
@@ -15595,8 +15720,12 @@ export default function AdminSidebarPage() {
                               type="button"
                               onClick={() => {
                                 const eff = getEffectivePetugasForItem(item)
+                                setAiMgmtProcessing(false)
+                                setAiMgmtProgressPct(0)
+                                setAiMgmtProgressText('')
                                 setEditKhotibMgmtItem({
                                   ...item,
+                                  fotoUrl: item.fotoUrl || effFoto || undefined,
                                   imamNama: item.imamNama || eff.imamNama,
                                   bilalNama: item.bilalNama || eff.bilalNama,
                                 })
@@ -15818,51 +15947,90 @@ export default function AdminSidebarPage() {
                       )}
 
                       <div className={styles.formGroup}>
-                        <label>Foto Khotib / Ustadz (untuk Poster)</label>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0]
-                              if (!file) return
-                              const reader = new FileReader()
-                              reader.onload = () => {
-                                const img = new window.Image()
-                                img.onload = () => {
-                                  const maxSide = 420
-                                  const scale = Math.min(1, maxSide / Math.max(img.width, img.height))
-                                  const c = document.createElement('canvas')
-                                  c.width = Math.round(img.width * scale)
-                                  c.height = Math.round(img.height * scale)
-                                  const ctx = c.getContext('2d')
-                                  if (ctx) {
-                                    ctx.drawImage(img, 0, 0, c.width, c.height)
-                                    const compressed = c.toDataURL('image/png')
-                                    setEditKhotibMgmtItem((prev) =>
-                                      prev ? { ...prev, fotoUrl: compressed } : prev
-                                    )
-                                  }
-                                }
-                                img.src = String(reader.result || '')
-                              }
-                              reader.readAsDataURL(file)
+                        <label>
+                          Foto Khotib / Ustadz (Auto-Crop, Hapus Latar &amp; Shadow Otomatis)
+                        </label>
+                        {editKhotibMgmtItem.fotoUrl && (
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '12px',
+                              padding: '8px 12px',
+                              borderRadius: '10px',
+                              background: '#f0fdf4',
+                              border: '1px solid rgba(22, 163, 74, 0.28)',
+                              marginBottom: '8px',
                             }}
-                          />
-                          {editKhotibMgmtItem.fotoUrl && (
+                          >
                             <img
                               src={editKhotibMgmtItem.fotoUrl}
                               alt="Foto Khotib"
                               style={{
-                                width: '48px',
-                                height: '48px',
+                                width: '54px',
+                                height: '54px',
                                 borderRadius: '8px',
-                                objectFit: 'cover',
-                                border: '1px solid #cbd5e1',
+                                objectFit: 'contain',
+                                filter: 'drop-shadow(0 4px 10px rgba(0, 0, 0, 0.24))',
+                                background: '#ffffff',
                               }}
                             />
-                          )}
-                        </div>
+                            <div style={{ flex: 1 }}>
+                              <strong style={{ display: 'block', fontSize: '0.78rem', color: '#166534' }}>
+                                ✓ Foto tersedia (tersimpan di histori)
+                              </strong>
+                              <span style={{ fontSize: '0.72rem', color: '#15803d' }}>
+                                Pilih file baru di bawah jika ingin upload ulang atau perbarui foto.
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          disabled={aiMgmtProcessing}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0]
+                            if (file) {
+                              void handleUploadMgmtPhotoWithAI(file)
+                            }
+                          }}
+                        />
+                        {(aiMgmtProcessing || aiMgmtProgressPct > 0) && (
+                          <div style={{ marginTop: '8px' }}>
+                            <div
+                              style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                fontSize: '0.73rem',
+                                fontWeight: 800,
+                                color: '#0f4a2a',
+                                marginBottom: '4px',
+                              }}
+                            >
+                              <span>{aiMgmtProgressText || 'Memproses foto...'}</span>
+                              <span>{`${aiMgmtProgressPct}%`}</span>
+                            </div>
+                            <div
+                              style={{
+                                width: '100%',
+                                height: '7px',
+                                borderRadius: '999px',
+                                background: '#e2e8f0',
+                                overflow: 'hidden',
+                              }}
+                            >
+                              <div
+                                style={{
+                                  width: `${aiMgmtProgressPct}%`,
+                                  height: '100%',
+                                  background: 'linear-gradient(90deg, #16a34a, #22c55e)',
+                                  transition: 'width 0.2s ease',
+                                }}
+                              />
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       <div className={styles.twoCols}>
