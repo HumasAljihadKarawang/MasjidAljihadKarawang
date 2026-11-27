@@ -1529,6 +1529,7 @@ export default function AdminSidebarPage() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        id: item.id,
         phone: waPhone,
         caption: waText,
         imageBase64,
@@ -1721,14 +1722,14 @@ export default function AdminSidebarPage() {
     return () => window.clearInterval(timer)
   }, [suratTabMode, waLocalStatus.online, selectedWaDeviceId, waDevices])
 
-  // Fallback pengirim terjadwal dari browser jika wa-sender belum mendukung /scheduled atau baru nyala
+  // Fallback pengirim terjadwal dari browser jika wa-sender belum mendukung /scheduled (tunggu 15 detik agar tidak bentrok dengan server wa-sender)
   useEffect(() => {
     if (!waLocalStatus.connected) return
     const dueItems = autoUndanganList.filter(
       (it) =>
         it.status === 'Terjadwal Dikirim' &&
         Boolean(it.scheduledAt) &&
-        scheduleTickNow >= new Date(it.scheduledAt as string).getTime() &&
+        scheduleTickNow >= new Date(it.scheduledAt as string).getTime() + 15000 &&
         !scheduledDispatchRef.current.has(it.id)
     )
     if (dueItems.length === 0) return

@@ -209,7 +209,7 @@ app.post('/send-media', async (req, res) => {
       });
     }
 
-    const { phone, caption, imageBase64, fileName } = req.body || {};
+    const { id, phone, caption, imageBase64, fileName } = req.body || {};
     const jid = formatJid(phone);
     if (!jid) {
       return res.status(400).json({
@@ -234,6 +234,24 @@ app.post('/send-media', async (req, res) => {
     });
 
     console.log(`[TERKIRIM GAMBAR + TEKS] -> ${jid} (${fileName || 'Surat-Undangan.png'})`);
+    // Tandai jadwal terkait (jika ada) agar tidak terkirim ganda
+    try {
+      const jobs = loadScheduledJobs();
+      let changed = false;
+      for (const j of jobs) {
+        if (
+          !j.sent &&
+          ((id && j.id === String(id)) || (formatJid(j.phone) === jid && j.fileName === fileName))
+        ) {
+          j.sent = true;
+          j.sentAt = new Date().toISOString();
+          changed = true;
+        }
+      }
+      if (changed) saveScheduledJobs(jobs);
+    } catch {
+      // ignore
+    }
     return res.json({ ok: true, jid, mode: 'image' });
   } catch (err) {
     console.error('[ERROR KIRIM WA]', err);
@@ -355,7 +373,7 @@ setInterval(async () => {
   } finally {
     isProcessingSchedule = false;
   }
-}, 10000);
+}, 2000);
 
 const server = app.listen(PORT, '0.0.0.0', () => {
   console.log('======================================================');
