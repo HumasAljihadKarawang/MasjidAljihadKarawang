@@ -760,6 +760,7 @@ export default function AdminSidebarPage() {
   const [scheduleTickNow, setScheduleTickNow] = useState(() => Date.now())
   const [isEditingInStatusModal, setIsEditingInStatusModal] = useState(false)
   const [statusModalEditDraft, setStatusModalEditDraft] = useState<AutoUndanganItem | null>(null)
+  const [statusSavedToast, setStatusSavedToast] = useState('')
   const [manualGuideItem, setManualGuideItem] = useState<AutoUndanganItem | null>(null)
 
   const formatTanggalIndo = (isoDate?: string) => {
@@ -1459,6 +1460,14 @@ export default function AdminSidebarPage() {
       setAutoWaShareHint('Gagal memutuskan sesi WA Sender.')
     }
   }
+
+  useEffect(() => {
+    if (!statusSavedToast) return
+    const timer = window.setTimeout(() => {
+      setStatusSavedToast('')
+    }, 4000)
+    return () => window.clearTimeout(timer)
+  }, [statusSavedToast])
 
   useEffect(() => {
     if (!autoWaShareHint) return
@@ -13971,8 +13980,39 @@ export default function AdminSidebarPage() {
                             gap: '6px',
                           }}
                         >
-                          <div style={{ fontSize: '0.76rem', fontWeight: 800, color: '#0f4a2a' }}>
-                            {konfirmasiAutoModal.noSurat}
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              gap: '8px',
+                              flexWrap: 'wrap',
+                            }}
+                          >
+                            <div style={{ fontSize: '0.76rem', fontWeight: 800, color: '#0f4a2a' }}>
+                              {konfirmasiAutoModal.noSurat}
+                            </div>
+                            {!isEditingInStatusModal && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setStatusModalEditDraft(konfirmasiAutoModal)
+                                  setIsEditingInStatusModal(true)
+                                }}
+                                style={{
+                                  border: '1px solid rgba(27, 107, 69, 0.28)',
+                                  background: '#ffffff',
+                                  color: '#0f4a2a',
+                                  borderRadius: '7px',
+                                  padding: '3px 10px',
+                                  fontSize: '0.72rem',
+                                  fontWeight: 800,
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                Edit Surat
+                              </button>
+                            )}
                           </div>
                           <div style={{ fontSize: '0.96rem', fontWeight: 900, color: '#111827' }}>
                             {konfirmasiAutoModal.nama}
@@ -14046,6 +14086,7 @@ export default function AdminSidebarPage() {
                               await handleEditAutoUndangan(updatedDraft)
                               setKonfirmasiAutoModal(updatedDraft)
                               setIsEditingInStatusModal(false)
+                              setStatusSavedToast('Perubahan telah diterapkan.')
                             }}
                             style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}
                           >
@@ -14402,7 +14443,7 @@ export default function AdminSidebarPage() {
                           </div>
                         )}
 
-                        {/* Tombol Edit & Hapus di dalam Pop-up Preview / Status */}
+                        {/* Tombol Hapus di dalam Pop-up Preview / Status */}
                         {!isEditingInStatusModal && (
                           <div
                             style={{
@@ -14410,35 +14451,13 @@ export default function AdminSidebarPage() {
                               paddingTop: '12px',
                               borderTop: '1px solid #e2e8f0',
                               display: 'flex',
-                              justifyContent: 'space-between',
-                              alignItems: 'center',
-                              gap: '8px',
+                              justifyContent: 'flex-end',
                             }}
                           >
                             <button
                               type="button"
-                              onClick={() => {
-                                setStatusModalEditDraft(konfirmasiAutoModal)
-                                setIsEditingInStatusModal(true)
-                              }}
-                              style={{
-                                flex: 1,
-                                padding: '8px 12px',
-                                borderRadius: '8px',
-                                border: '1px solid rgba(100, 116, 139, 0.3)',
-                                background: '#ffffff',
-                                color: '#334155',
-                                fontSize: '0.8rem',
-                                fontWeight: 800,
-                                cursor: 'pointer',
-                              }}
-                            >
-                              Edit Data
-                            </button>
-                            <button
-                              type="button"
                               className={styles.deleteBtn}
-                              style={{ flex: 1, padding: '8px 12px', fontSize: '0.8rem' }}
+                              style={{ width: '100%', padding: '8px 12px', fontSize: '0.8rem' }}
                               onClick={() => {
                                 const target = konfirmasiAutoModal
                                 closeStatusModal()
@@ -14453,6 +14472,31 @@ export default function AdminSidebarPage() {
                     </div>
                   )
                 })()}
+
+              {/* NOTIFIKASI SAMPING SAAT PERUBAHAN EDIT SURAT DISIMPAN */}
+              {statusSavedToast && (
+                <div
+                  style={{
+                    position: 'fixed',
+                    top: '20px',
+                    right: '20px',
+                    zIndex: 10050,
+                    background: '#0f4a2a',
+                    color: '#ffffff',
+                    padding: '10px 16px',
+                    borderRadius: '10px',
+                    boxShadow: '0 10px 28px rgba(15, 74, 42, 0.35)',
+                    fontSize: '0.82rem',
+                    fontWeight: 800,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                  }}
+                >
+                  <span>✓</span>
+                  <span>{statusSavedToast}</span>
+                </div>
+              )}
 
               {/* POP-UP PANDUAN KIRIM MANUAL (CTRL + V / PASTE GAMBAR) */}
               {manualGuideItem && (
