@@ -758,6 +758,7 @@ export default function AdminSidebarPage() {
   const [showSchedulePicker, setShowSchedulePicker] = useState(false)
   const [scheduleDateTimeInput, setScheduleDateTimeInput] = useState('')
   const [scheduleTickNow, setScheduleTickNow] = useState(() => Date.now())
+  const scheduledDispatchRef = useRef<Set<string>>(new Set())
   const [isEditingInStatusModal, setIsEditingInStatusModal] = useState(false)
   const [statusModalEditDraft, setStatusModalEditDraft] = useState<AutoUndanganItem | null>(null)
   const [statusSavedToast, setStatusSavedToast] = useState('')
@@ -1570,22 +1571,26 @@ export default function AdminSidebarPage() {
     const fileName = `Surat-Undangan-${item.nama.replace(/[^a-zA-Z0-9]+/g, '-')}-${item.tanggal}.png`
     const imageBase64 = await blobToBase64(imgBlob)
     const targetUrl = getActiveWaUrl()
-    const res = await fetch(`${targetUrl}/schedule-send`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        id: item.id,
-        phone: waPhone,
-        caption: waText,
-        imageBase64,
-        fileName,
-        scheduledAt: scheduledIso,
-      }),
-    })
-    const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string }
-    if (!res.ok || !data.ok) {
-      throw new Error(data.error || 'Gagal menjadwalkan di WA Sender')
+    try {
+      const res = await fetch(`${targetUrl}/schedule-send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: item.id,
+          phone: waPhone,
+          caption: waText,
+          imageBase64,
+          fileName,
+          scheduledAt: scheduledIso,
+        }),
+      })
+      if (res.ok) {
+        await res.json().catch(() => ({}))
+      }
+    } catch {
+      // Tetap simpan jadwal di web & Supabase (fallback browser scheduler aktif)
     }
+    scheduledDispatchRef.current.delete(item.id)
     setAutoUndanganList((prev) => {
       const next = prev.map((x) =>
         x.id === item.id || x.noSurat === item.noSurat
@@ -1715,6 +1720,47 @@ export default function AdminSidebarPage() {
     }, 5000)
     return () => window.clearInterval(timer)
   }, [suratTabMode, waLocalStatus.online, selectedWaDeviceId, waDevices])
+
+  // Fallback pengirim terjadwal dari browser jika wa-sender belum mendukung /scheduled atau baru nyala
+  useEffect(() => {
+    if (!waLocalStatus.connected) return
+    const dueItems = autoUndanganList.filter(
+      (it) =>
+        it.status === 'Terjadwal Dikirim' &&
+        Boolean(it.scheduledAt) &&
+        scheduleTickNow >= new Date(it.scheduledAt as string).getTime() &&
+        !scheduledDispatchRef.current.has(it.id)
+    )
+    if (dueItems.length === 0) return
+
+    dueItems.forEach((it) => {
+      scheduledDispatchRef.current.add(it.id)
+      void (async () => {
+        try {
+          // Cek sekali ke /scheduled kalau-kalau wa-sender sudah mengirimkannya
+          const chk = await fetch(`${getActiveWaUrl()}/scheduled`).catch(() => null)
+          if (chk && chk.ok) {
+            const jData = (await chk.json().catch(() => ({}))) as {
+              jobs?: Array<{ id: string; sent: boolean; sentAt?: string | null }>
+            }
+            const alreadySent = jData.jobs?.find((j) => j.id === it.id && j.sent)
+            if (alreadySent) {
+              await handleUpdateAutoUndanganStatus(
+                it,
+                'Sudah Dikirim',
+                alreadySent.sentAt || new Date().toISOString()
+              )
+              return
+            }
+          }
+          await sendAutoUndanganViaWaLocal(it)
+          setStatusSavedToast(`Jadwal otomatis untuk ${it.nama} berhasil terkirim!`)
+        } catch {
+          scheduledDispatchRef.current.delete(it.id)
+        }
+      })()
+    })
+  }, [scheduleTickNow, waLocalStatus.connected, autoUndanganList])
 
   const sendAutoUndanganManual = async (item: AutoUndanganItem) => {
     const isKhutbah = /khotib|khatib|imam|bilal|jumat|jum'at/i.test(item.perihal)
