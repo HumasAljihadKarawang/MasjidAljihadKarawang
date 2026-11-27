@@ -14344,7 +14344,7 @@ export default function AdminSidebarPage() {
                               className={styles.submitBtn}
                               style={{ opacity: 0.45, cursor: 'not-allowed' }}
                             >
-                              + Simpan &amp; Masukkan ke List Undangan (Jadwal Bentrok)
+                              Tidak Dapat Menambahkan
                             </button>
                           </>
                         )
