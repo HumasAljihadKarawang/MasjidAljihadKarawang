@@ -13307,9 +13307,14 @@ export default function AdminSidebarPage() {
                                     setKonfirmasiAutoModal(item)
                                   }}
                                   style={{
-                                    border: '1px solid rgba(27, 107, 69, 0.25)',
-                                    background: '#ffffff',
-                                    color: '#14532d',
+                                    border:
+                                      item.status === 'Sudah Dikirim'
+                                        ? '1px solid rgba(217, 119, 6, 0.35)'
+                                        : '1px solid rgba(27, 107, 69, 0.25)',
+                                    background:
+                                      item.status === 'Sudah Dikirim' ? '#fffbeb' : '#ffffff',
+                                    color:
+                                      item.status === 'Sudah Dikirim' ? '#b45309' : '#14532d',
                                     borderRadius: '8px',
                                     padding: '6px 10px',
                                     fontSize: '0.76rem',
@@ -13317,7 +13322,7 @@ export default function AdminSidebarPage() {
                                     cursor: 'pointer',
                                   }}
                                 >
-                                  Preview / Edit
+                                  {item.status === 'Sudah Dikirim' ? 'Konfirmasi' : 'Preview / Edit'}
                                 </button>
                                 <button
                                   type="button"
