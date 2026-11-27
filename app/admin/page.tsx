@@ -698,6 +698,7 @@ export default function AdminSidebarPage() {
     createdAt: string
     sentAt?: string
     scheduledAt?: string
+    acceptedAt?: string
   }
   const [autoUndanganList, setAutoUndanganList] = useState<AutoUndanganItem[]>([])
   const [khatibContacts, setKhatibContacts] = useState<Record<string, string>>({})
@@ -820,6 +821,16 @@ export default function AdminSidebarPage() {
   const [posterPreviewMgmtItem, setPosterPreviewMgmtItem] = useState<KhotibPemateriItem | null>(null)
   const [posterPreviewDataUrl, setPosterPreviewDataUrl] = useState('')
   const [showAddKhotibMgmtModal, setShowAddKhotibMgmtModal] = useState(false)
+
+  interface KhotibHistoryItem {
+    id: string
+    nama: string
+    noTelp: string
+    fotoUrl?: string
+    updatedAt: string
+  }
+  const [khotibHistoryList, setKhotibHistoryList] = useState<KhotibHistoryItem[]>([])
+  const [khotibHistorySearch, setKhotibHistorySearch] = useState('')
   const [newKhotibForm, setNewKhotibForm] = useState<{
     nama: string
     kategori: KhotibPemateriKategori
@@ -948,6 +959,13 @@ export default function AdminSidebarPage() {
           setKhotibMgmtList(parsedMgmt)
         }
       }
+      const savedKhotibHistory = window.localStorage.getItem('aljihad_khotib_history_v1')
+      if (savedKhotibHistory) {
+        const parsedHist = JSON.parse(savedKhotibHistory) as KhotibHistoryItem[]
+        if (Array.isArray(parsedHist)) {
+          setKhotibHistoryList(parsedHist)
+        }
+      }
     } catch {
       // ignore storage error
     }
@@ -1019,6 +1037,77 @@ export default function AdminSidebarPage() {
       window.localStorage.setItem('aljihad_khotib_mgmt_v1', JSON.stringify(nextList))
     } catch {
       // ignore storage error
+    }
+  }
+
+  const upsertKhotibHistory = async (entry: {
+    nama: string
+    noTelp?: string
+    fotoUrl?: string
+  }) => {
+    const cleanName = entry.nama.trim()
+    if (!cleanName) return
+    const cleanTelp = formatIndoLocalPhone(entry.noTelp || '')
+    const key = cleanName.toLowerCase()
+    const nowIso = new Date().toISOString()
+
+    let finalItem: KhotibHistoryItem | null = null
+    setKhotibHistoryList((prev) => {
+      const existing = prev.find((h) => h.nama.trim().toLowerCase() === key)
+      const merged: KhotibHistoryItem = {
+        id: existing?.id || `kh-hist-${Date.now()}`,
+        nama: cleanName,
+        noTelp: cleanTelp || existing?.noTelp || '',
+        fotoUrl: entry.fotoUrl || existing?.fotoUrl || undefined,
+        updatedAt: nowIso,
+      }
+      finalItem = merged
+      const next = [merged, ...prev.filter((h) => h.nama.trim().toLowerCase() !== key)]
+      try {
+        window.localStorage.setItem('aljihad_khotib_history_v1', JSON.stringify(next))
+      } catch {
+        // ignore
+      }
+      return next
+    })
+
+    if (getActiveSupabaseConfig().isConfigured && finalItem) {
+      const sb = getSupabaseClient()
+      const savedObj = finalItem as KhotibHistoryItem
+      try {
+        const payload = JSON.stringify({
+          clientId: savedObj.id,
+          fotoUrl: savedObj.fotoUrl && savedObj.fotoUrl.length < 60000 ? savedObj.fotoUrl : '',
+          updatedAt: savedObj.updatedAt,
+        })
+        const ex = await sb
+          .from('kritik_saran')
+          .select('id')
+          .eq('kategori', '__KHOTIB_HISTORY__')
+          .ilike('nama', cleanName)
+          .limit(1)
+        if (ex.data && ex.data.length > 0) {
+          await sb
+            .from('kritik_saran')
+            .update({
+              nama: cleanName,
+              kontak: savedObj.noTelp || '-',
+              pesan: payload,
+            })
+            .eq('id', ex.data[0].id)
+        } else {
+          await sb.from('kritik_saran').insert({
+            nama: cleanName,
+            kontak: savedObj.noTelp || '-',
+            kategori: '__KHOTIB_HISTORY__',
+            pesan: payload,
+            tanggal: nowIso.slice(0, 10),
+            status: 'Aktif',
+          })
+        }
+      } catch {
+        // ignore
+      }
     }
   }
 
@@ -1343,6 +1432,11 @@ export default function AdminSidebarPage() {
       return next
     })
     await syncKhotibItemToKalenderAndSupabase(cleanItem, 'upsert', oldItem)
+    void upsertKhotibHistory({
+      nama: cleanItem.nama,
+      noTelp: cleanItem.noTelp,
+      fotoUrl: cleanItem.fotoUrl,
+    })
   }
 
   const handleDeleteKhotibMgmt = async (item: KhotibPemateriItem) => {
@@ -1367,6 +1461,8 @@ export default function AdminSidebarPage() {
       nextStatus === 'Belum Dikirim'
         ? undefined
         : customSentAt || targetItem.sentAt || new Date().toISOString()
+    const resolvedAcceptedAt =
+      nextStatus === 'Diterima' ? targetItem.acceptedAt || new Date().toISOString() : undefined
 
     setAutoUndanganList((prev) => {
       const next = prev.map((x) =>
@@ -1375,6 +1471,7 @@ export default function AdminSidebarPage() {
               ...x,
               status: nextStatus,
               sentAt: resolvedSentAt,
+              acceptedAt: resolvedAcceptedAt,
               scheduledAt: nextStatus === 'Sudah Dikirim' ? undefined : x.scheduledAt,
             }
           : x
@@ -1389,6 +1486,9 @@ export default function AdminSidebarPage() {
 
     // Jika status menjadi Diterima -> otomatis masuk ke Manajemen Khotib & Pemateri + Kalender Kegiatan
     if (nextStatus === 'Diterima') {
+      const histMatch = khotibHistoryList.find(
+        (h) => h.nama.trim().toLowerCase() === targetItem.nama.trim().toLowerCase()
+      )
       const existingMgmt = khotibMgmtList.find(
         (k) => k.sourceAutoId === targetItem.id || (targetItem.noSurat && k.noSurat === targetItem.noSurat)
       )
@@ -1399,6 +1499,7 @@ export default function AdminSidebarPage() {
             perihal: targetItem.perihal,
             tanggal: targetItem.tanggal,
             noTelp: targetItem.noTelp,
+            fotoUrl: existingMgmt.fotoUrl || histMatch?.fotoUrl,
           }
         : {
             id: `km-${targetItem.id}`,
@@ -1413,6 +1514,7 @@ export default function AdminSidebarPage() {
             jamSelesai: /ied|idul/i.test(targetItem.perihal) ? '08:00' : '12:45',
             lokasi: 'Ruang Utama Masjid Al-Jihad',
             noTelp: targetItem.noTelp,
+            fotoUrl: histMatch?.fotoUrl,
             createdAt: new Date().toISOString(),
           }
       void handleSaveKhotibMgmt(mgmtItem, existingMgmt)
@@ -2535,11 +2637,59 @@ export default function AdminSidebarPage() {
             d.kategori !== '__AUTO_UNDANGAN__' &&
             d.kategori !== '__AUTO_UNDANGAN_DELETED__' &&
             d.kategori !== '__KHOTIB_MGMT__' &&
-            d.kategori !== '__KHOTIB_MGMT_DELETED__'
+            d.kategori !== '__KHOTIB_MGMT_DELETED__' &&
+            d.kategori !== '__KHOTIB_HISTORY__'
         )
         const autoFromKritikRows = ksRes.data.filter(
           (d) => d.kategori === '__AUTO_UNDANGAN__'
         )
+        const khotibHistoryRows = ksRes.data.filter(
+          (d) => d.kategori === '__KHOTIB_HISTORY__'
+        )
+        if (khotibHistoryRows.length > 0) {
+          const syncedHist: KhotibHistoryItem[] = []
+          khotibHistoryRows.forEach((d) => {
+            try {
+              const meta = JSON.parse(d.pesan || '{}') as {
+                clientId?: string
+                fotoUrl?: string
+                updatedAt?: string
+              }
+              if (d.nama) {
+                syncedHist.push({
+                  id: meta.clientId || String(d.id),
+                  nama: d.nama,
+                  noTelp: d.kontak && d.kontak !== '-' ? d.kontak : '',
+                  fotoUrl: meta.fotoUrl || undefined,
+                  updatedAt: meta.updatedAt || d.created_at || new Date().toISOString(),
+                })
+              }
+            } catch {
+              // ignore
+            }
+          })
+          setKhotibHistoryList((prev) => {
+            const byName = new Map<string, KhotibHistoryItem>()
+            ;[...prev, ...syncedHist].forEach((h) => {
+              const k = h.nama.trim().toLowerCase()
+              const ex = byName.get(k)
+              if (!ex || String(h.updatedAt).localeCompare(String(ex.updatedAt)) >= 0) {
+                byName.set(k, {
+                  ...h,
+                  fotoUrl: h.fotoUrl || ex?.fotoUrl,
+                  noTelp: h.noTelp || ex?.noTelp || '',
+                })
+              }
+            })
+            const merged = Array.from(byName.values())
+            try {
+              window.localStorage.setItem('aljihad_khotib_history_v1', JSON.stringify(merged))
+            } catch {
+              // ignore
+            }
+            return merged
+          })
+        }
         const khotibMgmtRows = ksRes.data.filter(
           (d) => d.kategori === '__KHOTIB_MGMT__'
         )
@@ -2608,6 +2758,7 @@ export default function AdminSidebarPage() {
               createdAt?: string
               sentAt?: string
               scheduledAt?: string
+              acceptedAt?: string
             }
             syncedAutoItems.push({
               id: String(d.id),
@@ -2620,6 +2771,7 @@ export default function AdminSidebarPage() {
               createdAt: meta.createdAt || d.created_at || new Date().toISOString(),
               sentAt: meta.sentAt || undefined,
               scheduledAt: meta.scheduledAt || undefined,
+              acceptedAt: meta.acceptedAt || undefined,
             })
           } catch {
             // ignore malformed row
@@ -12769,6 +12921,9 @@ export default function AdminSidebarPage() {
                     {(() => {
                       const aq = autoUndanganSearchQuery.trim().toLowerCase()
                       const filteredAuto = autoUndanganList.filter((item) => {
+                        if (autoUndanganStatusFilter === 'Semua' && item.status === 'Diterima') {
+                          return false
+                        }
                         const matchStatus =
                           autoUndanganStatusFilter === 'Semua' ||
                           item.status === autoUndanganStatusFilter
@@ -12983,6 +13138,100 @@ export default function AdminSidebarPage() {
                             </div>
                           )
                         })}
+                        </div>
+                      )
+                    })()}
+
+                    {/* LIST TERPISAH DI BAWAH: BARU SAJA DITERIMA (HILANG OTOMATIS SETELAH 1 HARI) */}
+                    {(() => {
+                      const ONE_DAY_MS = 24 * 60 * 60 * 1000
+                      const nowMs = Date.now()
+                      const recentAccepted = autoUndanganList.filter((it) => {
+                        if (it.status !== 'Diterima') return false
+                        const refTime = new Date(
+                          it.acceptedAt || it.sentAt || it.createdAt
+                        ).getTime()
+                        if (Number.isNaN(refTime)) return false
+                        return nowMs - refTime < ONE_DAY_MS
+                      })
+                      if (recentAccepted.length === 0) return null
+                      return (
+                        <div
+                          style={{
+                            marginTop: '18px',
+                            paddingTop: '14px',
+                            borderTop: '1px dashed rgba(22, 163, 74, 0.35)',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
+                            <strong style={{ fontSize: '0.84rem', color: '#166534' }}>
+                              {`Baru Saja Diterima (${recentAccepted.length})`}
+                            </strong>
+                            <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 600 }}>
+                              Otomatis hilang setelah 1 hari (tersimpan di Manajemen Khotib &amp; Kalender)
+                            </span>
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            {recentAccepted.map((acc) => (
+                              <div
+                                key={acc.id}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  gap: '10px',
+                                  padding: '9px 12px',
+                                  borderRadius: '10px',
+                                  background: '#f0fdf4',
+                                  border: '1px solid rgba(22, 163, 74, 0.25)',
+                                  flexWrap: 'wrap',
+                                }}
+                              >
+                                <div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                    <strong style={{ fontSize: '0.86rem', color: '#14532d' }}>
+                                      {acc.nama}
+                                    </strong>
+                                    <span
+                                      style={{
+                                        fontSize: '0.68rem',
+                                        fontWeight: 800,
+                                        padding: '2px 8px',
+                                        borderRadius: '999px',
+                                        background: '#dcfce7',
+                                        color: '#166534',
+                                      }}
+                                    >
+                                      Diterima • {getKategoriSingkatPerihal(acc.perihal)}
+                                    </span>
+                                  </div>
+                                  <div style={{ fontSize: '0.75rem', color: '#374151', marginTop: '2px' }}>
+                                    {`${acc.noSurat} • ${formatTanggalIndo(acc.tanggal)}`}
+                                  </div>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setIsEditingInStatusModal(false)
+                                    setStatusModalEditDraft(acc)
+                                    setKonfirmasiAutoModal(acc)
+                                  }}
+                                  style={{
+                                    border: '1px solid rgba(22, 163, 74, 0.3)',
+                                    background: '#ffffff',
+                                    color: '#166534',
+                                    borderRadius: '7px',
+                                    padding: '4px 10px',
+                                    fontSize: '0.73rem',
+                                    fontWeight: 800,
+                                    cursor: 'pointer',
+                                  }}
+                                >
+                                  Lihat Status
+                                </button>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       )
                     })()}
@@ -13699,12 +13948,100 @@ export default function AdminSidebarPage() {
                         }
                         handleCreateAutoUndangan(newItem)
                         saveKhatibContact(autoUndanganNama, autoUndanganTelp)
+                        void upsertKhotibHistory({
+                          nama: autoUndanganNama,
+                          noTelp: autoUndanganTelp,
+                        })
                         recordLastUsedNoSurat(assignedNo, autoUndanganTanggal)
                         setAutoUndanganNama('')
                         setAutoUndanganTelp('')
                         setShowAutoUndanganModal(false)
                       }}
                     >
+                      {khotibHistoryList.length > 0 && (
+                        <div
+                          style={{
+                            padding: '10px 12px',
+                            borderRadius: '10px',
+                            background: '#f8fafc',
+                            border: '1px solid #e2e8f0',
+                            marginBottom: '12px',
+                          }}
+                        >
+                          <div style={{ fontSize: '0.76rem', fontWeight: 800, color: '#0f4a2a', marginBottom: '6px' }}>
+                            Ambil dari Data Tersimpan / Histori ({khotibHistoryList.length})
+                          </div>
+                          <input
+                            type="text"
+                            placeholder="Cari nama atau nomor WA tersimpan..."
+                            value={khotibHistorySearch}
+                            onChange={(e) => setKhotibHistorySearch(e.target.value)}
+                            style={{
+                              width: '100%',
+                              padding: '6px 10px',
+                              borderRadius: '8px',
+                              border: '1px solid #cbd5e1',
+                              fontSize: '0.78rem',
+                              marginBottom: '7px',
+                              background: '#ffffff',
+                            }}
+                          />
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', maxHeight: '115px', overflowY: 'auto' }}>
+                            {khotibHistoryList
+                              .filter((h) => {
+                                const q = khotibHistorySearch.trim().toLowerCase()
+                                return (
+                                  !q ||
+                                  h.nama.toLowerCase().includes(q) ||
+                                  h.noTelp.includes(q)
+                                )
+                              })
+                              .slice(0, 12)
+                              .map((h) => (
+                                <button
+                                  key={h.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setAutoUndanganNama(h.nama)
+                                    if (h.noTelp) setAutoUndanganTelp(h.noTelp)
+                                  }}
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    padding: '4px 9px',
+                                    borderRadius: '999px',
+                                    border: '1px solid rgba(27, 107, 69, 0.28)',
+                                    background: '#ffffff',
+                                    color: '#0f4a2a',
+                                    fontSize: '0.73rem',
+                                    fontWeight: 700,
+                                    cursor: 'pointer',
+                                  }}
+                                >
+                                  {h.fotoUrl && (
+                                    <img
+                                      src={h.fotoUrl}
+                                      alt={h.nama}
+                                      style={{
+                                        width: '18px',
+                                        height: '18px',
+                                        borderRadius: '999px',
+                                        objectFit: 'cover',
+                                      }}
+                                    />
+                                  )}
+                                  <span>{h.nama}</span>
+                                  {h.noTelp && (
+                                    <span style={{ color: '#64748b', fontSize: '0.68rem' }}>
+                                      ({h.noTelp})
+                                    </span>
+                                  )}
+                                </button>
+                              ))}
+                          </div>
+                        </div>
+                      )}
                       <div className={styles.formGroup}>
                         <label>Nama Penerima / Khotib / Bilal</label>
                         <input
@@ -15755,6 +16092,9 @@ export default function AdminSidebarPage() {
                       onSubmit={async (e) => {
                         e.preventDefault()
                         const newId = `km-${Date.now()}`
+                        const histMatch = khotibHistoryList.find(
+                          (h) => h.nama.trim().toLowerCase() === newKhotibForm.nama.trim().toLowerCase()
+                        )
                         const itemToSave: KhotibPemateriItem = {
                           id: newId,
                           kalenderId: `khotib-kal-${newId}`,
@@ -15766,6 +16106,7 @@ export default function AdminSidebarPage() {
                           jamSelesai: newKhotibForm.jamSelesai,
                           lokasi: newKhotibForm.lokasi,
                           noTelp: formatIndoLocalPhone(newKhotibForm.noTelp),
+                          fotoUrl: histMatch?.fotoUrl,
                           createdAt: new Date().toISOString(),
                         }
                         setShowAddKhotibMgmtModal(false)
@@ -15778,6 +16119,83 @@ export default function AdminSidebarPage() {
                       }}
                       style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}
                     >
+                      {khotibHistoryList.length > 0 && (
+                        <div
+                          style={{
+                            padding: '9px 11px',
+                            borderRadius: '10px',
+                            background: '#f8fafc',
+                            border: '1px solid #e2e8f0',
+                          }}
+                        >
+                          <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#0f4a2a', marginBottom: '5px' }}>
+                            Ambil dari Data Tersimpan / Histori ({khotibHistoryList.length})
+                          </div>
+                          <input
+                            type="text"
+                            placeholder="Cari nama atau no. WA tersimpan..."
+                            value={khotibHistorySearch}
+                            onChange={(e) => setKhotibHistorySearch(e.target.value)}
+                            style={{
+                              width: '100%',
+                              padding: '6px 9px',
+                              borderRadius: '7px',
+                              border: '1px solid #cbd5e1',
+                              fontSize: '0.77rem',
+                              marginBottom: '6px',
+                              background: '#ffffff',
+                            }}
+                          />
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', maxHeight: '100px', overflowY: 'auto' }}>
+                            {khotibHistoryList
+                              .filter((h) => {
+                                const q = khotibHistorySearch.trim().toLowerCase()
+                                return !q || h.nama.toLowerCase().includes(q) || h.noTelp.includes(q)
+                              })
+                              .slice(0, 10)
+                              .map((h) => (
+                                <button
+                                  key={h.id}
+                                  type="button"
+                                  onClick={() =>
+                                    setNewKhotibForm((prev) => ({
+                                      ...prev,
+                                      nama: h.nama,
+                                      noTelp: h.noTelp || prev.noTelp,
+                                    }))
+                                  }
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '5px',
+                                    padding: '3px 8px',
+                                    borderRadius: '999px',
+                                    border: '1px solid rgba(27, 107, 69, 0.28)',
+                                    background: '#ffffff',
+                                    color: '#0f4a2a',
+                                    fontSize: '0.72rem',
+                                    fontWeight: 700,
+                                    cursor: 'pointer',
+                                  }}
+                                >
+                                  {h.fotoUrl && (
+                                    <img
+                                      src={h.fotoUrl}
+                                      alt={h.nama}
+                                      style={{
+                                        width: '16px',
+                                        height: '16px',
+                                        borderRadius: '999px',
+                                        objectFit: 'cover',
+                                      }}
+                                    />
+                                  )}
+                                  <span>{h.nama}</span>
+                                </button>
+                              ))}
+                          </div>
+                        </div>
+                      )}
                       <div className={styles.formGroup}>
                         <label>Kategori</label>
                         <select
