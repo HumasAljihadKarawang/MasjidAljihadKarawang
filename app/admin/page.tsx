@@ -681,7 +681,12 @@ export default function AdminSidebarPage() {
     waktu: string
   } | null>(null)
 
-  type AutoUndanganStatus = 'Belum Dikirim' | 'Sudah Dikirim' | 'Diterima' | 'Ditolak'
+  type AutoUndanganStatus =
+    | 'Belum Dikirim'
+    | 'Terjadwal Dikirim'
+    | 'Sudah Dikirim'
+    | 'Diterima'
+    | 'Ditolak'
   interface AutoUndanganItem {
     id: string
     noSurat: string
@@ -752,6 +757,7 @@ export default function AdminSidebarPage() {
   const [editAutoUndanganItem, setEditAutoUndanganItem] = useState<AutoUndanganItem | null>(null)
   const [showSchedulePicker, setShowSchedulePicker] = useState(false)
   const [scheduleDateTimeInput, setScheduleDateTimeInput] = useState('')
+  const [scheduleTickNow, setScheduleTickNow] = useState(() => Date.now())
   const [manualGuideItem, setManualGuideItem] = useState<AutoUndanganItem | null>(null)
   const [manualSentConfirmItem, setManualSentConfirmItem] = useState<AutoUndanganItem | null>(null)
 
@@ -1549,7 +1555,9 @@ export default function AdminSidebarPage() {
     }
     setAutoUndanganList((prev) => {
       const next = prev.map((x) =>
-        x.id === item.id || x.noSurat === item.noSurat ? { ...x, scheduledAt: scheduledIso } : x
+        x.id === item.id || x.noSurat === item.noSurat
+          ? { ...x, status: 'Terjadwal Dikirim' as AutoUndanganStatus, scheduledAt: scheduledIso }
+          : x
       )
       try {
         window.localStorage.setItem('aljihad_auto_undangan_v1', JSON.stringify(next))
@@ -1558,7 +1566,64 @@ export default function AdminSidebarPage() {
       }
       return next
     })
+    if (getActiveSupabaseConfig().isConfigured) {
+      const sb = getSupabaseClient()
+      const nextPayload = JSON.stringify({
+        clientId: item.id,
+        noSurat: item.noSurat,
+        perihal: item.perihal,
+        createdAt: item.createdAt,
+        scheduledAt: scheduledIso,
+      })
+      try {
+        await sb
+          .from('surat_undangan_otomatis')
+          .update({ status: 'Terjadwal Dikirim' })
+          .eq('id', item.id)
+      } catch {
+        // ignore
+      }
+      try {
+        await sb
+          .from('kritik_saran')
+          .update({ status: 'Terjadwal Dikirim', pesan: nextPayload })
+          .eq('id', item.id)
+        await sb
+          .from('kritik_saran')
+          .update({ status: 'Terjadwal Dikirim', pesan: nextPayload })
+          .eq('kategori', '__AUTO_UNDANGAN__')
+          .ilike('pesan', `%${item.noSurat}%`)
+      } catch {
+        // ignore
+      }
+    }
   }
+
+  const formatScheduleCountdown = (scheduledIso?: string) => {
+    if (!scheduledIso) return ''
+    const diffMs = new Date(scheduledIso).getTime() - scheduleTickNow
+    if (Number.isNaN(diffMs) || diffMs <= 0) return 'Mengirim...'
+    const totalSec = Math.floor(diffMs / 1000)
+    const days = Math.floor(totalSec / 86400)
+    const hrs = Math.floor((totalSec % 86400) / 3600)
+    const mins = Math.floor((totalSec % 3600) / 60)
+    const secs = totalSec % 60
+    if (days > 0) return `${days}h ${hrs}j ${mins}m`
+    if (hrs > 0) return `${hrs}j ${String(mins).padStart(2, '0')}m ${String(secs).padStart(2, '0')}d`
+    return `${String(mins).padStart(2, '0')}m ${String(secs).padStart(2, '0')}d`
+  }
+
+  useEffect(() => {
+    const hasScheduled = autoUndanganList.some(
+      (it) => it.status === 'Terjadwal Dikirim' && Boolean(it.scheduledAt)
+    )
+    if (!hasScheduled) return
+    setScheduleTickNow(Date.now())
+    const timer = window.setInterval(() => {
+      setScheduleTickNow(Date.now())
+    }, 1000)
+    return () => window.clearInterval(timer)
+  }, [autoUndanganList])
 
   useEffect(() => {
     if (suratTabMode !== 'otomatis' || !waLocalStatus.online) return
@@ -1575,15 +1640,21 @@ export default function AdminSidebarPage() {
           data.jobs.filter((j) => j.sent).map((j) => [j.id, j.sentAt || new Date().toISOString()])
         )
         if (sentMap.size === 0) return
+        const newlySent: Array<{ item: AutoUndanganItem; sentAt: string }> = []
         setAutoUndanganList((prev) => {
           let changed = false
           const next = prev.map((it) => {
-            if (it.status === 'Belum Dikirim' && sentMap.has(it.id)) {
+            if (
+              (it.status === 'Belum Dikirim' || it.status === 'Terjadwal Dikirim') &&
+              sentMap.has(it.id)
+            ) {
               changed = true
+              const sAt = sentMap.get(it.id) || new Date().toISOString()
+              newlySent.push({ item: it, sentAt: sAt })
               return {
                 ...it,
                 status: 'Sudah Dikirim' as AutoUndanganStatus,
-                sentAt: sentMap.get(it.id),
+                sentAt: sAt,
                 scheduledAt: undefined,
               }
             }
@@ -1598,6 +1669,9 @@ export default function AdminSidebarPage() {
           }
           return changed ? next : prev
         })
+        for (const ns of newlySent) {
+          void handleUpdateAutoUndanganStatus(ns.item, 'Sudah Dikirim', ns.sentAt)
+        }
       } catch {
         // ignore
       }
@@ -1605,7 +1679,7 @@ export default function AdminSidebarPage() {
     void syncScheduled()
     const timer = window.setInterval(() => {
       void syncScheduled()
-    }, 10000)
+    }, 5000)
     return () => window.clearInterval(timer)
   }, [suratTabMode, waLocalStatus.online, selectedWaDeviceId, waDevices])
 
@@ -2319,6 +2393,8 @@ export default function AdminSidebarPage() {
               noSurat?: string
               perihal?: string
               createdAt?: string
+              sentAt?: string
+              scheduledAt?: string
             }
             syncedAutoItems.push({
               id: String(d.id),
@@ -2329,6 +2405,8 @@ export default function AdminSidebarPage() {
               noTelp: d.kontak && d.kontak !== '-' ? d.kontak : '',
               status: (d.status || 'Belum Dikirim') as AutoUndanganStatus,
               createdAt: meta.createdAt || d.created_at || new Date().toISOString(),
+              sentAt: meta.sentAt || undefined,
+              scheduledAt: meta.scheduledAt || undefined,
             })
           } catch {
             // ignore malformed row
@@ -12451,6 +12529,7 @@ export default function AdminSidebarPage() {
                       >
                         <option value="Semua">Semua Status</option>
                         <option value="Belum Dikirim">Belum Dikirim</option>
+                        <option value="Terjadwal Dikirim">Terjadwal Dikirim</option>
                         <option value="Sudah Dikirim">Sudah Terkirim</option>
                         <option value="Diterima">Diterima</option>
                         <option value="Ditolak">Ditolak</option>
@@ -12508,7 +12587,9 @@ export default function AdminSidebarPage() {
                                 ? { bg: '#fee2e2', fg: '#991b1b' }
                                 : item.status === 'Sudah Dikirim'
                                   ? { bg: '#dbeafe', fg: '#1e40af' }
-                                  : { bg: '#fef3c7', fg: '#92400e' }
+                                  : item.status === 'Terjadwal Dikirim'
+                                    ? { bg: '#f3e8ff', fg: '#6b21a8' }
+                                    : { bg: '#fef3c7', fg: '#92400e' }
 
                           return (
                             <div
@@ -12605,7 +12686,11 @@ export default function AdminSidebarPage() {
                                       color: statusColors.fg,
                                     }}
                                   >
-                                    {item.status === 'Sudah Dikirim' ? 'Sudah Terkirim' : item.status}
+                                    {item.status === 'Sudah Dikirim'
+                                      ? 'Sudah Terkirim'
+                                      : item.status === 'Terjadwal Dikirim' && item.scheduledAt
+                                        ? `Terjadwal Dikirim (${formatScheduleCountdown(item.scheduledAt)})`
+                                        : item.status}
                                   </span>
                                 </div>
                                 <div
@@ -12620,7 +12705,7 @@ export default function AdminSidebarPage() {
                                 </div>
                               </div>
 
-                              {/* Pojok Kanan: Tombol Share WA langsung + Edit + Ubah Status + Hapus */}
+                              {/* Pojok Kanan: Tombol Status & Kirim WA (Edit & Hapus ada di dalam Pop-up Status) */}
                               <div
                                 style={{
                                   display: 'flex',
@@ -12629,22 +12714,6 @@ export default function AdminSidebarPage() {
                                   flexWrap: 'wrap',
                                 }}
                               >
-                                <button
-                                  type="button"
-                                  onClick={() => setEditAutoUndanganItem(item)}
-                                  style={{
-                                    border: '1px solid rgba(100, 116, 139, 0.28)',
-                                    background: '#ffffff',
-                                    color: '#334155',
-                                    borderRadius: '8px',
-                                    padding: '6px 10px',
-                                    fontSize: '0.76rem',
-                                    fontWeight: 800,
-                                    cursor: 'pointer',
-                                  }}
-                                >
-                                  Edit
-                                </button>
                                 <button
                                   type="button"
                                   onClick={() => setKonfirmasiAutoModal(item)}
@@ -12660,14 +12729,6 @@ export default function AdminSidebarPage() {
                                   }}
                                 >
                                   Status
-                                </button>
-                                <button
-                                  type="button"
-                                  className={styles.deleteBtn}
-                                  style={{ padding: '6px 10px', fontSize: '0.76rem' }}
-                                  onClick={() => setDeleteAutoUndanganConfirm(item)}
-                                >
-                                  Hapus
                                 </button>
                                 <button
                                   type="button"
@@ -13755,7 +13816,12 @@ export default function AdminSidebarPage() {
               {konfirmasiAutoModal &&
                 (() => {
                   const st = konfirmasiAutoModal.status
-                  const stLabel = st === 'Sudah Dikirim' ? 'Sudah Terkirim' : st
+                  const stLabel =
+                    st === 'Sudah Dikirim'
+                      ? 'Sudah Terkirim'
+                      : st === 'Terjadwal Dikirim' && konfirmasiAutoModal.scheduledAt
+                        ? `Terjadwal Dikirim (${formatScheduleCountdown(konfirmasiAutoModal.scheduledAt)})`
+                        : st
                   const statusBadgeStyle =
                     st === 'Diterima'
                       ? { bg: '#dcfce7', fg: '#166534', dot: '#16a34a', border: '#86efac' }
@@ -13763,7 +13829,9 @@ export default function AdminSidebarPage() {
                         ? { bg: '#fee2e2', fg: '#991b1b', dot: '#dc2626', border: '#fca5a5' }
                         : st === 'Sudah Dikirim'
                           ? { bg: '#dbeafe', fg: '#1e40af', dot: '#2563eb', border: '#93c5fd' }
-                          : { bg: '#fef3c7', fg: '#92400e', dot: '#d97706', border: '#fde68a' }
+                          : st === 'Terjadwal Dikirim'
+                            ? { bg: '#f3e8ff', fg: '#6b21a8', dot: '#9333ea', border: '#d8b4fe' }
+                            : { bg: '#fef3c7', fg: '#92400e', dot: '#d97706', border: '#fde68a' }
 
                   const closeStatusModal = () => {
                     setKonfirmasiAutoModal(null)
@@ -13776,7 +13844,7 @@ export default function AdminSidebarPage() {
                   }
 
                   const sentTimeText =
-                    st === 'Belum Dikirim'
+                    st === 'Belum Dikirim' || st === 'Terjadwal Dikirim'
                       ? 'Belum dikirim'
                       : konfirmasiAutoModal.sentAt
                         ? new Date(konfirmasiAutoModal.sentAt).toLocaleString('id-ID', {
@@ -13883,8 +13951,9 @@ export default function AdminSidebarPage() {
                           <div style={{ fontSize: '0.81rem', color: '#374151', fontWeight: 600 }}>
                             <strong>Waktu Terkirim:</strong> {sentTimeText}
                           </div>
-                          {konfirmasiAutoModal.scheduledAt && st === 'Belum Dikirim' && (
-                            <div style={{ fontSize: '0.78rem', color: '#b45309', fontWeight: 700 }}>
+                          {konfirmasiAutoModal.scheduledAt &&
+                            (st === 'Belum Dikirim' || st === 'Terjadwal Dikirim') && (
+                            <div style={{ fontSize: '0.78rem', color: '#6b21a8', fontWeight: 700 }}>
                               <strong>Terjadwal Otomatis:</strong>{' '}
                               {new Date(konfirmasiAutoModal.scheduledAt).toLocaleString('id-ID', {
                                 day: '2-digit',
@@ -13893,7 +13962,7 @@ export default function AdminSidebarPage() {
                                 hour: '2-digit',
                                 minute: '2-digit',
                               })}{' '}
-                              WIB
+                              WIB ({formatScheduleCountdown(konfirmasiAutoModal.scheduledAt)})
                             </div>
                           )}
                           <div style={{ fontSize: '0.81rem', color: '#374151', fontWeight: 600 }}>
@@ -13928,10 +13997,12 @@ export default function AdminSidebarPage() {
                           </div>
                         </div>
 
-                        {st === 'Belum Dikirim' ? (
+                        {st === 'Belum Dikirim' || st === 'Terjadwal Dikirim' ? (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                             <div style={{ fontSize: '0.84rem', fontWeight: 800, color: '#0f172a' }}>
-                              Surat ini belum dikirim. Pilih tindakan:
+                              {st === 'Terjadwal Dikirim'
+                                ? 'Surat sedang menunggu jadwal kirim otomatis. Pilih tindakan:'
+                                : 'Surat ini belum dikirim. Pilih tindakan:'}
                             </div>
                             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                               <button
@@ -14172,6 +14243,53 @@ export default function AdminSidebarPage() {
                             </div>
                           </div>
                         )}
+
+                        {/* Tombol Edit & Hapus di dalam Pop-up Status */}
+                        <div
+                          style={{
+                            marginTop: '14px',
+                            paddingTop: '12px',
+                            borderTop: '1px solid #e2e8f0',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            gap: '8px',
+                          }}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const target = konfirmasiAutoModal
+                              closeStatusModal()
+                              setEditAutoUndanganItem(target)
+                            }}
+                            style={{
+                              flex: 1,
+                              padding: '8px 12px',
+                              borderRadius: '8px',
+                              border: '1px solid rgba(100, 116, 139, 0.3)',
+                              background: '#ffffff',
+                              color: '#334155',
+                              fontSize: '0.8rem',
+                              fontWeight: 800,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            Edit Surat
+                          </button>
+                          <button
+                            type="button"
+                            className={styles.deleteBtn}
+                            style={{ flex: 1, padding: '8px 12px', fontSize: '0.8rem' }}
+                            onClick={() => {
+                              const target = konfirmasiAutoModal
+                              closeStatusModal()
+                              setDeleteAutoUndanganConfirm(target)
+                            }}
+                          >
+                            Hapus Surat
+                          </button>
+                        </div>
                       </div>
                     </div>
                   )
