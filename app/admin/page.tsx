@@ -3283,7 +3283,7 @@ export default function AdminSidebarPage() {
 
       ctx.textAlign = 'right'
       ctx.font = '800 26px Poppins, sans-serif'
-      ctx.fillText('+62 812-3456-7890', W - 148, 1148)
+      ctx.fillText('0851-1155-6563', W - 148, 1148)
       ctx.font = '600 23px Poppins, sans-serif'
       ctx.fillText('masjidaljihadkarawang@gmail.com', W - 148, 1180)
 
@@ -3585,7 +3585,7 @@ export default function AdminSidebarPage() {
 
     ctx.textAlign = 'right'
     ctx.font = '800 28px Poppins, sans-serif'
-    ctx.fillText('+62 812-3456-7890', W - 130, 1146)
+    ctx.fillText('0851-1155-6563', W - 130, 1146)
     ctx.font = '700 25px Poppins, sans-serif'
     ctx.fillText('masjidaljihadkarawang@gmail.com', W - 130, 1180)
 
@@ -14142,23 +14142,34 @@ export default function AdminSidebarPage() {
                               Ditolak / Berhalangan
                             </button>
 
-                            <button
-                              type="button"
-                              onClick={() => updateAutoStatus('Belum Dikirim')}
+                            <div
                               style={{
+                                marginTop: '6px',
+                                paddingTop: '10px',
+                                borderTop: '1px solid #e2e8f0',
+                                fontSize: '0.76rem',
+                                color: '#64748b',
                                 textAlign: 'center',
-                                padding: '8px 14px',
-                                borderRadius: '9px',
-                                border: '1px solid #d1d5db',
-                                background: '#f9fafb',
-                                color: '#475569',
-                                fontWeight: 700,
-                                fontSize: '0.78rem',
-                                cursor: 'pointer',
                               }}
                             >
-                              Kembalikan ke Belum Dikirim
-                            </button>
+                              Salah ubah status?{' '}
+                              <button
+                                type="button"
+                                onClick={() => updateAutoStatus('Belum Dikirim')}
+                                style={{
+                                  border: 'none',
+                                  background: 'transparent',
+                                  color: '#475569',
+                                  fontWeight: 800,
+                                  fontSize: '0.76rem',
+                                  textDecoration: 'underline',
+                                  cursor: 'pointer',
+                                  padding: 0,
+                                }}
+                              >
+                                Kembalikan ke Belum Dikirim
+                              </button>
+                            </div>
                           </div>
                         )}
                       </div>
