@@ -758,7 +758,31 @@ export default function AdminSidebarPage() {
   const [showSchedulePicker, setShowSchedulePicker] = useState(false)
   const [scheduleDateTimeInput, setScheduleDateTimeInput] = useState('')
   const [scheduleTickNow, setScheduleTickNow] = useState(() => Date.now())
+  const [isEditingInStatusModal, setIsEditingInStatusModal] = useState(false)
+  const [statusModalEditDraft, setStatusModalEditDraft] = useState<AutoUndanganItem | null>(null)
   const [manualGuideItem, setManualGuideItem] = useState<AutoUndanganItem | null>(null)
+
+  const formatTanggalIndo = (isoDate?: string) => {
+    if (!isoDate) return '-'
+    const d = new Date(`${isoDate}T12:00:00`)
+    if (Number.isNaN(d.getTime())) return isoDate
+    return d.toLocaleDateString('id-ID', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    })
+  }
+
+  const getKategoriSingkatPerihal = (perihal?: string) => {
+    const p = String(perihal || '')
+    if (/imam.*khotib|khotib.*imam|imam.*khatib|khatib.*imam/i.test(p)) return 'Imam & Khotib'
+    if (/ied|idul|adha|fitri|hari besar/i.test(p)) return 'Khotib Hari Besar'
+    if (/khotib|khatib/i.test(p)) return 'Khotib'
+    if (/imam/i.test(p)) return 'Imam'
+    if (/bilal/i.test(p)) return 'Bilal'
+    if (/kajian|ceramah|tausiyah|pengajian/i.test(p)) return 'Pemateri Kajian'
+    return 'Undangan Umum'
+  }
   const [manualSentConfirmItem, setManualSentConfirmItem] = useState<AutoUndanganItem | null>(null)
 
   type KhotibPemateriKategori =
@@ -12654,9 +12678,18 @@ export default function AdminSidebarPage() {
                                     flexWrap: 'wrap',
                                   }}
                                 >
+                                  <strong
+                                    style={{
+                                      fontSize: '0.92rem',
+                                      color: '#111827',
+                                      fontWeight: 800,
+                                    }}
+                                  >
+                                    {item.nama}
+                                  </strong>
                                   <span
                                     style={{
-                                      fontSize: '0.71rem',
+                                      fontSize: '0.7rem',
                                       fontWeight: 800,
                                       padding: '2px 8px',
                                       borderRadius: '6px',
@@ -12665,17 +12698,8 @@ export default function AdminSidebarPage() {
                                       border: '1px solid rgba(22, 163, 74, 0.25)',
                                     }}
                                   >
-                                    {item.noSurat}
+                                    {getKategoriSingkatPerihal(item.perihal)}
                                   </span>
-                                  <strong
-                                    style={{
-                                      fontSize: '0.9rem',
-                                      color: '#111827',
-                                      fontWeight: 800,
-                                    }}
-                                  >
-                                    {item.nama}
-                                  </strong>
                                   <span
                                     style={{
                                       fontSize: '0.7rem',
@@ -12700,12 +12724,12 @@ export default function AdminSidebarPage() {
                                     fontWeight: 600,
                                   }}
                                 >
-                                  {`${item.perihal} • ${item.tanggal} • WA: ${item.noTelp}`}
+                                  {`${item.noSurat} • ${formatTanggalIndo(item.tanggal)}${item.noTelp ? ` • WA: ${item.noTelp}` : ''}`}
                                 </div>
                                 </div>
                               </div>
 
-                              {/* Pojok Kanan: Tombol Status & Kirim WA (Edit & Hapus ada di dalam Pop-up Status) */}
+                              {/* Pojok Kanan: Tombol Preview / Edit & Kirim WA */}
                               <div
                                 style={{
                                   display: 'flex',
@@ -12716,7 +12740,11 @@ export default function AdminSidebarPage() {
                               >
                                 <button
                                   type="button"
-                                  onClick={() => setKonfirmasiAutoModal(item)}
+                                  onClick={() => {
+                                    setIsEditingInStatusModal(false)
+                                    setStatusModalEditDraft(item)
+                                    setKonfirmasiAutoModal(item)
+                                  }}
                                   style={{
                                     border: '1px solid rgba(27, 107, 69, 0.25)',
                                     background: '#ffffff',
@@ -12728,7 +12756,7 @@ export default function AdminSidebarPage() {
                                     cursor: 'pointer',
                                   }}
                                 >
-                                  Status
+                                  Preview / Edit
                                 </button>
                                 <button
                                   type="button"
@@ -13836,6 +13864,8 @@ export default function AdminSidebarPage() {
                   const closeStatusModal = () => {
                     setKonfirmasiAutoModal(null)
                     setShowSchedulePicker(false)
+                    setIsEditingInStatusModal(false)
+                    setStatusModalEditDraft(null)
                   }
 
                   const updateAutoStatus = (nextStatus: AutoUndanganStatus) => {
@@ -13901,7 +13931,9 @@ export default function AdminSidebarPage() {
                               color: '#0f4a2a',
                             }}
                           >
-                            Konfirmasi Status Undangan
+                            {isEditingInStatusModal
+                              ? 'Edit Data Surat Undangan'
+                              : 'Preview / Edit & Status Undangan'}
                           </h3>
                           <button
                             type="button"
@@ -13947,6 +13979,9 @@ export default function AdminSidebarPage() {
                           </div>
                           <div style={{ fontSize: '0.81rem', color: '#374151', fontWeight: 600 }}>
                             <strong>Permohonan:</strong> {konfirmasiAutoModal.perihal}
+                          </div>
+                          <div style={{ fontSize: '0.81rem', color: '#374151', fontWeight: 600 }}>
+                            <strong>Tanggal Acara:</strong> {formatTanggalIndo(konfirmasiAutoModal.tanggal)}
                           </div>
                           <div style={{ fontSize: '0.81rem', color: '#374151', fontWeight: 600 }}>
                             <strong>Waktu Terkirim:</strong> {sentTimeText}
@@ -13997,7 +14032,130 @@ export default function AdminSidebarPage() {
                           </div>
                         </div>
 
-                        {st === 'Belum Dikirim' || st === 'Terjadwal Dikirim' ? (
+                        {isEditingInStatusModal && statusModalEditDraft ? (
+                          <form
+                            onSubmit={async (e) => {
+                              e.preventDefault()
+                              const updatedDraft: AutoUndanganItem = {
+                                ...statusModalEditDraft,
+                                nama: statusModalEditDraft.nama.trim(),
+                                perihal: statusModalEditDraft.perihal.trim(),
+                                noSurat: statusModalEditDraft.noSurat.trim(),
+                                noTelp: formatIndoLocalPhone(statusModalEditDraft.noTelp),
+                              }
+                              await handleEditAutoUndangan(updatedDraft)
+                              setKonfirmasiAutoModal(updatedDraft)
+                              setIsEditingInStatusModal(false)
+                            }}
+                            style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}
+                          >
+                            <div className={styles.formGroup}>
+                              <label>Nomor Surat</label>
+                              <input
+                                type="text"
+                                required
+                                value={statusModalEditDraft.noSurat}
+                                onChange={(e) =>
+                                  setStatusModalEditDraft({
+                                    ...statusModalEditDraft,
+                                    noSurat: e.target.value,
+                                  })
+                                }
+                              />
+                            </div>
+                            <div className={styles.formGroup}>
+                              <label>Nama Penerima / Khotib</label>
+                              <input
+                                type="text"
+                                required
+                                value={statusModalEditDraft.nama}
+                                onChange={(e) =>
+                                  setStatusModalEditDraft({
+                                    ...statusModalEditDraft,
+                                    nama: e.target.value,
+                                  })
+                                }
+                              />
+                            </div>
+                            <div className={styles.formGroup}>
+                              <label>Perihal</label>
+                              <input
+                                type="text"
+                                required
+                                value={statusModalEditDraft.perihal}
+                                onChange={(e) =>
+                                  setStatusModalEditDraft({
+                                    ...statusModalEditDraft,
+                                    perihal: e.target.value,
+                                  })
+                                }
+                              />
+                            </div>
+                            <div className={styles.twoCols}>
+                              <div className={styles.formGroup}>
+                                <label>Tanggal</label>
+                                <input
+                                  type="date"
+                                  required
+                                  value={statusModalEditDraft.tanggal}
+                                  onChange={(e) =>
+                                    setStatusModalEditDraft({
+                                      ...statusModalEditDraft,
+                                      tanggal: e.target.value,
+                                    })
+                                  }
+                                />
+                              </div>
+                              <div className={styles.formGroup}>
+                                <label>No. Telepon (HP)</label>
+                                <input
+                                  type="tel"
+                                  required
+                                  value={statusModalEditDraft.noTelp}
+                                  onChange={(e) =>
+                                    setStatusModalEditDraft({
+                                      ...statusModalEditDraft,
+                                      noTelp: formatIndoLocalPhone(e.target.value),
+                                    })
+                                  }
+                                />
+                              </div>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '4px' }}>
+                              <button
+                                type="button"
+                                onClick={() => setIsEditingInStatusModal(false)}
+                                style={{
+                                  padding: '7px 14px',
+                                  borderRadius: '8px',
+                                  border: '1px solid #e2e8f0',
+                                  background: '#ffffff',
+                                  color: '#64748b',
+                                  fontSize: '0.8rem',
+                                  fontWeight: 700,
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                Batal Edit
+                              </button>
+                              <button
+                                type="submit"
+                                style={{
+                                  padding: '7px 15px',
+                                  borderRadius: '8px',
+                                  border: 'none',
+                                  background: '#16a34a',
+                                  color: '#ffffff',
+                                  fontSize: '0.8rem',
+                                  fontWeight: 800,
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                Simpan Perubahan
+                              </button>
+                            </div>
+                          </form>
+                        ) : st === 'Belum Dikirim' || st === 'Terjadwal Dikirim' ? (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                             <div style={{ fontSize: '0.84rem', fontWeight: 800, color: '#0f172a' }}>
                               {st === 'Terjadwal Dikirim'
@@ -14244,52 +14402,53 @@ export default function AdminSidebarPage() {
                           </div>
                         )}
 
-                        {/* Tombol Edit & Hapus di dalam Pop-up Status */}
-                        <div
-                          style={{
-                            marginTop: '14px',
-                            paddingTop: '12px',
-                            borderTop: '1px solid #e2e8f0',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            gap: '8px',
-                          }}
-                        >
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const target = konfirmasiAutoModal
-                              closeStatusModal()
-                              setEditAutoUndanganItem(target)
-                            }}
+                        {/* Tombol Edit & Hapus di dalam Pop-up Preview / Status */}
+                        {!isEditingInStatusModal && (
+                          <div
                             style={{
-                              flex: 1,
-                              padding: '8px 12px',
-                              borderRadius: '8px',
-                              border: '1px solid rgba(100, 116, 139, 0.3)',
-                              background: '#ffffff',
-                              color: '#334155',
-                              fontSize: '0.8rem',
-                              fontWeight: 800,
-                              cursor: 'pointer',
+                              marginTop: '14px',
+                              paddingTop: '12px',
+                              borderTop: '1px solid #e2e8f0',
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              gap: '8px',
                             }}
                           >
-                            Edit Surat
-                          </button>
-                          <button
-                            type="button"
-                            className={styles.deleteBtn}
-                            style={{ flex: 1, padding: '8px 12px', fontSize: '0.8rem' }}
-                            onClick={() => {
-                              const target = konfirmasiAutoModal
-                              closeStatusModal()
-                              setDeleteAutoUndanganConfirm(target)
-                            }}
-                          >
-                            Hapus Surat
-                          </button>
-                        </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setStatusModalEditDraft(konfirmasiAutoModal)
+                                setIsEditingInStatusModal(true)
+                              }}
+                              style={{
+                                flex: 1,
+                                padding: '8px 12px',
+                                borderRadius: '8px',
+                                border: '1px solid rgba(100, 116, 139, 0.3)',
+                                background: '#ffffff',
+                                color: '#334155',
+                                fontSize: '0.8rem',
+                                fontWeight: 800,
+                                cursor: 'pointer',
+                              }}
+                            >
+                              Edit Data
+                            </button>
+                            <button
+                              type="button"
+                              className={styles.deleteBtn}
+                              style={{ flex: 1, padding: '8px 12px', fontSize: '0.8rem' }}
+                              onClick={() => {
+                                const target = konfirmasiAutoModal
+                                closeStatusModal()
+                                setDeleteAutoUndanganConfirm(target)
+                              }}
+                            >
+                              Hapus Surat
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )
